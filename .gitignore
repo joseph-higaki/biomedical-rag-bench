@@ -77,3 +77,8 @@ eval/runs/
 
 # local claude
 CLAUDE.local.md
+
+# Session journals — Claude Code build-progress notes + token usage.
+# Gitignored (build cost is not published yet) but NOT claudeignored:
+# Claude should read the latest entry to resume work next session.
+journal/

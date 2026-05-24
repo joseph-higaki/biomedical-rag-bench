@@ -76,6 +76,14 @@ The vector and graph retrievers operate over the same biomedical knowledge in di
 
 The comparison is representation, not content. Both sides see the same entities.
 
+### Ingestion is streaming, not in-memory
+
+**Decision (provisional, May 2026).** The Hetionet JSON → Turtle transform streams both sides: the source is parsed incrementally with `ijson` and Turtle is written statement-by-statement. It never materializes the full document via `json.load`, nor builds the full graph in an in-memory `rdflib.Graph`.
+
+**Why.** Decompressed, the Hetionet graph is ~712 MB of JSON (47k nodes, 2.25M edges), and the RDF-star expansion multiplies the statement count. On a 7 GB-RAM dev box, the naive `json.load` + in-memory `Graph` build does not fit. Streaming keeps memory bounded and roughly constant regardless of dataset size. The cost is hand-written Turtle serialization instead of a library serializer; correctness is guarded by round-tripping the smoke slice through `pyoxigraph` (Rust-backed Oxigraph, which parses Turtle-star and runs SPARQL-star offline) and asserting a sample query returns the expected answer. `rdflib` 7.6 has no RDF-star support, so it cannot parse the edge annotations — see `ingest/hetionet-data-notes.md`.
+
+**Revisit if** the transform proves too slow or the hand-written serializer accumulates escaping bugs that a library serializer would have handled. The swap point is contained to `ingest/hetionet_to_rdf.py`; nothing downstream cares how the Turtle was produced.
+
 ### Stack
 
 - **Triplestore.** Ontotext GraphDB Free v11.3.2, via the official Docker image. Runs in Free mode without a license file. Reasoning ruleset is `empty` in baseline (reasoning becomes a Project 2 variable).
@@ -156,14 +164,18 @@ Expected runtime end-to-end: ~2 hours on a modern laptop, dominated by PubMed fe
 
 ## Build order
 
-Project 1 follows a strict build order. Each step validates before the next begins.
+Project 1 follows a strict build order — each step validates before the next begins. Tracked as a checklist; granular per-session progress lives in the session journal.
 
-1. **Smoke test the pipeline end-to-end on a tiny slice.** Hetionet JSON → 100 triples → GraphDB → one SPARQL query returning a real answer. PubMed → 5 abstracts → Chroma → one similarity query returning a real answer. Only then proceed.
-2. **Hand-write 5 questions per category (25 total).** Validates the categories and that ground truth is constructible.
-3. **Build the retriever interface and both retrievers** against the smoke-test data.
-4. **Build the eval harness.** RAGAS plus logging plus manual-coding scaffolding.
-5. **Scale to full Hetionet plus full question set (~50–60).**
-6. **Run eval, analyze, tag `v1.0.0`, create release, write up.**
+- [ ] **1. Smoke test the pipeline end-to-end on a tiny slice.**
+  - [x] Hetionet JSON → RDF-star Turtle via a streaming transform; 100-edge connected slice
+  - [x] SPARQL and SPARQL-star return real answers (validated offline with pyoxigraph)
+  - [ ] Load the slice into GraphDB and confirm the same queries against the live triplestore
+  - [ ] PubMed → 5 abstracts → Chroma → one similarity query returning a real answer
+- [ ] **2. Hand-write 5 questions per category (25 total).** Validates the categories and that ground truth is constructible.
+- [ ] **3. Build the retriever interface and both retrievers** against the smoke-test data.
+- [ ] **4. Build the eval harness.** RAGAS plus logging plus manual-coding scaffolding.
+- [ ] **5. Scale to full Hetionet plus full question set (~50–60).**
+- [ ] **6. Run eval, analyze, tag `v1.0.0`, create release, write up.**
 
 Question set is hand-authored, never LLM-generated. ~50–60 questions across five categories:
 
