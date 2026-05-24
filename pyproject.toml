@@ -1,0 +1,65 @@
+[project]
+name = "biomedical-rag-bench"
+version = "0.1.0"
+description = "Falsifiable evaluation harness for RAG over biomedical knowledge (vector vs RDF graph vs OWL vs LPG)."
+requires-python = ">=3.12"
+# Core deps are intentionally empty: nothing is needed by *every* code path.
+# Capability-scoped extras keep the env lean — transforming RDF must not require
+# pulling torch. Exact versions are pinned in uv.lock (the lockfile is the source
+# of truth, per the repo's reproducibility constraint), not here.
+dependencies = []
+
+[project.optional-dependencies]
+# JSON -> Turtle transform. ijson streams the 712 MB source so we never hold it
+# in memory (the box has ~7 GB RAM). pyoxigraph validates generated Turtle-star
+# and runs offline SPARQL-star on the smoke slice — rdflib 7.6 has no RDF-star
+# support, so it cannot parse our edge annotations.
+ingest = [
+    "ijson>=3.3",
+    "pyoxigraph>=0.4",
+]
+# SPARQL retriever + loading Turtle into GraphDB over HTTP.
+graph = [
+    "httpx>=0.27",
+]
+# Vector retriever. torch comes in transitively via sentence-transformers; heavy,
+# so it stays out of the default install until the vector build step.
+vector = [
+    "chromadb>=0.5",
+    "sentence-transformers>=3.0",
+]
+# PubMed fetch (NCBI E-utilities) + .env handling for NCBI_API_KEY / GENERATOR_MODEL.
+fetch = [
+    "httpx>=0.27",
+    "python-dotenv>=1.0",
+]
+# Eval harness + analysis notebook.
+eval = [
+    "ragas>=0.2",
+    "pandas>=2.2",
+    "matplotlib>=3.9",
+    "jupyter>=1.1",
+]
+
+[tool.uv]
+# Keep the resolver honest about the Python floor.
+package = false
+
+[dependency-groups]
+# Dev tooling (PEP 735). Installed by `uv sync` by default — not an opt-in extra,
+# since tests run in every dev session. Tests that import a capability's module
+# also need that capability's extra synced (e.g. `uv sync --extra ingest`).
+dev = [
+    "pytest>=8.3",
+]
+
+[tool.pytest.ini_options]
+# Repo root on sys.path so tests can `import ingest.hetionet_to_rdf` etc. The
+# ingest/retrievers/eval dirs are implicit namespace packages, not installed.
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
