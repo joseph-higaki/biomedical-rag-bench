@@ -1,0 +1,11 @@
+services:
+  graphdb:
+    image: ontotext/graphdb:11.3.2
+    container_name: biomedical-rag-graphdb
+    ports:
+      - "127.0.0.1:7200:7200"   # localhost-only; never bind 0.0.0.0 in dev
+    volumes:
+      - ./graphdb-data:/opt/graphdb/home   # persists repos across restarts
+    environment:
+      - GDB_HEAP_SIZE=4G          # bump to 6-8G when reasoning is enabled in Project 2
+    restart: unless-stopped

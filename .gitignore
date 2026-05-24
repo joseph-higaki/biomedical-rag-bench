@@ -1,0 +1,79 @@
+# Personal / local context
+.env
+.env.local
+
+# Bulk data (regenerable from scripts; never committed)
+data/
+graphdb-data/
+
+# Smoke test artifacts
+ontology/hetionet-smoke.ttl
+data/abstracts-smoke/
+data/chroma-smoke/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+ENV/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Type checkers
+.mypy_cache/
+.pyright/
+.ruff_cache/
+
+# Logs
+*.log
+logs/
+
+# Eval outputs (regenerable; committed selectively via release notes)
+eval/results/
+eval/runs/
+
+# local claude
+CLAUDE.local.md
