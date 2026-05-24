@@ -1,4 +1,4 @@
-.PHONY: help ingest ingest-rdf ingest-vectors ingest-smoke up down clean-graphdb
+.PHONY: help test ingest ingest-rdf ingest-vectors ingest-smoke up down clean-graphdb
 
 help:  ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -33,3 +33,6 @@ ingest-smoke:  ## Smoke-test ingestion on a tiny slice (build order step 1)
 	python ingest/hetionet_to_rdf.py --limit 100 --out ontology/hetionet-smoke.ttl
 	python ingest/pubmed_fetch.py --limit 5 --out data/abstracts-smoke/
 	python ingest/build_vectors.py --abstracts data/abstracts-smoke/ --out data/chroma-smoke/
+
+test:  ## Run the test suite (hermetic — no downloaded data required)
+	uv run --extra ingest pytest
