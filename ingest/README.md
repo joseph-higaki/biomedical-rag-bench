@@ -38,9 +38,28 @@ Each script also supports `--help` directly if you want to run them outside of M
 python ingest/hetionet_to_rdf.py --help
 ```
 
+## Prerequisite: GraphDB license
+
+As of **GraphDB 11.0**, the Free edition is no longer license-free. The container
+starts and answers reads, but **writes fail with `No license was set`** until a
+free license file is in place. Request it from Ontotext (emailed), save it as
+`secrets/graphdb.license`, then `make down && make up`. Full steps in
+`secrets/README.md`. This is a one-time per-developer step.
+
 ## One-time GraphDB repository setup
 
-The first time you run the pipeline, after `make up` brings GraphDB online and `make ingest-rdf` produces `ontology/hetionet.ttl`, create the GraphDB repository through the Workbench:
+After `make up` brings GraphDB online (with the license, above) and
+`make ingest-rdf` produces `ontology/hetionet.ttl`, create the `hetionet`
+repository. Scripted (preferred — reproducible, ruleset baked in):
+
+```bash
+curl -X POST http://localhost:7200/rest/repositories \
+     -F "config=@ingest/graphdb-repo-config.ttl"
+```
+
+The config sets **Repository ID** `hetionet` and **ruleset** `empty` (no
+reasoning — the Project 1 baseline; Project 2 changes this). Or, equivalently,
+through the Workbench:
 
 1. Open http://localhost:7200 in a browser.
 2. **Setup → Repositories → Create new repository.**

@@ -2,6 +2,14 @@
 .env
 .env.local
 
+# secrets/ holds per-user credentials — the GraphDB license and a .env of API
+# keys (Anthropic/OpenAI/NCBI). Never committed. secrets/ stays tracked (the
+# compose bind-mount source must exist on a fresh clone); only its contents are
+# ignored, except the README and *.example templates kept for clarity.
+secrets/*
+!secrets/README.md
+!secrets/*.example
+
 # Bulk data (regenerable from scripts; never committed)
 data/
 graphdb-data/

@@ -169,7 +169,7 @@ Project 1 follows a strict build order — each step validates before the next b
 - [ ] **1. Smoke test the pipeline end-to-end on a tiny slice.**
   - [x] Hetionet JSON → RDF-star Turtle via a streaming transform; 100-edge connected slice
   - [x] SPARQL and SPARQL-star return real answers (validated offline with pyoxigraph)
-  - [ ] Load the slice into GraphDB and confirm the same queries against the live triplestore
+  - [x] Load the slice into GraphDB and confirm the same queries against the live triplestore (queries match Oxigraph; see `ingest/hetionet-data-notes.md` for the RDF-star count note)
   - [ ] PubMed → 5 abstracts → Chroma → one similarity query returning a real answer
 - [ ] **2. Hand-write 5 questions per category (25 total).** Validates the categories and that ground truth is constructible.
 - [ ] **3. Build the retriever interface and both retrievers** against the smoke-test data.

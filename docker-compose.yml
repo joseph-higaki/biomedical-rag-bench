@@ -6,6 +6,11 @@ services:
       - "127.0.0.1:7200:7200"   # localhost-only; never bind 0.0.0.0 in dev
     volumes:
       - ./graphdb-data:/opt/graphdb/home   # persists repos across restarts
+      - ./secrets:/opt/graphdb/secrets:ro  # holds graphdb.license (gitignored; see secrets/README.md)
     environment:
       - GDB_HEAP_SIZE=4G          # bump to 6-8G when reasoning is enabled in Project 2
+      # GraphDB 11 Free is no longer license-free: it needs a (free) license file
+      # requested from Ontotext. Save the emailed file as ./secrets/graphdb.license.
+      # Mounted read-only above; pointed at here. See secrets/README.md.
+      - GDB_JAVA_OPTS=-Dgraphdb.license.file=/opt/graphdb/secrets/graphdb.license
     restart: unless-stopped

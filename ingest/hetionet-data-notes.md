@@ -137,3 +137,23 @@ with **pyoxigraph** (Rust-backed Oxigraph), which parses Turtle-star and runs SP
 `hetionet_to_rdf.py --validate` re-parses the smoke slice; `tests/` runs SPARQL/SPARQL-star
 assertions against a tiny in-memory store. Oxigraph also stands in for GraphDB during development —
 GraphDB remains the final confirmation once the slice is loaded for real.
+
+### GraphDB load parity (100-edge smoke slice)
+
+The slice loads into GraphDB 11.3 (ruleset `empty`) and the smoke queries return **the same
+answers** as Oxigraph — the `hetio:expresses` join (17 rows) and the `<< s p o >> hetio:source`
+provenance aggregation (10 rows) match exactly.
+
+**Total `COUNT(*)` differs by design: Oxigraph 981 vs GraphDB 881.** The gap is entirely in
+RDF-star *quoted-triple* statements (annotation subjects), not lost data:
+
+| statements | Oxigraph | GraphDB |
+|---|---|---|
+| plain (node type/label + base edge triples) | 482 | 482 |
+| quoted-triple subjects (`<< s p o >> ?p ?o`) | 499 | 399 |
+
+The plain triples match exactly. The 100-statement difference is one per edge (100 edges) and
+reflects how each engine counts quoted triples internally — Oxigraph materializes the embedded
+triple per quoted occurrence; GraphDB does not. This is a whole-store `COUNT(*)` artifact only:
+retrieval matches by **graph pattern**, and those patterns agree on both engines. Don't treat the
+count delta as a load error.
