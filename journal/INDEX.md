@@ -17,7 +17,7 @@ cumulative cost of building the solution.
 
 | Date | Session | Model | Input | Output | Cache read | Cache write | Total | Focus |
 |---|---|---|---|---|---|---|---|---|
-| 2026-05-24 | 01 | Claude Opus 4.7 (`claude-opus-4-7`) | 12,173 | 432,819 | 11,734,788 | 553,475 | 12,733,255 | Bootstrap: uv env, Hetionet download + streaming RDF-star transform, offline SPARQL validation, test scaffold session_id: 54049866-7d28-49eb-9554-fa8ecb089e03|
+| 2026-05-24 | 01 | Claude Opus 4.7 (`claude-opus-4-7`) | 3,652 | 124,584 | 4,875,390 | 167,588 | 5,171,214 | Bootstrap: uv env, Hetionet download + streaming RDF-star transform, offline SPARQL validation, test scaffold session_id: 54049866-7d28-49eb-9554-fa8ecb089e03|
 | 2026-05-25 | 02 | Claude Opus 4.7 (`claude-opus-4-7`) | 10,546 | 119,069 | 9,746,508 | 236,407 | 10,112,530 | GraphDB 11 license wiring, smoke slice load + offline/live query parity, session-journal skill, commit-history AI-attribution cleanup |
 
 > Token figures are summed from the session transcript JSONL (`/cost` output does
