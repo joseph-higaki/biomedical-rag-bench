@@ -1,20 +1,20 @@
 ---
 name: session-journal
-description: Produce the end-of-session journal entry for biomedical-rag-bench, including the session's incurred token usage. Use whenever the user wants to wrap up / close out a session, write or update the session journal, record token usage / build cost, or "journal this session". Writes local gitignored files under journal/.
+description: Produce the end-of-session journal entry for biomedical-rag-bench, including the session's incurred token usage. Use whenever the user wants to wrap up / close out a session, write or update the session journal, record token usage / build cost, or "journal this session". Writes files under journal/ (tracked in git) and commits them.
 ---
 
 # Session journal
 
 Closes out a Claude Code session by writing the dated journal entry and the
 `journal/INDEX.md` row, with the session's token usage filled in from the
-transcript. Journals are **gitignored** (build-cost data, not published yet) but
-**not** claudeignored — read them to resume work. Background in the
-`session-journaling` auto-memory.
+transcript. Journals are **tracked in git** (committed and pushed) and **not**
+claudeignored — read them to resume work. Background in the `session-journaling`
+auto-memory.
 
 ## Execution model
 
-These are local, reversible writes to gitignored files, so this skill executes
-the steps rather than handing commands to the user. Two caveats:
+These are local writes to tracked files (committed at the end), so this skill
+executes the writing steps rather than handing commands to the user. Two caveats:
 
 - **Show the drafted entry before writing it.** The narrative (what got done,
   decisions, next steps) is the user's record — draft it, let the user correct,
@@ -113,6 +113,17 @@ The script's "INDEX row" line gives the five numbers in exactly this column
 order. The `Total` column is meant to sum cleanly down the table for cumulative
 build cost — so it must be the deduped total, consistent with every other row.
 
+## Step 4 — Commit and push
+
+Journals are tracked in git, so the entry isn't done until it's committed.
+
+- **Commit (execute).** Stage the dated file + `journal/INDEX.md` and commit with a
+  plain message (e.g. `Journal: 2026-05-25 session 02`). No AI-attribution trailer
+  — the repo's `commit-msg` hook strips it regardless, but don't add one.
+- **Push (present, don't auto-run).** Pushing is a one-way step; per the repo's
+  skill policy, show the user the `git push` command rather than running it
+  unprompted — unless the user has said to push in this session.
+
 ## Correcting historical numbers
 
 The script counts deduped (correct). If an older row was computed before the
@@ -124,7 +135,8 @@ and let the user decide whether to correct the row.
 
 ## Scope
 
-- Writes only the dated journal file and the INDEX row. Does not touch README
-  build-order progress (tracked separately and publicly) or any committed file.
+- Writes the dated journal file and the INDEX row, then commits them (Step 4).
+  Does not touch README build-order progress (tracked separately).
 - Does not invent session narrative — that comes from the session itself.
-- Does not run git. Journals are gitignored; nothing to commit.
+- Commits carry no AI attribution (the repo's `commit-msg` hook enforces it);
+  pushing is presented to the user, not auto-run, unless they've said to push.

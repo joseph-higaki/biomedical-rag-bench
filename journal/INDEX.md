@@ -1,0 +1,25 @@
+# Session journal — index
+
+Running log of Claude Code sessions building biomedical-rag-bench. Tracked in git
+(build-cost / token-usage data, now published). Detailed notes per session live
+in the dated files alongside this one.
+
+> **▶ Resume here (next session).** Build-order step 1, **vector half**: write
+> `ingest/pubmed_fetch.py` → 5 PubMed abstracts → Chroma → one similarity query
+> (scripts don't exist yet; needs `vector`/`fetch` extras — first torch install),
+> plus the shared `secrets/.env` loader. The GraphDB half is done and on `main`.
+> Full context: [2026-05-25.md](2026-05-25.md) → "Next steps".
+
+**Convention.** One file per session, named `YYYY-MM-DD.md` (add `-02`, `-03` for
+multiple sessions in a day). Each session: record the model, fill the token table
+from `/cost` before closing, and add a row here. Sum the token columns for the
+cumulative cost of building the solution.
+
+| Date | Session | Model | Input | Output | Cache read | Cache write | Total | Focus |
+|---|---|---|---|---|---|---|---|---|
+| 2026-05-24 | 01 | Claude Opus 4.7 (`claude-opus-4-7`) | 12,173 | 432,819 | 11,734,788 | 553,475 | 12,733,255 | Bootstrap: uv env, Hetionet download + streaming RDF-star transform, offline SPARQL validation, test scaffold session_id: 54049866-7d28-49eb-9554-fa8ecb089e03|
+| 2026-05-25 | 02 | Claude Opus 4.7 (`claude-opus-4-7`) | 10,546 | 119,069 | 9,746,508 | 236,407 | 10,112,530 | GraphDB 11 license wiring, smoke slice load + offline/live query parity, session-journal skill, commit-history AI-attribution cleanup |
+
+> Token figures are summed from the session transcript JSONL (`/cost` output does
+> not reach Claude's context). Cache read is the bulk — full context re-read each
+> turn. The Total column sums cleanly across rows for cumulative build cost.
