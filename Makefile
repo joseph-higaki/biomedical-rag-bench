@@ -1,8 +1,12 @@
-.PHONY: help test ingest ingest-rdf ingest-vectors ingest-smoke up down clean-graphdb
+.PHONY: help hooks test ingest ingest-rdf ingest-vectors ingest-smoke up down clean-graphdb
 
 help:  ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
+
+hooks:  ## Activate git hooks (.githooks/ — strips AI attribution from commit messages)
+	git config core.hooksPath .githooks
+	@echo "git hooks active: core.hooksPath -> .githooks/"
 
 up:  ## Start GraphDB locally (background)
 	docker compose up -d
