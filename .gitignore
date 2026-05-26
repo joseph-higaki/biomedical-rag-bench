@@ -13,6 +13,8 @@ secrets/*
 # Bulk data (regenerable from scripts; never committed)
 data/
 graphdb-data/
+# 467 MB full graph from `make ingest-rdf`; loaded into GraphDB, regenerable, not git
+ontology/hetionet.ttl
 
 # Smoke test artifacts
 ontology/hetionet-smoke.ttl
