@@ -45,6 +45,20 @@ eval = [
 # Keep the resolver honest about the Python floor.
 package = false
 
+[[tool.uv.index]]
+# CPU-only PyTorch wheels — avoids 1.5 GB of CUDA packages on a dev box without
+# a GPU. `explicit = true` means uv only hits this index for packages that
+# explicitly name it (torch), not as a general fallback.
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+# Pin torch to the CPU index. sentence-transformers pulls torch transitively;
+# without this, uv resolves the CUDA build from PyPI, which drags in ~1.5 GB of
+# NVIDIA packages and includes at least one wheel with malformed metadata.
+torch = { index = "pytorch-cpu" }
+
 [dependency-groups]
 # Dev tooling (PEP 735). Installed by `uv sync` by default — not an opt-in extra,
 # since tests run in every dev session. Tests that import a capability's module
