@@ -4,7 +4,7 @@
 The source decompresses to ~712 MB; the dev box has ~7 GB RAM. So we never call
 json.load() and never build an in-memory rdflib.Graph. Input is parsed
 incrementally with ijson; Turtle is written statement-by-statement. See
-ingest/hetionet-data-notes.md for the source structure and the URI mapping, and
+ingest/rdf/hetionet-data-notes.md for the source structure and the URI mapping, and
 the README "Ingestion is streaming, not in-memory" decision for the rationale.
 
 Validate generated Turtle by round-tripping the smoke slice through pyoxigraph

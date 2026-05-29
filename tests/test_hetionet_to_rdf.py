@@ -1,4 +1,4 @@
-"""Tests for ingest/hetionet_to_rdf.py — the JSON -> RDF-star Turtle transform.
+"""Tests for ingest/rdf/hetionet_to_rdf.py — the JSON -> RDF-star Turtle transform.
 
 Hermetic: the integration tests build their own tiny Hetionet-shaped JSON, so
 the suite runs without the 16 MB download (and in CI). The unit tests target the
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from ingest import hetionet_to_rdf as h2r
+from ingest.rdf import hetionet_to_rdf as h2r
 
 
 # --- literal(): the bool-before-int guard and string escaping --------------

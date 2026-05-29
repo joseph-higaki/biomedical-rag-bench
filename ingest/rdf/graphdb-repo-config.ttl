@@ -5,9 +5,9 @@
 @prefix graphdb: <http://www.ontotext.com/config/graphdb#> .
 
 # GraphDB repository config for Project 1. Replaces the manual Workbench
-# "Create repository" clicks in ingest/README.md so the repo is reproducible:
+# "Create repository" clicks in ingest/rdf/README.md so the repo is reproducible:
 #   curl -X POST http://localhost:7200/rest/repositories \
-#        -F "config=@ingest/graphdb-repo-config.ttl"
+#        -F "config=@ingest/rdf/graphdb-repo-config.ttl"
 #
 # ruleset = empty is a HARD CONSTRAINT for Project 1 (no reasoning; that is the
 # variable Project 2 introduces). See .claude/CLAUDE.md. RDF-star needs no flag —
