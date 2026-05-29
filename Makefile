@@ -24,19 +24,19 @@ clean-graphdb:  ## Wipe GraphDB data (destructive — confirms first)
 ingest: ingest-rdf ingest-vectors  ## Run the full ingestion pipeline
 
 ingest-rdf:  ## Convert Hetionet JSON to Turtle
-	python ingest/hetionet_to_rdf.py --out ontology/hetionet.ttl
+	uv run python ingest/rdf/hetionet_to_rdf.py --out ontology/hetionet.ttl
 	@echo ""
 	@echo "Now load ontology/hetionet.ttl into GraphDB via the Workbench."
-	@echo "See ingest/README.md for the one-time repository setup."
+	@echo "See ingest/rdf/README.md for the one-time repository setup."
 
 ingest-vectors:  ## Fetch PubMed abstracts and build the Chroma collection
-	python ingest/pubmed_fetch.py --entities ontology/hetionet.ttl --out data/abstracts/
-	python ingest/build_vectors.py --abstracts data/abstracts/ --out data/chroma/
+	uv run --extra ingest python ingest/vector/pubmed_fetch.py --entities ontology/hetionet.ttl --out data/abstracts/
+	uv run --extra ingest python ingest/vector/build_vectors.py --abstracts data/abstracts/ --out data/chroma/
 
 ingest-smoke:  ## Smoke-test ingestion on a tiny slice (build order step 1)
-	python ingest/hetionet_to_rdf.py --limit 100 --out ontology/hetionet-smoke.ttl
-	python ingest/pubmed_fetch.py --limit 5 --out data/abstracts-smoke/
-	python ingest/build_vectors.py --abstracts data/abstracts-smoke/ --out data/chroma-smoke/
+	uv run python ingest/rdf/hetionet_to_rdf.py --limit 100 --out ontology/hetionet-smoke.ttl
+	uv run --extra ingest python ingest/vector/pubmed_fetch.py --limit 5 --out data/abstracts-smoke/
+	uv run --extra ingest python ingest/vector/build_vectors.py --abstracts data/abstracts-smoke/ --out data/chroma-smoke/
 
 test:  ## Run the test suite (hermetic — no downloaded data required)
 	uv run --extra ingest pytest

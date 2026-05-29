@@ -25,7 +25,8 @@ These rules govern code generation and may not be relaxed without explicit instr
 - **URI namespaces.** Use existing biomedical vocabularies (`db:`, `do:`, `ncbigene:`, `uberon:`) for entity URIs. Hetionet schema lives under `hetio:`. Edge properties use RDF-star, not reification.
 - **Two Turtle files.** @ontology/hetionet.ttl (ABox / instance data) and @ontology/hetionet-schema.ttl (TBox). Keep them separate; Project 2 will populate the schema file without touching the instance file.
 - **Local development is default.** Code should run from a Python environment with `docker compose up` providing GraphDB. EC2 deployment is a separate milestone documented in `deployment/`. No code path should assume cloud-only.
-- **Pin versions in code.** `requirements.txt` (or `pyproject.toml` with a lock file) is the source of truth for dependencies. Versions referenced in prose are documentation, not configuration.
+- **Python runs through `uv`.** This project uses `uv` — there is no `python`/`python3` on PATH and no `requirements.txt`. Invoke Python as `uv run python …`, the test suite as `uv run --extra ingest pytest`, and the vector scripts (which need the heavy deps) as `uv run --extra ingest python …`. Never call bare `python`, `python3`, or `pip`.
+- **Pin versions in code.** `pyproject.toml` plus `uv.lock` is the source of truth for dependencies. Versions referenced in prose are documentation, not configuration.
 
 ## Skill policy
 

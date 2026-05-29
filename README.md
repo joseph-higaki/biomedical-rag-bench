@@ -80,13 +80,13 @@ The comparison is representation, not content. Both sides see the same entities.
 
 **Decision (provisional, May 2026).** The Hetionet JSON → Turtle transform streams both sides: the source is parsed incrementally with `ijson` and Turtle is written statement-by-statement. It never materializes the full document via `json.load`, nor builds the full graph in an in-memory `rdflib.Graph`.
 
-**Why.** Decompressed, the Hetionet graph is ~712 MB of JSON (47k nodes, 2.25M edges), and the RDF-star expansion multiplies the statement count. On a 7 GB-RAM dev box, the naive `json.load` + in-memory `Graph` build does not fit. Streaming keeps memory bounded and roughly constant regardless of dataset size. The cost is hand-written Turtle serialization instead of a library serializer; correctness is guarded by round-tripping the smoke slice through `pyoxigraph` (Rust-backed Oxigraph, which parses Turtle-star and runs SPARQL-star offline) and asserting a sample query returns the expected answer. `rdflib` 7.6 has no RDF-star support, so it cannot parse the edge annotations — see `ingest/hetionet-data-notes.md`.
+**Why.** Decompressed, the Hetionet graph is ~712 MB of JSON (47k nodes, 2.25M edges), and the RDF-star expansion multiplies the statement count. On a 7 GB-RAM dev box, the naive `json.load` + in-memory `Graph` build does not fit. Streaming keeps memory bounded and roughly constant regardless of dataset size. The cost is hand-written Turtle serialization instead of a library serializer; correctness is guarded by round-tripping the smoke slice through `pyoxigraph` (Rust-backed Oxigraph, which parses Turtle-star and runs SPARQL-star offline) and asserting a sample query returns the expected answer. `rdflib` 7.6 has no RDF-star support, so it cannot parse the edge annotations — see `ingest/rdf/hetionet-data-notes.md`.
 
-**Revisit if** the transform proves too slow or the hand-written serializer accumulates escaping bugs that a library serializer would have handled. The swap point is contained to `ingest/hetionet_to_rdf.py`; nothing downstream cares how the Turtle was produced.
+**Revisit if** the transform proves too slow or the hand-written serializer accumulates escaping bugs that a library serializer would have handled. The swap point is contained to `ingest/rdf/hetionet_to_rdf.py`; nothing downstream cares how the Turtle was produced.
 
 ### Stack
 
-- **Triplestore.** Ontotext GraphDB Free v11.3.2, via the official Docker image. Runs in Free mode without a license file. Reasoning ruleset is `empty` in baseline (reasoning becomes a Project 2 variable).
+- **Triplestore.** Ontotext GraphDB Free v11.3.2, via the official Docker image. As of GraphDB 11.0 the Free edition requires a (still free) license file: the container reads without it but writes fail with `No license was set`, so a license is mandatory for ingestion — request it from Ontotext and mount it at `secrets/graphdb.license` (see `ingest/README.md`). Reasoning ruleset is `empty` in baseline (reasoning becomes a Project 2 variable).
 - **Vector store.** Chroma, embedded mode, zero-config.
 - **Embeddings.** `sentence-transformers/all-MiniLM-L6-v2`. Local, free, reproducible.
 - **Generation LLM.** Set via `GENERATOR_MODEL` env var. Baseline result runs use a frontier hosted model; iteration runs use Haiku or a small local Llama. The benchmark is generator-agnostic by design — results tables identify the generator used.
@@ -110,10 +110,16 @@ biomedical-rag-bench/
 ├── .claude/                    # Claude Code workspace (gitignored skills excluded)
 ├── data/                       # Gitignored bulk: Hetionet JSON, PubMed cache
 ├── ingest/
-│   ├── README.md               # Pipeline overview and Make targets
-│   ├── hetionet_to_rdf.py      # JSON → Turtle (uses RDF-star)
-│   ├── pubmed_fetch.py         # NCBI E-utilities → abstracts cache
-│   └── build_vectors.py        # Abstracts → Chroma collection
+│   ├── README.md               # Pipeline overview + Make targets; links into rdf/ and vector/
+│   ├── rdf/                    # Graph-side ingestion (RDF; Projects 1–2)
+│   │   ├── README.md           # GraphDB license, repository setup, full-graph load
+│   │   ├── hetionet_to_rdf.py  # JSON → Turtle (uses RDF-star)
+│   │   ├── hetionet-data-notes.md  # Source structure, URI mapping, triple-count note
+│   │   └── graphdb-repo-config.ttl # Reproducible repo config (ruleset=empty)
+│   └── vector/                 # Vector-side ingestion (planned; build order step 1)
+│       ├── README.md           # PubMed rate limits, caching, embedding build
+│       ├── pubmed_fetch.py     # NCBI E-utilities → abstracts cache
+│       └── build_vectors.py    # Abstracts → Chroma collection
 ├── retrievers/
 │   ├── base.py                 # Retriever protocol — the swap point
 │   ├── vector.py               # Top-k similarity
@@ -169,7 +175,7 @@ Project 1 follows a strict build order — each step validates before the next b
 - [ ] **1. Smoke test the pipeline end-to-end on a tiny slice.**
   - [x] Hetionet JSON → RDF-star Turtle via a streaming transform; 100-edge connected slice
   - [x] SPARQL and SPARQL-star return real answers (validated offline with pyoxigraph)
-  - [x] Load the slice into GraphDB and confirm the same queries against the live triplestore (queries match Oxigraph; see `ingest/hetionet-data-notes.md` for the RDF-star count note)
+  - [x] Load the slice into GraphDB and confirm the same queries against the live triplestore (queries match Oxigraph; see `ingest/rdf/hetionet-data-notes.md` for the RDF-star count note)
   - [ ] PubMed → 5 abstracts → Chroma → one similarity query returning a real answer
 - [ ] **2. Hand-write 5 questions per category (25 total).** Validates the categories and that ground truth is constructible.
 - [ ] **3. Build the retriever interface and both retrievers** against the smoke-test data.
