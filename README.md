@@ -31,6 +31,26 @@ Each is measurable and reported in the results table per release:
 - **H5 — Compute/latency.** Vector: cheap query, cheap indexing. Graph: cheap query, expensive indexing (LLM-driven extraction is the cost center).
 - **H6 — Citability.** Graph gives claim-level provenance; vector gives only chunk-level.
 
+### Early observations
+
+Recorded as they emerge during build; not yet backed by a full eval run.
+
+**Vector retrieval retrieves by language, not by biological role.** The first
+similarity query run against the smoke corpus (`"loss of E-cadherin promotes
+tumor metastasis"`) returned CDH1 — the E-cadherin gene — in third place, not
+first. The top-ranked result was TRIM27 (liver cancer immunosuppression), whose
+abstract happened to use language semantically closer to "metastasis" than the
+CDH1 abstract did. The CDH1 abstract PubMed returned was about inherited breast
+cancer risk (CDH1 listed alongside BRCA1/BRCA2), not about E-cadherin's role in
+cell detachment — so the embedder correctly represented the *text* it received,
+but the text didn't reflect the biological mechanism behind the query.
+
+This is an early, concrete instance of H2 and H4: vector recall is bounded by
+what language appeared in the seeding abstracts, not by the entity's role in the
+knowledge graph. The graph retriever has an explicit CDH1→Disease edge;
+the vector retriever has only the text PubMed returned for the search term
+"CDH1". Full writeup in `ingest/vector/README.md` (Smoke test observation).
+
 ### Findings
 
 Published per release in `.github/release-notes/<version>.md` and on the GitHub Releases page.
@@ -172,11 +192,11 @@ Expected runtime end-to-end: ~2 hours on a modern laptop, dominated by PubMed fe
 
 Project 1 follows a strict build order — each step validates before the next begins. Tracked as a checklist; granular per-session progress lives in the session journal.
 
-- [ ] **1. Smoke test the pipeline end-to-end on a tiny slice.**
+- [x] **1. Smoke test the pipeline end-to-end on a tiny slice.**
   - [x] Hetionet JSON → RDF-star Turtle via a streaming transform; 100-edge connected slice
   - [x] SPARQL and SPARQL-star return real answers (validated offline with pyoxigraph)
   - [x] Load the slice into GraphDB and confirm the same queries against the live triplestore (queries match Oxigraph; see `ingest/rdf/hetionet-data-notes.md` for the RDF-star count note)
-  - [ ] PubMed → 5 abstracts → Chroma → one similarity query returning a real answer
+  - [x] PubMed → 5 abstracts → Chroma → one similarity query returning a real answer
 - [ ] **2. Hand-write 5 questions per category (25 total).** Validates the categories and that ground truth is constructible.
 - [ ] **3. Build the retriever interface and both retrievers** against the smoke-test data.
 - [ ] **4. Build the eval harness.** RAGAS plus logging plus manual-coding scaffolding.

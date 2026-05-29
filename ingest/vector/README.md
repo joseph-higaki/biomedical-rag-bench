@@ -13,10 +13,48 @@ build_vectors.py   data/abstracts/        → data/chroma/      (embedded collec
 GraphDB), so the vector side only depends on `make ingest-rdf` having produced
 `ontology/hetionet.ttl` — not on GraphDB being up.
 
-> **Status: not yet built.** These scripts are scaffolded by the Makefile
-> (`make ingest-vectors`, `make ingest-smoke`) but not implemented. Build order
-> step 1 is the first slice: PubMed → 5 abstracts → Chroma → one similarity query
-> returning a real answer.
+> **Status: smoke test complete (build order step 1).** Scripts written and
+> executed. Five abstracts fetched, embedded into Chroma, similarity query
+> returning results. See "Smoke test observation" below.
+
+## Smoke test observation
+
+**Query:** `"loss of E-cadherin promotes tumor metastasis"`
+
+**Results:**
+
+| Rank | Gene | Cosine distance | Abstract topic |
+|---|---|---|---|
+| 1 | TRIM27 | 0.627 | Immune suppression in liver cancer |
+| 2 | PSMA3 | 0.674 | Cell migration and invasion in prostate cancer |
+| 3 | CDH1 | 0.676 | Hereditary breast cancer risk genes (BRCA1, BRCA2, CDH1) |
+
+**What E-cadherin is (no biology background assumed):** CDH1 is the gene that
+makes E-cadherin, a protein that acts like molecular glue holding cells together
+in a tissue. When E-cadherin is lost, cells can detach and travel through the
+body — the mechanism behind most cancer spreading (metastasis). It is a
+well-known tumor suppressor.
+
+**Why CDH1 ranked third:** PubMed's top result for the search term "CDH1" was a
+breast cancer genetics paper listing CDH1 alongside BRCA1 and BRCA2 as an
+inherited risk gene. The abstract mentions CDH1 and cancer but its language is
+about genetic inheritance and family risk — not about the cell-detachment
+mechanism. The embedder represents "what words appear in the text," not the
+biological role of the entity being discussed.
+
+TRIM27 ranked first because its abstract — about how liver tumors suppress the
+immune system — contains language about the tumor microenvironment that is
+semantically closer to "metastasis" than the CDH1 abstract's genetics language.
+
+**Why this matters for the benchmark:** This is H2 and H4 playing out before a
+single eval question is asked. Vector retrieval is sensitive to the language of
+the retrieved text, not to the biological role of the entity that seeded it.
+The PubMed query for "CDH1" returned an abstract where CDH1 appears in an
+inheritance context rather than a mechanistic one — and the embedder had no
+way to know the difference. A graph retriever can traverse directly from CDH1
+to the disease nodes it connects to in Hetionet; the relationship is explicit,
+not inferred from semantic proximity. That gap is what the benchmark is
+designed to measure.
 
 ## Evolving baseline
 
