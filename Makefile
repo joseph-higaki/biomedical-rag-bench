@@ -1,4 +1,4 @@
-.PHONY: help hooks test ingest ingest-rdf ingest-vectors ingest-smoke up down clean-graphdb
+.PHONY: help hooks test ingest ingest-rdf ingest-vectors ingest-smoke ingest-load up down clean-graphdb
 
 help:  ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -35,8 +35,15 @@ ingest-vectors:  ## Fetch PubMed abstracts and build the Chroma collection
 
 ingest-smoke:  ## Smoke-test ingestion on a tiny slice (build order step 1)
 	uv run --extra ingest python ingest/rdf/hetionet_to_rdf.py --limit 100 --out ontology/hetionet-smoke.ttl
-	uv run --extra fetch python ingest/vector/pubmed_fetch.py --limit 5 --out data/abstracts-smoke/
+	uv run --extra fetch python ingest/vector/pubmed_fetch.py --entities ontology/hetionet-smoke.ttl --out data/abstracts-smoke/
 	uv run --extra vector python ingest/vector/build_vectors.py --abstracts data/abstracts-smoke/ --out data/chroma-smoke/
+
+ingest-load:  ## Load ontology/hetionet.ttl into GraphDB (clears existing data first)
+	@test -f ontology/hetionet.ttl || { echo "error: ontology/hetionet.ttl not found — run make ingest-rdf first"; exit 1; }
+	curl -i -X DELETE 'http://localhost:7200/repositories/hetionet/statements'
+	curl -i -X POST -H 'Content-Type: text/turtle' \
+	     -T ontology/hetionet.ttl \
+	     'http://localhost:7200/repositories/hetionet/statements'
 
 test:  ## Run the test suite (hermetic — no downloaded data required)
 	uv run --extra ingest pytest
