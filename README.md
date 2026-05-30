@@ -30,6 +30,7 @@ Each is measurable and reported in the results table per release:
 - **H4 — Fuzzy/semantic recall.** Vector wins clearly; graph may be unable to answer at all.
 - **H5 — Compute/latency.** Vector: cheap query, cheap indexing. Graph: cheap query, expensive indexing (LLM-driven extraction is the cost center).
 - **H6 — Citability.** Graph gives claim-level provenance; vector gives only chunk-level.
+- **H7 — Retrieval necessity.** On 0-hop attribute and 1-hop factoid questions about well-known entities, closed-book performance approaches or matches retrieval-augmented performance, indicating retrieval is unnecessary on those classes. On multi-hop, aggregative, set-operation, and negative/unanswerable questions, closed-book performance is materially worse than either retriever, indicating retrieval is necessary. The benchmark's primary finding is the crossover between question classes, not the average advantage across all questions.
 
 ### Early observations
 
@@ -87,6 +88,8 @@ Two reasons this pattern matters:
 
 The `traversal_info` field is free-form by design — vector retrievers log top-k scores, graph retrievers log the SPARQL query and hop count, future Neo4j retrievers will log the Cypher query. New fields are added across versions; existing fields are never renamed or removed. This rule keeps prior results re-runnable against newer code.
 
+A third condition registers alongside vector and graph: a `NullRetriever` (name `closed_book`) that returns empty context — `context=""`, `context_tokens=0`, `sources=[]`, `traversal_info={"retriever": "none"}`, ~20 lines in `retrievers/null.py`. It is not a retrieval mechanism under test; it is a **baseline** that measures how much retrieval contributes to answer quality, independent of which retriever is used. Without a closed-book baseline the benchmark cannot distinguish "graph beats vector" from "both retrievers add nothing beyond what the generator LLM already knows from training data" — a critical distinction for biomedical knowledge well-represented in frontier-model training data (most of Hetionet's famous entities). The baseline lets findings make the sharper claim: on question class X retrieval is necessary and graph outperforms vector; on question class Y retrieval is unnecessary because the LLM already knows.
+
 ### Hetionet plus PubMed — shared underlying knowledge
 
 The vector and graph retrievers operate over the same biomedical knowledge in different representations:
@@ -110,7 +113,7 @@ The comparison is representation, not content. Both sides see the same entities.
 - **Vector store.** Chroma, embedded mode, zero-config.
 - **Embeddings.** `sentence-transformers/all-MiniLM-L6-v2`. Local, free, reproducible.
 - **Generation LLM.** Set via `GENERATOR_MODEL` env var. Baseline result runs use a frontier hosted model; iteration runs use Haiku or a small local Llama. The benchmark is generator-agnostic by design — results tables identify the generator used.
-- **Eval.** RAGAS (faithfulness, answer relevance, context precision, context recall) plus manual coding on a sample.
+- **Eval.** Type-aware scoring: deterministic scoring for nine of the ten question types (string/set/numerical/boolean comparison against graph-derived ground truth); LLM-as-judge only for fuzzy/semantic questions, calibrated against human grades via Cohen's kappa. Full strategy in `eval/README.md`.
 - **Orchestration.** Plain Python. No LangChain, no LlamaIndex. Hand-rolled retrievers, ~100 lines each. Abstraction layers obscure what is being measured.
 
 ### File layout
@@ -143,9 +146,11 @@ biomedical-rag-bench/
 ├── retrievers/
 │   ├── base.py                 # Retriever protocol — the swap point
 │   ├── vector.py               # Top-k similarity
-│   └── graph.py                # SPARQL templates + entity linking
+│   ├── graph.py                # SPARQL templates + entity linking
+│   └── null.py                 # Closed-book baseline (empty context)
 ├── eval/
-│   ├── questions.jsonl         # Hand-authored ground-truth Q&A
+│   ├── README.md               # Question taxonomy, scoring strategy, eval architecture
+│   ├── questions.jsonl         # Frozen eval set; ground truth derived from graph traversal (template-generated)
 │   ├── run_eval.py             # Runs all registered retrievers
 │   └── analyze.ipynb           # Charts and findings
 ├── ontology/
@@ -183,7 +188,7 @@ make ingest
 # (one-time, ~2 minutes; instructions in ingest/README.md)
 
 # Run the eval
-python eval/run_eval.py --generator <model-id>
+uv run python eval/run_eval.py --generator <model-id>
 ```
 
 Expected runtime end-to-end: ~2 hours on a modern laptop, dominated by PubMed fetch (rate-limited by NCBI) and embedding generation.
@@ -197,19 +202,17 @@ Project 1 follows a strict build order — each step validates before the next b
   - [x] SPARQL and SPARQL-star return real answers (validated offline with pyoxigraph)
   - [x] Load the slice into GraphDB and confirm the same queries against the live triplestore (queries match Oxigraph; see `ingest/rdf/hetionet-data-notes.md` for the RDF-star count note)
   - [x] PubMed → 5 abstracts → Chroma → one similarity query returning a real answer
-- [ ] **2. Hand-write 5 questions per category (25 total).** Validates the categories and that ground truth is constructible.
-- [ ] **3. Build the retriever interface and both retrievers** against the smoke-test data.
-- [ ] **4. Build the eval harness.** RAGAS plus logging plus manual-coding scaffolding.
-- [ ] **5. Scale to full Hetionet plus full question set (~50–60).**
-- [ ] **6. Run eval, analyze, tag `v1.0.0`, create release, write up.**
+- [ ] **2. Author question templates.** One or more templates per question type in the ten-type taxonomy. Each template specifies the question shape, the SPARQL oracle for ground truth, the question type, and the entity sampling strategy. Templates are authored, not LLM-generated.
+- [ ] **3. Build the eval producer.** Loads templates, samples entities programmatically (seeded), runs the SPARQL oracle for each instantiated question, writes `questions.jsonl` with ground truth. Targets ~58 questions across the ten types per the weighting in `eval/README.md`.
+- [ ] **4. Build the retriever interface and three retrievers.** vector, graph, and closed-book null retriever. All implement the `Retriever` protocol in `retrievers/base.py`.
+- [ ] **5. Build the eval harness and judges.** Harness loads `questions.jsonl`, runs each retriever + generator against each question, records telemetry. Judges implement a pluggable `Judge` protocol — one per scoring type (set match, numerical, binary, LLM judge for fuzzy/semantic).
+- [ ] **6. Verify the full eval pipeline on the smoke slice.** Run end-to-end with a small subset of questions and confirm metrics are produced for all three retriever conditions.
+- [ ] **7. Scale to full Hetionet and full question set (~58).**
+- [ ] **8. Run eval, calibrate LLM judge, analyze, tag `v1.0.0`, create release, write up findings.**
 
-Question set is hand-authored, never LLM-generated. ~50–60 questions across five categories:
+Question content is determined by hand-authored templates instantiated over the Hetionet graph. Each template specifies (1) a question shape in natural language with entity placeholders, (2) the SPARQL traversal that produces ground truth, (3) the question type from the finite taxonomy, and (4) the entity sampling strategy. Entity sampling is programmatic and seeded for reproducibility; sampling logic is versioned in the repo. Ground truth is derived from graph traversal, never from LLM generation. LLM assistance is permitted only for (a) optional phrasing variation of mechanically-generated questions (stylistic only, content unchanged) and (b) judge scoring on fuzzy/semantic questions where exact-match scoring is inappropriate. All other question types use deterministic scoring.
 
-- Single-hop factoid (15) — predict vector wins or ties
-- Multi-hop relational (20) — predict graph wins
-- Aggregative (10) — predict graph wins big
-- Fuzzy/semantic (10) — predict vector wins
-- Negative/unanswerable (5) — measures hallucination rate
+Questions span a finite ten-type taxonomy defined by graph-theoretic complexity, not surface phrasing; see `eval/README.md` for the taxonomy, target distribution, and scoring strategy.
 
 Question set is append-only across projects. New questions can be added; existing questions are not removed or modified, so prior results remain comparable.
 
