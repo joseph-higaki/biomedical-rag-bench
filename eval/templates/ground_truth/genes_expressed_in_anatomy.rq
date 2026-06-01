@@ -1,0 +1,18 @@
+# Ground-truth query for template: genes_expressed_in_anatomy (type 2, 1-hop factoid)
+# Returns the set of genes expressed in a given anatomy: Anatomy --expresses--> Gene.
+#
+# The VALUES block is the single substitution point. The eval producer (build step 3)
+# rewrites the URI inside it with each sampled anatomy; everything else is fixed.
+# Committed with a real smoke-slice URI (adrenal gland) so this file runs standalone
+# in any SPARQL endpoint or in pyoxigraph, and should return TSPAN5 + TTC13.
+
+PREFIX hetio: <https://het.io/schema/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX uberon: <http://purl.obolibrary.org/obo/UBERON_>
+
+SELECT ?gene ?geneLabel WHERE {
+  VALUES ?anatomy { uberon:0002369 }      # adrenal gland — producer rewrites this line
+  ?anatomy hetio:expresses ?gene .
+  ?gene rdfs:label ?geneLabel .
+}
+ORDER BY ?geneLabel

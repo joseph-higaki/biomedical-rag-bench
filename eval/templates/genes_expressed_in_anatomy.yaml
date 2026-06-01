@@ -1,0 +1,28 @@
+# Template: genes_expressed_in_anatomy
+# Type 2 (1-hop factoid). Single edge traversal: Anatomy --expresses--> Gene.
+# Answer is the set of genes; scored by set match against the gene labels the
+# ground-truth query returns.
+
+id: genes_expressed_in_anatomy
+type: 2
+question: "Which genes are expressed in {anatomy}?"
+
+# Ground truth is graph traversal, expressed as SPARQL. Path is relative to this
+# templates/ directory.
+ground_truth: ground_truth/genes_expressed_in_anatomy.rq
+
+# A placeholder binds one sampled entity with two faces: its label fills the
+# {placeholder} in the question text, its URI is injected into a named VALUES
+# variable in the query. These fields are read by the producer (build step 3);
+# they are not exercised by the step-2 isolated smoke, which just runs the .rq
+# with its committed example URI.
+placeholders:
+  anatomy:
+    node_type: hetio:Anatomy
+    sample: has_edge          # only draw anatomies that actually have the edge below
+    edge: hetio:expresses     #   ...so the ground-truth set is never empty
+    bind_var: anatomy         # the ?anatomy VALUES variable in the .rq
+    label_into: anatomy       # the {anatomy} token in the question string
+
+scoring: set_match            # order-independent set comparison
+answer_var: geneLabel         # which SELECT column carries the ground-truth answer
