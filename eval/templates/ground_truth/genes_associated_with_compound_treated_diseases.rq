@@ -1,14 +1,36 @@
-# Ground-truth query for template: genes_associated_with_compound_treated_diseases
-# (type 03_2hop_traversal). Two edges chained:
-#   Compound --treats--> Disease --associates--> Gene
+# Authoritative ground-truth record for this template. The registry generator
+# (build_registry.py) copies the block below verbatim into eval/templates/README.md;
+# --verify re-runs the query against GraphDB and asserts the live answer still
+# equals the `answer` set. Keep it in sync with the query (or let --verify catch you).
 #
-# The VALUES block is the single substitution point. The eval producer (build step 3)
-# rewrites the URI inside it with each sampled compound; everything else is fixed.
-# Committed with a real full-graph URI (Tiludronate, DB01133) so this file runs
-# standalone in any SPARQL endpoint. Tiludronate treats Paget's disease of bone,
-# which associates 16 genes, so this query should return exactly those 16:
-#   ALPL, ALPP, ALPPL2, BGLAP, CALCA, CSF1, DCSTAMP, INPP5D, NUP205, OPTN,
-#   PML, RIN3, SQSTM1, TNFRSF11A, TNFRSF11B, VCP
+# --- registry ---
+# seed: Tiludronate
+# seed_uri: db:DB01133
+# chain: Compound --treats--> Disease --associates--> Gene
+# answer:
+#   - ALPL
+#   - ALPP
+#   - ALPPL2
+#   - BGLAP
+#   - CALCA
+#   - CSF1
+#   - DCSTAMP
+#   - INPP5D
+#   - NUP205
+#   - OPTN
+#   - PML
+#   - RIN3
+#   - SQSTM1
+#   - TNFRSF11A
+#   - TNFRSF11B
+#   - VCP
+# --- end registry ---
+#
+# Type 03_2hop_traversal. Two edges chained. The seed (Tiludronate, DB01133)
+# treats Paget's disease of bone, which associates the 16 genes above — chosen for
+# a bounded fan so the answer stays enumerable. The VALUES block is the single
+# substitution point: the eval producer (build step 3) rewrites the URI inside it
+# with each sampled compound; everything else is fixed.
 
 PREFIX db: <https://identifiers.org/drugbank/>
 PREFIX hetio: <https://het.io/schema/>

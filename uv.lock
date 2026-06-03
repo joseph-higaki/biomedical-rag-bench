@@ -363,6 +363,10 @@ ingest = [
     { name = "ijson" },
     { name = "pyoxigraph" },
 ]
+produce = [
+    { name = "httpx" },
+    { name = "pyyaml" },
+]
 vector = [
     { name = "chromadb" },
     { name = "sentence-transformers" },
@@ -378,16 +382,18 @@ requires-dist = [
     { name = "chromadb", marker = "extra == 'vector'", specifier = ">=0.5" },
     { name = "httpx", marker = "extra == 'fetch'", specifier = ">=0.27" },
     { name = "httpx", marker = "extra == 'graph'", specifier = ">=0.27" },
+    { name = "httpx", marker = "extra == 'produce'", specifier = ">=0.27" },
     { name = "ijson", marker = "extra == 'ingest'", specifier = ">=3.3" },
     { name = "jupyter", marker = "extra == 'eval'", specifier = ">=1.1" },
     { name = "matplotlib", marker = "extra == 'eval'", specifier = ">=3.9" },
     { name = "pandas", marker = "extra == 'eval'", specifier = ">=2.2" },
     { name = "pyoxigraph", marker = "extra == 'ingest'", specifier = ">=0.4" },
     { name = "python-dotenv", marker = "extra == 'fetch'", specifier = ">=1.0" },
+    { name = "pyyaml", marker = "extra == 'produce'", specifier = ">=6" },
     { name = "ragas", marker = "extra == 'eval'", specifier = ">=0.2" },
     { name = "sentence-transformers", marker = "extra == 'vector'", specifier = ">=3.0" },
 ]
-provides-extras = ["ingest", "graph", "vector", "fetch", "eval"]
+provides-extras = ["ingest", "graph", "vector", "fetch", "produce", "eval"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=8.3" }]

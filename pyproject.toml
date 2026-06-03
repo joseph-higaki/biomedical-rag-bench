@@ -33,6 +33,14 @@ fetch = [
     "httpx>=0.27",
     "python-dotenv>=1.0",
 ]
+# Eval-set production (stage 1 in eval/README.md): reads YAML templates + their
+# ground-truth .rq files. PyYAML parses templates; httpx runs the ground-truth
+# queries against GraphDB (the registry generator's --verify path; the step-3
+# producer's main path). Kept separate from the heavy `eval` harness/analysis extra.
+produce = [
+    "pyyaml>=6",
+    "httpx>=0.27",
+]
 # Eval harness + analysis notebook.
 eval = [
     "ragas>=0.2",

@@ -1,12 +1,23 @@
-# Ground-truth query for template: genes_expressed_in_anatomy (type 02_1hop_factoid)
-# Returns the set of genes expressed in a given anatomy: Anatomy --expresses--> Gene.
+# Authoritative ground-truth record for this template. The registry generator
+# (build_registry.py) copies the block below verbatim into eval/templates/README.md;
+# --verify re-runs the query against GraphDB and asserts the live answer still
+# equals the `answer` set. Keep it in sync with the query (or let --verify catch you).
 #
-# The VALUES block is the single substitution point. The eval producer (build step 3)
+# --- registry ---
+# seed: nasal cavity
+# seed_uri: uberon:0001707
+# chain: Anatomy --expresses--> Gene
+# answer:
+#   - CD79A
+#   - DCXR
+#   - OMP
+#   - RHNO1
+# --- end registry ---
+#
+# Type 02_1hop_factoid. The seed (nasal cavity) was chosen for a bounded
+# expressed-gene fan so the ground-truth answer stays small and enumerable. The
+# VALUES block is the single substitution point: the eval producer (build step 3)
 # rewrites the URI inside it with each sampled anatomy; everything else is fixed.
-# Committed with a real full-graph URI (nasal cavity), chosen for a bounded
-# expressed-gene fan so the ground-truth answer is small and enumerable. Run
-# against the full Hetionet graph in GraphDB it should return exactly 4 genes:
-#   CD79A, DCXR, OMP, RHNO1
 
 PREFIX hetio: <https://het.io/schema/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>

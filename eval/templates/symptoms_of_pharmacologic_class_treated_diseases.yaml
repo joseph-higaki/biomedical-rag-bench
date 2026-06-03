@@ -1,0 +1,35 @@
+# Template: symptoms_of_pharmacologic_class_treated_diseases
+# Type 04_3plus_hop_traversal. Three edges chained:
+#   PharmacologicClass --includes--> Compound --treats--> Disease --presents--> Symptom.
+# Answer is the set of symptoms presented by the diseases treated by the compounds
+# in a drug class; scored by set match against the symptom labels the ground-truth
+# query returns. Prepends an --includes--> hop onto the same Compound-treats-Disease
+# spine the 03_2hop template uses, so the suite escalates hop-count on a shared shape.
+
+id: symptoms_of_pharmacologic_class_treated_diseases
+type: 04_3plus_hop_traversal
+question: "Which symptoms are presented by the diseases treated by compounds in the {drug_class} class?"
+
+# Ground truth is graph traversal, expressed as SPARQL. Path is relative to this
+# templates/ directory.
+ground_truth: ground_truth/symptoms_of_pharmacologic_class_treated_diseases.rq
+
+# A placeholder binds one sampled entity with two faces: its label fills the
+# {placeholder} in the question text, its URI is injected into a named VALUES
+# variable in the query. These fields are read by the producer (build step 3);
+# they are not exercised by the step-2 ground-truth validation, which just runs the
+# .rq with its committed example URI.
+placeholders:
+  drug_class:
+    node_type: hetio:PharmacologicClass
+    sample: has_edge          # only draw classes that actually have the first edge
+    edge: hetio:includes      #   ...but presence of --includes--> guarantees only the
+                              #   FIRST hop. A treated disease may present zero symptoms,
+                              #   so a 3-hop answer can still be empty. Constrained vs
+                              #   sample-then-filter remains the step-3 sampling fork
+                              #   (same caveat as the 03_2hop template).
+    bind_var: drugClass       # the ?drugClass VALUES variable in the .rq
+    label_into: drug_class    # the {drug_class} token in the question string
+
+scoring: set_match            # order-independent set comparison
+answer_var: symptomLabel      # which SELECT column carries the ground-truth answer

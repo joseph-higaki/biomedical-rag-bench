@@ -1,0 +1,50 @@
+# Authoritative ground-truth record for this template. The registry generator
+# (build_registry.py) copies the block below verbatim into eval/templates/README.md;
+# --verify re-runs the query against GraphDB and asserts the live answer still
+# equals the `answer` set. Keep it in sync with the query (or let --verify catch you).
+#
+# --- registry ---
+# seed: Sulfonylurea Compounds
+# seed_uri: ndfrt:N0000008054
+# chain: PharmacologicClass --includes--> Compound --treats--> Disease --presents--> Symptom
+# answer:
+#   - Acute Coronary Syndrome
+#   - Albuminuria
+#   - Birth Weight
+#   - Body Weight
+#   - Fetal Distress
+#   - Fetal Hypoxia
+#   - Fetal Macrosomia
+#   - Fetal Weight
+#   - Flushing
+#   - Gastroparesis
+#   - Microvascular Angina
+#   - Obesity
+#   - "Obesity, Abdominal"
+#   - Overweight
+#   - Proteinuria
+#   - "Urinary Bladder, Overactive"
+#   - Weight Gain
+#   - Weight Loss
+# --- end registry ---
+#
+# Type 04_3plus_hop_traversal. Three edges chained. The seed (Sulfonylurea
+# Compounds, NDF-RT N0000008054) includes 6 sulfonylureas (Chlorpropamide,
+# Glimepiride, Glipizide, Glyburide, Tolazamide, Tolbutamide) treating 2 diseases
+# (type 2 diabetes mellitus, gestational diabetes) — chosen for branching at hop 1
+# with a bounded terminal fan so the 18-symptom answer stays enumerable. The VALUES
+# block is the single substitution point: the eval producer (build step 3) rewrites
+# the URI inside it with each sampled pharmacologic class; everything else is fixed.
+
+PREFIX hetio: <https://het.io/schema/>
+PREFIX ndfrt: <https://identifiers.org/ndfrt/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?symptom ?symptomLabel WHERE {
+  VALUES ?drugClass { ndfrt:N0000008054 }   # Sulfonylurea Compounds — producer rewrites this line
+  ?drugClass hetio:includes ?compound .
+  ?compound hetio:treats ?disease .
+  ?disease hetio:presents ?symptom .
+  ?symptom rdfs:label ?symptomLabel .
+}
+ORDER BY ?symptomLabel
