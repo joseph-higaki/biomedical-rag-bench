@@ -1,0 +1,30 @@
+# Template: count_of_side_effects_caused_by_compound
+# Type 05_aggregative. Aggregation over a single edge: COUNT of
+#   Compound --causes--> SideEffect.
+# Answer is one integer, scored by numerical exact match (not set match). Kept to a
+# single hop on purpose, so it isolates the *aggregation* capability from multi-hop
+# (types 03/04 test traversal depth); mixing the two would blur which capability a
+# result measures. Introduces the `causes` edge and the SideEffect node type, both
+# otherwise uncovered by the suite.
+
+id: count_of_side_effects_caused_by_compound
+type: 05_aggregative
+question: "How many side effects does {compound} cause?"
+
+# Ground truth is graph traversal, expressed as SPARQL. Path is relative to this
+# templates/ directory.
+ground_truth: ground_truth/count_of_side_effects_caused_by_compound.rq
+
+# A placeholder binds one sampled entity with two faces: its label fills the
+# {placeholder} in the question text, its URI is injected into a named VALUES
+# variable in the query. These fields are read by the producer (build step 3).
+placeholders:
+  compound:
+    node_type: hetio:Compound
+    sample: has_edge          # only draw compounds that actually cause side effects,
+    edge: hetio:causes        #   so the count is never trivially zero
+    bind_var: compound        # the ?compound VALUES variable in the .rq
+    label_into: compound      # the {compound} token in the question string
+
+scoring: numerical            # numerical exact match against the COUNT
+answer_var: n                 # the SELECT column carrying the aggregate

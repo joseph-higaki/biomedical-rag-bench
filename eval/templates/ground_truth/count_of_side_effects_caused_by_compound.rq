@@ -1,0 +1,27 @@
+# Authoritative ground-truth record for this template. The registry generator
+# (build_registry.py) copies the block below verbatim into eval/templates/README.md;
+# --verify re-runs the query against GraphDB and asserts the live answer still
+# equals the `answer` below. Keep it in sync with the query (or let --verify catch you).
+#
+# --- registry ---
+# seed: Streptomycin
+# seed_uri: db:DB01082
+# chain: Compound --causes--> SideEffect (aggregated by COUNT DISTINCT)
+# answer: 27
+# --- end registry ---
+#
+# Type 05_aggregative. Single-edge aggregation. The seed (Streptomycin, DB01082) is
+# a well-known antibiotic, so the closed-book baseline (H7) is meaningfully tested;
+# its 27 side effects are well past what a vector retriever can reliably enumerate
+# and count from chunked abstracts (the H3 stress). The VALUES block is the single
+# substitution point: the eval producer (build step 3) rewrites the URI inside it
+# with each sampled compound; everything else is fixed.
+
+PREFIX db: <https://identifiers.org/drugbank/>
+PREFIX hetio: <https://het.io/schema/>
+
+SELECT (COUNT(DISTINCT ?sideEffect) AS ?n) WHERE {
+  VALUES ?compound { db:DB01082 }      # Streptomycin — producer rewrites this line
+  ?compound hetio:causes ?sideEffect .
+  ?sideEffect a hetio:SideEffect .     # redundant (causes targets are all SideEffects) but explicit
+}

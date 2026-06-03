@@ -10,6 +10,7 @@ The `.rq` frontmatter is authoritative for the committed seed and answer; this t
 | `02_1hop_factoid` | `genes_expressed_in_anatomy` | Which genes are expressed in {anatomy}? | nasal cavity (`uberon:0001707`) | 4 results |
 | `03_2hop_traversal` | `genes_associated_with_compound_treated_diseases` | Which genes are associated with the diseases that {compound} treats? | Tiludronate (`db:DB01133`) | 16 results |
 | `04_3plus_hop_traversal` | `symptoms_of_pharmacologic_class_treated_diseases` | Which symptoms are presented by the diseases treated by compounds in the {drug_class} class? | Sulfonylurea Compounds (`ndfrt:N0000008054`) | 18 results |
+| `05_aggregative` | `count_of_side_effects_caused_by_compound` | How many side effects does {compound} cause? | Streptomycin (`db:DB01082`) | `27` |
 
 ## Per-template detail
 
@@ -86,4 +87,16 @@ The `.rq` frontmatter is authoritative for the committed seed and answer; this t
 - Urinary Bladder, Overactive
 - Weight Gain
 - Weight Loss
+
+### `05_aggregative` — count_of_side_effects_caused_by_compound
+
+**Question:** How many side effects does {compound} cause?
+
+**Chain:** Compound --causes--> SideEffect (aggregated by COUNT DISTINCT)
+
+**Committed seed:** Streptomycin (`db:DB01082`)
+
+**Scoring:** `numerical` · answer column `n`
+
+**Ground-truth answer:** `27`
 
