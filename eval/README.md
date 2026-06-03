@@ -6,9 +6,13 @@ eval pipeline, and the per-type scoring strategy. The root `README.md` owns the
 hypotheses (H1–H7), architecture overview, release strategy, and build order;
 this file is the authoritative source for eval design detail.
 
-Until an `eval/templates/` folder exists, the taxonomy and per-template detail
-live here. When that folder is created, taxonomy detail and per-template
-examples may move to `eval/templates/README.md` and this file will link to it.
+This file is the authoritative source for eval *design*: the taxonomy, the target
+distribution, and the scoring strategy. The per-template *listing* — each
+instantiated template's question shape, committed seed, and ground-truth answer —
+lives in the generated registry [`eval/templates/README.md`](templates/README.md),
+produced by `build_registry.py` from the YAML templates and their ground-truth `.rq`
+files (run `uv run --extra produce python eval/templates/build_registry.py`). The
+registry is generated, never hand-edited, so it cannot drift from the templates.
 
 ## Question type taxonomy
 

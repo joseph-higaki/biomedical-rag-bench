@@ -37,6 +37,14 @@ Pretty-printed object with these keys:
 Shape: `{"kind": str, "identifier": str|int, "name": str, "data": {...}}`.
 `data` carries provenance (`source`, `license`, `url`) plus kind-specific extras.
 
+**Emitted to RDF (curated subset, as of 2026-06-04).** The transform writes every
+node's type (`a hetio:Kind`) and label (`rdfs:label`), plus a curated subset of
+`data` keys as `hetio:<key>` literals: Gene `chromosome` + `description`, Compound
+`inchikey` (see `NODE_DATA_KEYS` in `hetionet_to_rdf.py`). Earlier the node loop
+wrote type + label only, so no node had a property to look up; `chromosome` was
+added to ground the 0-hop attribute question type. The remaining `data` keys are
+not yet represented — full node/edge property coverage is a deferred to-do.
+
 **Identifier format per kind** (this determines the URI mapping — note Gene is an `int`):
 
 | Node kind | Example id | id type | Vocabulary | Extra `data` keys |
@@ -139,6 +147,14 @@ assertions against a tiny in-memory store. Oxigraph also stands in for GraphDB d
 GraphDB remains the final confirmation once the slice is loaded for real.
 
 ### GraphDB load parity (100-edge smoke slice)
+
+> **Counts below predate the curated node attributes** (added 2026-06-04). The smoke
+> slice is now **1221 Oxigraph triples** (was 981); the +240 are plain node-attribute
+> triples (`chromosome`/`description`/`inchikey`). Only the *plain* totals grew — the
+> quoted-triple (RDF-star) counts and the answer-parity conclusion are unchanged, and
+> the plain triples still match across engines. The GraphDB column was not re-measured
+> after the change (the slice would have to be reloaded; GraphDB currently holds the
+> full graph). Treat the table as the pre-attribute baseline.
 
 The slice loads into GraphDB 11.3 (ruleset `empty`) and the smoke queries return **the same
 answers** as Oxigraph — the `hetio:expresses` join (17 rows) and the `<< s p o >> hetio:source`
