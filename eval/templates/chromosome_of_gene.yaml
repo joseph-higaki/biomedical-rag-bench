@@ -1,0 +1,29 @@
+# Template: chromosome_of_gene
+# Type 01_0hop_attribute. Node property lookup, NO edge traversal: read the
+# hetio:chromosome literal off a Gene node. Answer is one string, scored by string
+# match against the graph property. Predicted winner is tie/closed-book (H7): a
+# well-known gene's chromosome is a fact frontier LLMs know AND that retrieval can
+# supply (chromosomal location appears in gene-describing text), so retrieval is
+# expected to add little over closed-book here.
+#
+# Depends on the curated node attributes added to the transform (NODE_DATA_KEYS in
+# hetionet_to_rdf.py); before that, no node had a non-label property to look up.
+
+id: chromosome_of_gene
+type: 01_0hop_attribute
+question: "On which chromosome is the gene {gene} located?"
+
+# Ground truth is a property read off the graph node. Path is relative to this
+# templates/ directory.
+ground_truth: ground_truth/chromosome_of_gene.rq
+
+placeholders:
+  gene:
+    node_type: hetio:Gene
+    sample: has_edge          # draw genes that carry the property triple
+    edge: hetio:chromosome    #   ...a DATA property, not a relationship edge
+    bind_var: gene            # the ?gene VALUES variable in the .rq
+    label_into: gene          # the {gene} token in the question string
+
+scoring: string_match         # exact string match against hetio:chromosome
+answer_var: chromosome        # the SELECT column carrying the property value

@@ -1,0 +1,26 @@
+# Authoritative ground-truth record for this template. The registry generator
+# (build_registry.py) copies the block below verbatim into eval/templates/README.md;
+# --verify re-runs the query against GraphDB and asserts the live answer still
+# equals the `answer` below. Keep it in sync with the query (or let --verify catch you).
+#
+# --- registry ---
+# seed: CDH1
+# seed_uri: ncbigene:999
+# chain: "Gene property lookup hetio:chromosome (0-hop, no edge traversal)"
+# answer: "16"
+# --- end registry ---
+#
+# Type 01_0hop_attribute. The seed (CDH1, ncbigene:999) is well-known and its
+# chromosome (16) is a fact frontier LLMs hold closed-book and that also surfaces in
+# gene-describing text, so this is a tie/closed-book probe (H7), not a graph-favoring
+# question. The property is read directly off the node — no edge is traversed. The
+# VALUES block is the single substitution point: the producer (step 3) rewrites the
+# URI with each sampled gene; everything else is fixed.
+
+PREFIX hetio: <https://het.io/schema/>
+PREFIX ncbigene: <https://identifiers.org/ncbigene/>
+
+SELECT ?chromosome WHERE {
+  VALUES ?gene { ncbigene:999 }       # CDH1 — producer rewrites this line
+  ?gene hetio:chromosome ?chromosome .
+}

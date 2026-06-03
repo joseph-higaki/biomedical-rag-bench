@@ -126,6 +126,17 @@ def edge_annotations(data: dict):
             yield key, literal(val)
 
 
+# Curated node data attributes carried into the graph as hetio:<key> literals.
+# Deliberately a small, high-value subset: chromosome/description ground 0-hop
+# attribute questions and aid LLM/semantic grounding; inchikey gives compounds a
+# stable structural attribute. This is NOT the full node data dict — representing
+# every node and edge property in RDF is a deferred to-do. Keyed by raw node kind.
+NODE_DATA_KEYS: dict[str, tuple[str, ...]] = {
+    "Gene": ("chromosome", "description"),
+    "Compound": ("inchikey",),
+}
+
+
 def write_turtle(out: Path, src: Path, limit: int | None) -> tuple[int, int]:
     """Write the Turtle file. Returns (nodes_emitted, edges_emitted).
 
@@ -147,15 +158,22 @@ def write_turtle(out: Path, src: Path, limit: int | None) -> tuple[int, int]:
     with out.open("w", encoding="utf-8") as w:
         for prefix, iri in PREFIXES.items():
             w.write(f"@prefix {prefix}: <{iri}> .\n")
-        w.write("\n# --- Nodes (type + label) ---\n")
+        w.write("\n# --- Nodes (type + label + curated data attributes) ---\n")
 
         for node in stream_nodes(src):
             kind, ident = node["kind"], node["identifier"]
             if wanted is not None and (kind, str(ident)) not in wanted:
                 continue
             term = node_term(kind, ident)
-            w.write(f"{term} a hetio:{_class_name(kind)} ;\n")
-            w.write(f'    rdfs:label {literal(node["name"])} .\n')
+            clauses = [
+                f"a hetio:{_class_name(kind)}",
+                f"rdfs:label {literal(node['name'])}",
+            ]
+            data = node.get("data") or {}
+            for key in NODE_DATA_KEYS.get(kind, ()):
+                if data.get(key) not in (None, ""):
+                    clauses.append(f"hetio:{key} {literal(data[key])}")
+            w.write(f"{term} " + " ;\n    ".join(clauses) + " .\n")
             nodes_emitted += 1
 
         w.write("\n# --- Edges (base triple + RDF-star annotations) ---\n")

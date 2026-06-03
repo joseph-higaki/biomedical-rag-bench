@@ -7,6 +7,7 @@ The `.rq` frontmatter is authoritative for the committed seed and answer; this t
 
 | `type_id` | Template | Question | Committed seed | Answer |
 |---|---|---|---|---|
+| `01_0hop_attribute` | `chromosome_of_gene` | On which chromosome is the gene {gene} located? | CDH1 (`ncbigene:999`) | `16` |
 | `02_1hop_factoid` | `genes_expressed_in_anatomy` | Which genes are expressed in {anatomy}? | nasal cavity (`uberon:0001707`) | 4 results |
 | `03_2hop_traversal` | `genes_associated_with_compound_treated_diseases` | Which genes are associated with the diseases that {compound} treats? | Tiludronate (`db:DB01133`) | 16 results |
 | `04_3plus_hop_traversal` | `symptoms_of_pharmacologic_class_treated_diseases` | Which symptoms are presented by the diseases treated by compounds in the {drug_class} class? | Sulfonylurea Compounds (`ndfrt:N0000008054`) | 18 results |
@@ -18,6 +19,18 @@ The `.rq` frontmatter is authoritative for the committed seed and answer; this t
 | `10_fuzzy_semantic` | `gene_whose_loss_promotes_metastasis_fuzzy` | Which gene's loss promotes tumor metastasis through breakdown of cell-cell adhesion? | CDH1 (`ncbigene:999`) | 1 results |
 
 ## Per-template detail
+
+### `01_0hop_attribute` — chromosome_of_gene
+
+**Question:** On which chromosome is the gene {gene} located?
+
+**Chain:** Gene property lookup hetio:chromosome (0-hop, no edge traversal)
+
+**Committed seed:** CDH1 (`ncbigene:999`)
+
+**Scoring:** `string_match` · answer column `chromosome`
+
+**Ground-truth answer:** `16`
 
 ### `02_1hop_factoid` — genes_expressed_in_anatomy
 
