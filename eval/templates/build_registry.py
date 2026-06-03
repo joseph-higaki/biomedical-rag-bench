@@ -175,7 +175,9 @@ def verify(templates: list[dict], endpoint: str) -> bool:
                 f"  - missing: {sorted(set(committed) - set(live))}"
             )
         else:
-            ok = len(live) == 1 and str(live[0]) == str(committed)
+            # Scalar: numerical count or ASK boolean. Compare case-insensitively so
+            # the JSON boolean "true" matches a YAML `true` (Python True -> "True").
+            ok = len(live) == 1 and str(live[0]).lower() == str(committed).lower()
             detail = "" if ok else f"  live={live} committed={committed!r}"
 
         print(f"  [{'OK' if ok else 'MISMATCH'}] {t['id']}")

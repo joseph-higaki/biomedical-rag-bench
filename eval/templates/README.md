@@ -14,6 +14,7 @@ The `.rq` frontmatter is authoritative for the committed seed and answer; this t
 | `06_set_intersection` | `shared_pathways_of_two_genes` | Which pathways do both {gene_a} and {gene_b} participate in? | BRCA1 (`ncbigene:672`), BRCA2 (`ncbigene:675`) | 11 results |
 | `07_set_difference` | `pathways_in_one_gene_excluding_another` | Which pathways does {gene_a} participate in that {gene_b} does not? | BRCA2 (`ncbigene:675`), BRCA1 (`ncbigene:672`) | 7 results |
 | `08_negative_unanswerable` | `diseases_treated_by_compound_negative` | Which diseases does {compound} treat? | Caffeine (`db:DB00201`) | none (negative) |
+| `09_path_existence` | `path_between_compound_and_disease_via_gene` | Is there a path from {compound} to {disease} through a gene the compound binds and the disease is associated with? | Tamoxifen (`db:DB00675`), breast cancer (`do:1612`) | `True` |
 
 ## Per-template detail
 
@@ -156,4 +157,16 @@ The `.rq` frontmatter is authoritative for the committed seed and answer; this t
 **Scoring:** `binary` · answer column `diseaseLabel`
 
 **Ground-truth answer:** none — the queried edge does not exist; the correct response is refusal, not a guess.
+
+### `09_path_existence` — path_between_compound_and_disease_via_gene
+
+**Question:** Is there a path from {compound} to {disease} through a gene the compound binds and the disease is associated with?
+
+**Chain:** Compound --binds--> Gene <--associates-- Disease (ASK — does the path exist?)
+
+**Committed seed:** Tamoxifen (`db:DB00675`), breast cancer (`do:1612`)
+
+**Scoring:** `boolean` · answer column `boolean`
+
+**Ground-truth answer:** `True`
 

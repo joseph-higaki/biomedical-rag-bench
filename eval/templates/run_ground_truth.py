@@ -54,6 +54,11 @@ def run_query(query_text: str, *, endpoint: str | None = None) -> list[dict[str,
     resp.raise_for_status()
     payload = resp.json()
 
+    # ASK queries (path-existence type) return {"boolean": true/false}, not a result
+    # set. Surface it as a single synthetic row so callers treat it like any scalar.
+    if "boolean" in payload:
+        return [{"boolean": str(payload["boolean"]).lower()}]
+
     variables = payload["head"]["vars"]
     return [
         {var: binding[var]["value"] for var in variables if var in binding}

@@ -1,0 +1,37 @@
+# Template: path_between_compound_and_disease_via_gene
+# Type 09_path_existence. Reachability between two nodes along a specific metapath:
+#   Compound --binds--> Gene <--associates-- Disease.
+# Answer is a boolean (does such a path exist?), evaluated with SPARQL ASK. A
+# SPECIFIC metapath is used rather than unbounded reachability: Hetionet is dense
+# enough that "is X reachable from Y at all" is trivially true, which tests nothing.
+# Graph answers definitively and can cite the bridging gene (H6 provenance); vector
+# RAG cannot establish reachability (H3).
+
+id: path_between_compound_and_disease_via_gene
+type: 09_path_existence
+question: "Is there a path from {compound} to {disease} through a gene the compound binds and the disease is associated with?"
+
+# Ground truth is graph traversal, expressed as SPARQL ASK. Path is relative to this
+# templates/ directory.
+ground_truth: ground_truth/path_between_compound_and_disease_via_gene.rq
+
+# Two placeholders, co-sampled. A boolean type needs BOTH true and false instances
+# for signal, so the step-3 producer must sample pairs that share a bridging gene
+# (true) and pairs that do not (false) — a balanced-label sampling concern on top of
+# the pairing logic types 06/07 introduced. The committed example is a true case.
+placeholders:
+  compound:
+    node_type: hetio:Compound
+    sample: paired
+    edge: hetio:binds
+    bind_var: compound        # the ?compound VALUES variable in the .rq
+    label_into: compound      # the {compound} token in the question string
+  disease:
+    node_type: hetio:Disease
+    sample: paired
+    edge: hetio:associates
+    bind_var: disease         # the ?disease VALUES variable in the .rq
+    label_into: disease       # the {disease} token in the question string
+
+scoring: boolean              # true/false exact match against the ASK result
+answer_var: boolean           # synthetic column carrying the ASK boolean

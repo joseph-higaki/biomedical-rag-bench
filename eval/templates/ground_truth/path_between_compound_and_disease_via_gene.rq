@@ -1,0 +1,32 @@
+# Authoritative ground-truth record for this template. The registry generator
+# (build_registry.py) copies the block below verbatim into eval/templates/README.md;
+# --verify re-runs the query against GraphDB and asserts the live answer still
+# equals the `answer` below. Keep it in sync with the query (or let --verify catch you).
+#
+# --- registry ---
+# seeds:
+#   - { label: Tamoxifen, uri: db:DB00675 }
+#   - { label: breast cancer, uri: do:1612 }
+# chain: "Compound --binds--> Gene <--associates-- Disease (ASK — does the path exist?)"
+# answer: true
+# --- end registry ---
+#
+# Type 09_path_existence. The committed pair (Tamoxifen, breast cancer) is iconic and
+# the answer is TRUE: tamoxifen binds 11 genes that are associated with breast cancer,
+# so the metapath exists. The query is an ASK over the property path
+# `binds / ^associates` (compound binds a gene; that gene is, inversely, associated
+# with the disease). The graph can also name the bridging gene(s) for provenance (H6).
+# The producer (step 3) rewrites both VALUES with each sampled pair and must include
+# false cases (no shared gene) for the boolean to carry signal. Order is irrelevant
+# here — the path is symmetric in existence — but the roles (compound vs disease) are
+# fixed by node type.
+
+PREFIX db: <https://identifiers.org/drugbank/>
+PREFIX do: <http://purl.obolibrary.org/obo/DOID_>
+PREFIX hetio: <https://het.io/schema/>
+
+ASK {
+  VALUES ?compound { db:DB00675 }     # Tamoxifen — producer rewrites this line
+  VALUES ?disease  { do:1612 }        # breast cancer — producer rewrites this line
+  ?compound hetio:binds / ^hetio:associates ?disease .
+}
