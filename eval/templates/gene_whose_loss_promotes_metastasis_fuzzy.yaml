@@ -1,0 +1,32 @@
+# Template: gene_whose_loss_promotes_metastasis_fuzzy
+# Type 10_fuzzy_semantic. NO graph operation derives this answer: the question
+# describes an entity by biological mechanism/discourse, and the task is to identify
+# it. Predicted winner is vector (matches the language of abstracts); the graph has
+# no "promotes-metastasis" edge and may be unable to answer at all (H4). Scored by
+# LLM judge (semantic equivalence), calibrated per eval/README.md (Cohen's kappa,
+# ~20 held out for human grading).
+#
+# Ground-truth provenance is still graph-anchored, honoring the project constraint:
+# the reference answer (CDH1) is a real Gene node, and the .rq is a trivial label
+# lookup that pins its canonical label and lets --verify confirm it resolves. The
+# .rq is NOT a traversal that answers the discourse question — that is the whole
+# point of this type. Seed reuses the documented README early observation
+# (E-cadherin / CDH1, "loss promotes tumor metastasis").
+
+id: gene_whose_loss_promotes_metastasis_fuzzy
+type: 10_fuzzy_semantic
+question: "Which gene's loss promotes tumor metastasis through breakdown of cell-cell adhesion?"
+
+# Trivial reference-entity lookup, not an answer-deriving traversal. Path is relative
+# to this templates/ directory.
+ground_truth: ground_truth/gene_whose_loss_promotes_metastasis_fuzzy.rq
+
+# No `placeholders`: the answer entity is intentionally NOT named in the question —
+# identifying it from the discourse is the task — so there is no label to inject and
+# nothing for the step-3 producer to sample. Fuzzy/semantic instances are therefore
+# hand-authored 1:1 (question + reference entity), an asymmetry from the other nine
+# types, which the producer samples programmatically. The target ~6 fuzzy questions
+# are authored individually; this is the type exemplar.
+
+scoring: semantic             # LLM judge: does the system answer mean this entity?
+answer_var: geneLabel         # the reference entity's canonical label

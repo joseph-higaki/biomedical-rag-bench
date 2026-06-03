@@ -15,6 +15,7 @@ The `.rq` frontmatter is authoritative for the committed seed and answer; this t
 | `07_set_difference` | `pathways_in_one_gene_excluding_another` | Which pathways does {gene_a} participate in that {gene_b} does not? | BRCA2 (`ncbigene:675`), BRCA1 (`ncbigene:672`) | 7 results |
 | `08_negative_unanswerable` | `diseases_treated_by_compound_negative` | Which diseases does {compound} treat? | Caffeine (`db:DB00201`) | none (negative) |
 | `09_path_existence` | `path_between_compound_and_disease_via_gene` | Is there a path from {compound} to {disease} through a gene the compound binds and the disease is associated with? | Tamoxifen (`db:DB00675`), breast cancer (`do:1612`) | `True` |
+| `10_fuzzy_semantic` | `gene_whose_loss_promotes_metastasis_fuzzy` | Which gene's loss promotes tumor metastasis through breakdown of cell-cell adhesion? | CDH1 (`ncbigene:999`) | 1 results |
 
 ## Per-template detail
 
@@ -169,4 +170,17 @@ The `.rq` frontmatter is authoritative for the committed seed and answer; this t
 **Scoring:** `boolean` · answer column `boolean`
 
 **Ground-truth answer:** `True`
+
+### `10_fuzzy_semantic` — gene_whose_loss_promotes_metastasis_fuzzy
+
+**Question:** Which gene's loss promotes tumor metastasis through breakdown of cell-cell adhesion?
+
+**Chain:** reference-entity label lookup (fuzzy/semantic — no traversal derives this answer)
+
+**Committed seed:** CDH1 (`ncbigene:999`)
+
+**Scoring:** `semantic` · answer column `geneLabel`
+
+**Ground-truth answer (1):**
+- CDH1
 
