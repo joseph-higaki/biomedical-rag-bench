@@ -1,0 +1,38 @@
+# Template: shared_pathways_of_two_genes
+# Type 06_set_intersection. Two traversals intersected:
+#   Gene --participates--> Pathway, for two genes, keep the overlap.
+# Answer is the set of pathways both genes participate in; scored by set match.
+# First two-placeholder template: the producer samples a *pair*. Intersection
+# self-bounds — each gene participates in many pathways, but the overlap is small —
+# so a bounded answer doesn't require fighting hub fan-out (contrast type 04).
+# Introduces the `participates` edge and the Pathway node type.
+
+id: shared_pathways_of_two_genes
+type: 06_set_intersection
+question: "Which pathways do both {gene_a} and {gene_b} participate in?"
+
+# Ground truth is graph traversal, expressed as SPARQL. Path is relative to this
+# templates/ directory.
+ground_truth: ground_truth/shared_pathways_of_two_genes.rq
+
+# Two placeholders, co-sampled as a pair. Each binds one gene with two faces (label
+# into the question, URI into a VALUES variable). Pair sampling with a *non-empty*
+# intersection is a new step-3 sampling shape: `has_edge` guarantees each gene
+# participates in some pathway, but not that the two share one. This deepens the
+# unresolved step-3 sampling fork (constrained pairing vs sample-then-filter).
+placeholders:
+  gene_a:
+    node_type: hetio:Gene
+    sample: paired            # first member of a co-sampled gene pair
+    edge: hetio:participates
+    bind_var: geneA           # the ?geneA VALUES variable in the .rq
+    label_into: gene_a        # the {gene_a} token in the question string
+  gene_b:
+    node_type: hetio:Gene
+    sample: paired            # second member; pair must share >=1 pathway
+    edge: hetio:participates
+    bind_var: geneB           # the ?geneB VALUES variable in the .rq
+    label_into: gene_b        # the {gene_b} token in the question string
+
+scoring: set_match            # order-independent set comparison
+answer_var: pathwayLabel      # which SELECT column carries the ground-truth answer

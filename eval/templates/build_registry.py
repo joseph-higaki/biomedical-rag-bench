@@ -59,7 +59,13 @@ def parse_rq_frontmatter(rq_path: Path) -> dict:
         body.append(line[2:] if line.startswith("# ") else line.lstrip("#"))
     data = yaml.safe_load("\n".join(body)) or {}
 
-    missing = {"seed", "seed_uri", "chain", "answer"} - data.keys()
+    # `chain` and `answer` are always required. The seed may be a single entity
+    # (`seed` + `seed_uri`) or several (`seeds:` list), the latter for multi-traversal
+    # templates like set intersection/difference. Singular form stays valid, so older
+    # single-seed .rq files need no migration.
+    missing = {"chain", "answer"} - data.keys()
+    if not (data.get("seeds") or {"seed", "seed_uri"} <= data.keys()):
+        missing.add("seed/seed_uri or seeds")
     if missing:
         raise ValueError(f"{rq_path.name}: frontmatter missing keys {sorted(missing)}")
     return data
@@ -83,6 +89,13 @@ def load_templates() -> list[dict]:
             }
         )
     return sorted(templates, key=lambda t: t["type_id"])
+
+
+def _format_seed(t: dict) -> str:
+    """Render the committed seed(s): one entity, or several (set intersection/difference)."""
+    if t.get("seeds"):
+        return ", ".join(f"{s['label']} (`{s['uri']}`)" for s in t["seeds"])
+    return f"{t['seed']} (`{t['seed_uri']}`)"
 
 
 def _answer_count(answer) -> str:
@@ -116,7 +129,7 @@ def render(templates: list[dict]) -> str:
         question = t["question"].replace("|", "\\|")
         out.append(
             f"| `{t['type_id']}` | `{t['id']}` | {question} "
-            f"| {t['seed']} (`{t['seed_uri']}`) | {_answer_count(t['answer'])} |"
+            f"| {_format_seed(t)} | {_answer_count(t['answer'])} |"
         )
 
     out += ["", "## Per-template detail", ""]
@@ -128,7 +141,7 @@ def render(templates: list[dict]) -> str:
             "",
             f"**Chain:** {t['chain']}",
             "",
-            f"**Committed seed:** {t['seed']} (`{t['seed_uri']}`)",
+            f"**Committed seed:** {_format_seed(t)}",
             "",
             f"**Scoring:** `{t['scoring']}` · answer column `{t['answer_var']}`",
             "",

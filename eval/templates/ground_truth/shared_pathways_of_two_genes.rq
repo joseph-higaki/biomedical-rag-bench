@@ -1,0 +1,48 @@
+# Authoritative ground-truth record for this template. The registry generator
+# (build_registry.py) copies the block below verbatim into eval/templates/README.md;
+# --verify re-runs the query against GraphDB and asserts the live answer still
+# equals the `answer` set. Keep it in sync with the query (or let --verify catch you).
+#
+# --- registry ---
+# seeds:
+#   - { label: BRCA1, uri: ncbigene:672 }
+#   - { label: BRCA2, uri: ncbigene:675 }
+# chain: Gene --participates--> Pathway, intersected over two genes
+# answer:
+#   - Cell Cycle
+#   - DNA Repair
+#   - Double-Strand Break Repair
+#   - Fanconi Anemia pathway
+#   - Fanconi anemia pathway
+#   - Homologous Recombination Repair
+#   - Integrated Breast Cancer Pathway
+#   - Integrated Pancreatic Cancer Pathway
+#   - Meiosis
+#   - Meiotic recombination
+#   - Signaling Pathways in Glioblastoma
+# --- end registry ---
+#
+# Type 06_set_intersection. The seed pair (BRCA1, BRCA2) is iconic and biologically
+# coherent: both are hereditary breast/ovarian cancer genes acting in
+# homologous-recombination DNA repair, so their pathway overlap is meaningful and
+# bounded (11). NOTE a real data wrinkle: "Fanconi Anemia pathway" and "Fanconi
+# anemia pathway" are two DISTINCT Pathway nodes (different source databases) whose
+# labels differ only in case. The query returns 11 nodes; case-insensitive label
+# dedup would collapse the pair to 10. The set_match judge (build step 5) must decide
+# case sensitivity — recorded here so the choice is deliberate, not accidental. The
+# two VALUES blocks are the substitution points: the producer (step 3) rewrites both
+# URIs with each sampled gene pair; everything else is fixed.
+
+PREFIX hetio: <https://het.io/schema/>
+PREFIX ncbigene: <https://identifiers.org/ncbigene/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?pathway ?pathwayLabel WHERE {
+  VALUES ?geneA { ncbigene:672 }      # BRCA1 — producer rewrites this line
+  VALUES ?geneB { ncbigene:675 }      # BRCA2 — producer rewrites this line
+  ?geneA hetio:participates ?pathway .
+  ?geneB hetio:participates ?pathway .
+  ?pathway a hetio:Pathway ;
+           rdfs:label ?pathwayLabel .
+}
+ORDER BY ?pathwayLabel

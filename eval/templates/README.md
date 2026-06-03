@@ -11,6 +11,7 @@ The `.rq` frontmatter is authoritative for the committed seed and answer; this t
 | `03_2hop_traversal` | `genes_associated_with_compound_treated_diseases` | Which genes are associated with the diseases that {compound} treats? | Tiludronate (`db:DB01133`) | 16 results |
 | `04_3plus_hop_traversal` | `symptoms_of_pharmacologic_class_treated_diseases` | Which symptoms are presented by the diseases treated by compounds in the {drug_class} class? | Sulfonylurea Compounds (`ndfrt:N0000008054`) | 18 results |
 | `05_aggregative` | `count_of_side_effects_caused_by_compound` | How many side effects does {compound} cause? | Streptomycin (`db:DB01082`) | `27` |
+| `06_set_intersection` | `shared_pathways_of_two_genes` | Which pathways do both {gene_a} and {gene_b} participate in? | BRCA1 (`ncbigene:672`), BRCA2 (`ncbigene:675`) | 11 results |
 
 ## Per-template detail
 
@@ -99,4 +100,27 @@ The `.rq` frontmatter is authoritative for the committed seed and answer; this t
 **Scoring:** `numerical` · answer column `n`
 
 **Ground-truth answer:** `27`
+
+### `06_set_intersection` — shared_pathways_of_two_genes
+
+**Question:** Which pathways do both {gene_a} and {gene_b} participate in?
+
+**Chain:** Gene --participates--> Pathway, intersected over two genes
+
+**Committed seed:** BRCA1 (`ncbigene:672`), BRCA2 (`ncbigene:675`)
+
+**Scoring:** `set_match` · answer column `pathwayLabel`
+
+**Ground-truth answer (11):**
+- Cell Cycle
+- DNA Repair
+- Double-Strand Break Repair
+- Fanconi Anemia pathway
+- Fanconi anemia pathway
+- Homologous Recombination Repair
+- Integrated Breast Cancer Pathway
+- Integrated Pancreatic Cancer Pathway
+- Meiosis
+- Meiotic recombination
+- Signaling Pathways in Glioblastoma
 
