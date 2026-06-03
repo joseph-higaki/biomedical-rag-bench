@@ -1,0 +1,42 @@
+# Authoritative ground-truth record for this template. The registry generator
+# (build_registry.py) copies the block below verbatim into eval/templates/README.md;
+# --verify re-runs the query against GraphDB and asserts the live answer still
+# equals the `answer` set. Keep it in sync with the query (or let --verify catch you).
+#
+# --- registry ---
+# seeds:
+#   - { label: BRCA2, uri: ncbigene:675 }
+#   - { label: BRCA1, uri: ncbigene:672 }
+# chain: Gene --participates--> Pathway, set difference (gene_a pathways minus gene_b)
+# answer:
+#   - ATR signaling pathway
+#   - FOXM1 transcription factor network
+#   - Homologous DNA pairing and strand exchange
+#   - Homologous recombination
+#   - Presynaptic phase of homologous DNA pairing and strand exchange
+#   - Validated transcriptional targets of deltaNp63 isoforms
+#   - p73 transcription factor network
+# --- end registry ---
+#
+# Type 07_set_difference. Same iconic pair as the 06 intersection, run as a
+# difference so the two set-operation types are directly comparable on identical
+# entities. gene_a = BRCA2 (minuend), gene_b = BRCA1 (subtrahend): of BRCA2's 18
+# pathways, 11 are shared with BRCA1, leaving 7 unique to BRCA2. The overlap is what
+# makes this a genuine subtraction (H2: a vector retriever must correctly assert
+# BRCA1's NON-participation, which it tends to hallucinate). The two VALUES blocks
+# are the substitution points; the producer (step 3) rewrites both with each sampled
+# gene pair. Order matters — swapping geneA/geneB changes the answer.
+
+PREFIX hetio: <https://het.io/schema/>
+PREFIX ncbigene: <https://identifiers.org/ncbigene/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?pathway ?pathwayLabel WHERE {
+  VALUES ?geneA { ncbigene:675 }      # BRCA2 (minuend) — producer rewrites this line
+  VALUES ?geneB { ncbigene:672 }      # BRCA1 (subtrahend) — producer rewrites this line
+  ?geneA hetio:participates ?pathway .
+  ?pathway a hetio:Pathway ;
+           rdfs:label ?pathwayLabel .
+  FILTER NOT EXISTS { ?geneB hetio:participates ?pathway . }
+}
+ORDER BY ?pathwayLabel

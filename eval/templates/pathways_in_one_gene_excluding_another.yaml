@@ -1,0 +1,38 @@
+# Template: pathways_in_one_gene_excluding_another
+# Type 07_set_difference. Two traversals, complement:
+#   Pathways of gene_a MINUS pathways of gene_b.
+# Answer is the set of pathways gene_a participates in but gene_b does not; scored
+# by set match. The operation is ASYMMETRIC — gene_a is the minuend, gene_b the
+# subtrahend — so placeholder order is significant (unlike the 06 intersection).
+# Primary H2/H3 test: set difference is where vector RAG tends to hallucinate
+# membership ("does gene_b really not participate?"), so the seed is chosen with a
+# genuine overlap, making the difference a real subtraction rather than all of A.
+
+id: pathways_in_one_gene_excluding_another
+type: 07_set_difference
+question: "Which pathways does {gene_a} participate in that {gene_b} does not?"
+
+# Ground truth is graph traversal, expressed as SPARQL. Path is relative to this
+# templates/ directory.
+ground_truth: ground_truth/pathways_in_one_gene_excluding_another.rq
+
+# Two placeholders, co-sampled as a pair, ORDER-SIGNIFICANT. gene_a's pathways are
+# kept; gene_b's are subtracted. For a non-trivial difference the pair should share
+# pathways (else the answer is just gene_a's full set) — another constraint on the
+# step-3 pair sampler, beyond the non-empty-intersection one type 06 introduced.
+placeholders:
+  gene_a:
+    node_type: hetio:Gene
+    sample: paired            # minuend: pathways kept
+    edge: hetio:participates
+    bind_var: geneA           # the ?geneA VALUES variable in the .rq
+    label_into: gene_a        # the {gene_a} token in the question string
+  gene_b:
+    node_type: hetio:Gene
+    sample: paired            # subtrahend: pathways excluded
+    edge: hetio:participates
+    bind_var: geneB           # the ?geneB VALUES variable in the .rq
+    label_into: gene_b        # the {gene_b} token in the question string
+
+scoring: set_match            # order-independent set comparison
+answer_var: pathwayLabel      # which SELECT column carries the ground-truth answer

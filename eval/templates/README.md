@@ -12,6 +12,7 @@ The `.rq` frontmatter is authoritative for the committed seed and answer; this t
 | `04_3plus_hop_traversal` | `symptoms_of_pharmacologic_class_treated_diseases` | Which symptoms are presented by the diseases treated by compounds in the {drug_class} class? | Sulfonylurea Compounds (`ndfrt:N0000008054`) | 18 results |
 | `05_aggregative` | `count_of_side_effects_caused_by_compound` | How many side effects does {compound} cause? | Streptomycin (`db:DB01082`) | `27` |
 | `06_set_intersection` | `shared_pathways_of_two_genes` | Which pathways do both {gene_a} and {gene_b} participate in? | BRCA1 (`ncbigene:672`), BRCA2 (`ncbigene:675`) | 11 results |
+| `07_set_difference` | `pathways_in_one_gene_excluding_another` | Which pathways does {gene_a} participate in that {gene_b} does not? | BRCA2 (`ncbigene:675`), BRCA1 (`ncbigene:672`) | 7 results |
 
 ## Per-template detail
 
@@ -123,4 +124,23 @@ The `.rq` frontmatter is authoritative for the committed seed and answer; this t
 - Meiosis
 - Meiotic recombination
 - Signaling Pathways in Glioblastoma
+
+### `07_set_difference` — pathways_in_one_gene_excluding_another
+
+**Question:** Which pathways does {gene_a} participate in that {gene_b} does not?
+
+**Chain:** Gene --participates--> Pathway, set difference (gene_a pathways minus gene_b)
+
+**Committed seed:** BRCA2 (`ncbigene:675`), BRCA1 (`ncbigene:672`)
+
+**Scoring:** `set_match` · answer column `pathwayLabel`
+
+**Ground-truth answer (7):**
+- ATR signaling pathway
+- FOXM1 transcription factor network
+- Homologous DNA pairing and strand exchange
+- Homologous recombination
+- Presynaptic phase of homologous DNA pairing and strand exchange
+- Validated transcriptional targets of deltaNp63 isoforms
+- p73 transcription factor network
 
