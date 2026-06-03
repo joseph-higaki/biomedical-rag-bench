@@ -1,0 +1,23 @@
+# Ground-truth query for template: genes_associated_with_compound_treated_diseases
+# (type 03_2hop_traversal). Two edges chained:
+#   Compound --treats--> Disease --associates--> Gene
+#
+# The VALUES block is the single substitution point. The eval producer (build step 3)
+# rewrites the URI inside it with each sampled compound; everything else is fixed.
+# Committed with a real full-graph URI (Tiludronate, DB01133) so this file runs
+# standalone in any SPARQL endpoint. Tiludronate treats Paget's disease of bone,
+# which associates 16 genes, so this query should return exactly those 16:
+#   ALPL, ALPP, ALPPL2, BGLAP, CALCA, CSF1, DCSTAMP, INPP5D, NUP205, OPTN,
+#   PML, RIN3, SQSTM1, TNFRSF11A, TNFRSF11B, VCP
+
+PREFIX db: <https://identifiers.org/drugbank/>
+PREFIX hetio: <https://het.io/schema/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?gene ?geneLabel WHERE {
+  VALUES ?compound { db:DB01133 }      # Tiludronate — producer rewrites this line
+  ?compound hetio:treats ?disease .
+  ?disease hetio:associates ?gene .
+  ?gene rdfs:label ?geneLabel .
+}
+ORDER BY ?geneLabel
