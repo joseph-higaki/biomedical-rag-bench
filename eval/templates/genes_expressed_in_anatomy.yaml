@@ -1,10 +1,10 @@
 # Template: genes_expressed_in_anatomy
-# Type 2 (1-hop factoid). Single edge traversal: Anatomy --expresses--> Gene.
+# Type 02_1hop_factoid. Single edge traversal: Anatomy --expresses--> Gene.
 # Answer is the set of genes; scored by set match against the gene labels the
 # ground-truth query returns.
 
 id: genes_expressed_in_anatomy
-type: 2
+type: 02_1hop_factoid
 question: "Which genes are expressed in {anatomy}?"
 
 # Ground truth is graph traversal, expressed as SPARQL. Path is relative to this

@@ -17,18 +17,18 @@ predicted winner. The taxonomy is defined by graph-theoretic complexity, not by
 surface phrasing — two surface-different questions of the same type test the same
 retrieval capability.
 
-| # | Type | Graph operation | Predicted winner | Primary hypothesis |
-|---|------|-----------------|------------------|--------------------|
-| 1 | 0-hop attribute | Node property lookup | Tie / closed-book | H7 |
-| 2 | 1-hop factoid | Single edge traversal | Tie or vector by tokens | H1, H7 |
-| 3 | 2-hop traversal | Two edges chained | Graph | H3 |
-| 4 | 3+ hop traversal | Three or more edges | Graph (decisively) | H3 |
-| 5 | Aggregative (count/min/max) | Aggregation over edges | Graph | H3 |
-| 6 | Set intersection | Two traversals, intersection | Graph | H3 |
-| 7 | Set difference | Two traversals, complement | Graph | H2, H3 |
-| 8 | Negative / unanswerable | Edge does not exist | Graph (vector hallucinates) | H2 |
-| 9 | Path existence | Reachability between nodes | Graph | H3, H6 |
-| 10 | Fuzzy / semantic | No graph operation; matches discourse | Vector | H4 |
+| # | `type_id` | Type | Graph operation | Predicted winner | Primary hypothesis |
+|---|-----------|------|-----------------|------------------|--------------------|
+| 1 | `01_0hop_attribute` | 0-hop attribute | Node property lookup | Tie / closed-book | H7 |
+| 2 | `02_1hop_factoid` | 1-hop factoid | Single edge traversal | Tie or vector by tokens | H1, H7 |
+| 3 | `03_2hop_traversal` | 2-hop traversal | Two edges chained | Graph | H3 |
+| 4 | `04_3plus_hop_traversal` | 3+ hop traversal | Three or more edges | Graph (decisively) | H3 |
+| 5 | `05_aggregative` | Aggregative (count/min/max) | Aggregation over edges | Graph | H3 |
+| 6 | `06_set_intersection` | Set intersection | Two traversals, intersection | Graph | H3 |
+| 7 | `07_set_difference` | Set difference | Two traversals, complement | Graph | H2, H3 |
+| 8 | `08_negative_unanswerable` | Negative / unanswerable | Edge does not exist | Graph (vector hallucinates) | H2 |
+| 9 | `09_path_existence` | Path existence | Reachability between nodes | Graph | H3, H6 |
+| 10 | `10_fuzzy_semantic` | Fuzzy / semantic | No graph operation; matches discourse | Vector | H4 |
 
 **Note on filtered traversal.** Property-predicate filtering on top of edge
 traversal is intentionally absorbed into types 3 and 4. If a template requires
