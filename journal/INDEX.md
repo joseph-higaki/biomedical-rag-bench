@@ -4,15 +4,16 @@ Running log of Claude Code sessions building biomedical-rag-bench. Tracked in gi
 (build-cost / token-usage data, now published). Detailed notes per session live
 in the dated files alongside this one.
 
-> **▶ Resume here (next session).** Build-order **step 2 in progress**: two
-> templates authored + validated against GraphDB (1-hop nasal cavity, 2-hop
-> Tiludronate). Ground truth is now derived from the full graph in GraphDB
-> (decision B), not the smoke slice. Next:
-> (1) author the remaining eight types, starting `04_3plus_hop_traversal`;
-> (2) start the script-generated ground-truth/registry README early (read YAML +
-> execute each `.rq` against GraphDB → generated `eval/templates/README.md`);
-> (3) add a GraphDB query path to `run_query` (the engine-swap seam).
-> Full context: [2026-06-03.md](2026-06-03.md) → "Next steps".
+> **▶ Resume here (next session).** Build-order **step 2 complete**: all ten
+> question types authored, validated against the full GraphDB graph, and listed in
+> the generated registry `eval/templates/README.md` (via `build_registry.py
+> --verify`). Query engine is GraphDB-only; node attributes (chromosome/description/
+> inchikey) now emitted to ground type 01. Next: **step 3 — the eval producer**
+> (sample entities seeded, run each `.rq` via `run_query`, write `questions.jsonl`
+> with ground truth, ~58 questions), resolving the sampling fork
+> (`has_edge`/`lacks_edge`/`paired`; non-empty multi-hop answers; balanced
+> true/false; fuzzy templates hand-authored not sampled).
+> Full context: [2026-06-04.md](2026-06-04.md) → "Next steps".
 
 **Convention.** One file per session, named `YYYY-MM-DD.md` (add `-02`, `-03` for
 multiple sessions in a day). Each session: record the model, fill the token table
@@ -29,6 +30,7 @@ cumulative cost of building the solution.
 | 2026-05-30 | 06 | Claude Opus 4.8 (`claude-opus-4-8`) | 4,391 | 23,317 | 1,193,709 | 97,631 | 1,319,048 | Docs: recorded 9 design decisions — H7, closed-book baseline, ten-type taxonomy + eval/README.md, type-aware scoring (RAGAS dropped), 8-step build order, CLAUDE.md template-gen reconciliation |
 | 2026-06-01 | 07 | Claude Opus 4.8 (`claude-opus-4-8`) | 5,585 | 32,342 | 1,253,796 | 44,668 | 1,336,391 | Step 2 started: declarative YAML template format + separate `.rq` ground-truth query; first template authored (type 2, genes-expressed-in-anatomy), not yet smoke-tested; per-step isolated-smoke checks added to build order; "oracle"→"ground_truth" rename |
 | 2026-06-03 | 08 | Claude Opus 4.8 (`claude-opus-4-8`) | 18,104 | 82,809 | 3,471,047 | 92,231 | 3,664,191 | Step 2: 2-hop template authored (Compound→treats→Disease→associates→Gene); decision B — ground truth derived from full GraphDB, not the smoke slice (slice neighborhoods disjoint); 1-hop re-seeded adrenal→nasal cavity for bounded answer; `type_id` convention; `run_ground_truth.py` runner; README steps 2/3/6 reframed |
+| 2026-06-04 | 09 | Claude Opus 4.8 (`claude-opus-4-8`) | 4,938 | 171,021 | 14,997,091 | 206,240 | 15,379,290 | Step 2 complete: all ten question types authored + validated against full GraphDB; `build_registry.py` registry generator + `--verify`; GraphDB-only query engine (pyoxigraph dropped); `.rq` registry frontmatter (multi-seed); node-attribute transform extension (chromosome/description/inchikey) + full re-ingest to ground type 01 (0-hop attribute) |
 
 > Token figures are summed from the session transcript JSONL (`/cost` output does
 > not reach Claude's context). Cache read is the bulk — full context re-read each
