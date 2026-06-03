@@ -13,6 +13,7 @@ The `.rq` frontmatter is authoritative for the committed seed and answer; this t
 | `05_aggregative` | `count_of_side_effects_caused_by_compound` | How many side effects does {compound} cause? | Streptomycin (`db:DB01082`) | `27` |
 | `06_set_intersection` | `shared_pathways_of_two_genes` | Which pathways do both {gene_a} and {gene_b} participate in? | BRCA1 (`ncbigene:672`), BRCA2 (`ncbigene:675`) | 11 results |
 | `07_set_difference` | `pathways_in_one_gene_excluding_another` | Which pathways does {gene_a} participate in that {gene_b} does not? | BRCA2 (`ncbigene:675`), BRCA1 (`ncbigene:672`) | 7 results |
+| `08_negative_unanswerable` | `diseases_treated_by_compound_negative` | Which diseases does {compound} treat? | Caffeine (`db:DB00201`) | none (negative) |
 
 ## Per-template detail
 
@@ -143,4 +144,16 @@ The `.rq` frontmatter is authoritative for the committed seed and answer; this t
 - Presynaptic phase of homologous DNA pairing and strand exchange
 - Validated transcriptional targets of deltaNp63 isoforms
 - p73 transcription factor network
+
+### `08_negative_unanswerable` — diseases_treated_by_compound_negative
+
+**Question:** Which diseases does {compound} treat?
+
+**Chain:** Compound --treats--> Disease (no such edge for this seed)
+
+**Committed seed:** Caffeine (`db:DB00201`)
+
+**Scoring:** `binary` · answer column `diseaseLabel`
+
+**Ground-truth answer:** none — the queried edge does not exist; the correct response is refusal, not a guess.
 

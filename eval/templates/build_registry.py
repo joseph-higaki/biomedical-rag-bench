@@ -99,11 +99,20 @@ def _format_seed(t: dict) -> str:
 
 
 def _answer_count(answer) -> str:
-    return f"{len(answer)} results" if isinstance(answer, list) else f"`{answer}`"
+    if isinstance(answer, list):
+        # An empty set is the ground truth for a negative/unanswerable question:
+        # the edge does not exist, so the correct response is refusal.
+        return f"{len(answer)} results" if answer else "none (negative)"
+    return f"`{answer}`"
 
 
 def _answer_detail(answer) -> str:
     if isinstance(answer, list):
+        if not answer:
+            return (
+                "**Ground-truth answer:** none — the queried edge does not exist; "
+                "the correct response is refusal, not a guess."
+            )
         header = f"**Ground-truth answer ({len(answer)}):**\n"
         return header + "\n".join(f"- {item}" for item in answer)
     return f"**Ground-truth answer:** `{answer}`"

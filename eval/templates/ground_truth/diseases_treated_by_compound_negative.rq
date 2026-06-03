@@ -1,0 +1,32 @@
+# Authoritative ground-truth record for this template. The registry generator
+# (build_registry.py) copies the block below verbatim into eval/templates/README.md;
+# --verify re-runs the query against GraphDB and asserts the live answer still
+# equals the `answer` set. Keep it in sync with the query (or let --verify catch you).
+#
+# --- registry ---
+# seed: Caffeine
+# seed_uri: db:DB00201
+# chain: Compound --treats--> Disease (no such edge for this seed)
+# answer: []
+# --- end registry ---
+#
+# Type 08_negative_unanswerable. The seed (Caffeine, DB00201) is deliberately
+# recognizable and well-attested — 58 `causes` edges, so real PubMed abstracts exist
+# for the vector retriever — yet it has ZERO `treats` edges, so the query returns the
+# empty set. That is the point: a vector retriever may hallucinate a plausible
+# treated condition ("fatigue", "drowsiness") from the abstracts, while the graph
+# correctly returns nothing (H2). --verify asserts the live result is empty, which
+# also guards that the seed genuinely lacks the edge. The VALUES block is the single
+# substitution point: the producer (step 3) rewrites it with each sampled lacks_edge
+# compound; everything else is fixed.
+
+PREFIX db: <https://identifiers.org/drugbank/>
+PREFIX hetio: <https://het.io/schema/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?disease ?diseaseLabel WHERE {
+  VALUES ?compound { db:DB00201 }      # Caffeine — producer rewrites this line
+  ?compound hetio:treats ?disease .
+  ?disease rdfs:label ?diseaseLabel .
+}
+ORDER BY ?diseaseLabel
