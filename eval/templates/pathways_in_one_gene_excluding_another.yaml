@@ -42,6 +42,6 @@ placeholders:
 
 scoring: set_match            # order-independent set comparison
 answer_var: pathwayLabel      # which SELECT column carries the ground-truth answer
-count: 5                      # instances to sample (type 07 target, eval/README.md)
+count: 5                      # instances to sample
 min_answer: 2                 # the difference must be non-empty (gene_a keeps >=2 unique pathways)
 max_answer: 25                #   ...and bounded so the answer stays enumerable

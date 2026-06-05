@@ -31,4 +31,4 @@ placeholders:
 
 scoring: binary               # refused/"none" vs hallucinated a disease
 answer_var: diseaseLabel      # the SELECT column; empty for this template
-count: 7                      # instances to sample (type 08 target, eval/README.md)
+count: 7                      # instances to sample

@@ -35,5 +35,5 @@ placeholders:
 
 scoring: boolean              # true/false exact match against the ASK result
 answer_var: boolean           # synthetic column carrying the ASK boolean
-count: 4                      # instances to sample (type 09 target, eval/README.md);
+count: 4                      # instances to sample;
                               #   producer splits 2 true / 2 false for label balance

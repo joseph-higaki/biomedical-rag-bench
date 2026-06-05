@@ -28,4 +28,4 @@ placeholders:
 
 scoring: set_match            # order-independent set comparison
 answer_var: geneLabel         # which SELECT column carries the ground-truth answer
-count: 5                      # instances to sample (type 02 target, eval/README.md)
+count: 5                      # instances to sample
