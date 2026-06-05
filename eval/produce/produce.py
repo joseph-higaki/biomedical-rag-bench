@@ -276,6 +276,47 @@ ORDER BY ?e ?label"""
     return list(pool.items())
 
 
+def bridge_candidates(anchor_uri: str, anchor_edge: str, partner: dict, *, exists: bool, endpoint: str) -> list[tuple[str, str]]:
+    """Partners (dis)connected from the anchor through a shared bridge node (type 09).
+
+    Path existence asks whether anchor and partner reach a common node via *different*
+    edges — compound `binds` a gene, disease `associates` that same gene. Unlike 06/07
+    (one shared edge), the two sides use distinct edges, so this is its own query.
+
+    `exists=True`  -> partners that DO share a bridge node (the ASK will be true).
+    `exists=False` -> partners that have their own edge (well-attested) but share NO
+                       bridge with the anchor (the ASK will be false).
+
+    A boolean type needs both, or the label carries no signal. We mirror the .rq's
+    property path (`binds / ^associates`), which applies no node-type filter, so neither
+    do we.
+    """
+    pe, pnt = partner["edge"], partner["node_type"]
+    if exists:
+        body = f"""  <{anchor_uri}> {anchor_edge} ?bridge .
+  ?e {pe} ?bridge ;
+     a {pnt} ;
+     rdfs:label ?label ."""
+    else:
+        body = f"""  ?e a {pnt} ;
+     {pe} ?anyTarget ;
+     rdfs:label ?label .
+  FILTER NOT EXISTS {{
+    <{anchor_uri}> {anchor_edge} ?bridge .
+    ?e {pe} ?bridge .
+  }}"""
+    query = f"""{PREFIXES}
+SELECT DISTINCT ?e ?label WHERE {{
+{body}
+}}
+ORDER BY ?e ?label"""
+    rows = run_query(query, endpoint=endpoint)
+    pool: dict[str, str] = {}
+    for row in rows:
+        pool.setdefault(row["e"], row["label"])
+    return list(pool.items())
+
+
 def _seed_entry(spec: dict, uri: str, label: str) -> dict:
     """One seed binding, carrying label_into for question-text substitution (stripped before write)."""
     return {"bind_var": spec["bind_var"], "label": label, "uri": uri, "label_into": spec["label_into"]}
@@ -345,8 +386,8 @@ def sample_paired(tpl: dict, placeholders: dict, rq_text: str, rng: random.Rando
     if anchor["sample"] != "paired" or partner["sample"] != "paired":
         raise NotImplementedError(f"{tpl['id']}: two-placeholder templates require sample: paired on both")
     if tpl["scoring"] != "set_match":
-        # Boolean path-existence (type 09) is also paired but needs true/false label
-        # balancing rather than answer-size bounding — its own increment.
+        # Boolean path-existence (type 09) is paired too, but routed to
+        # sample_paired_boolean by instantiate before reaching here.
         raise NotImplementedError(f"{tpl['id']}: paired scoring {tpl['scoring']!r} not yet supported")
 
     min_answer = tpl.get("min_answer", 1)
@@ -384,6 +425,57 @@ def sample_paired(tpl: dict, placeholders: dict, rq_text: str, rng: random.Rando
     return instances
 
 
+def sample_paired_boolean(tpl: dict, placeholders: dict, rq_text: str, rng: random.Random, endpoint: str) -> list[dict]:
+    """Two-placeholder boolean sampling (type 09 path existence) with label balance.
+
+    A boolean ground truth is signal-free unless both labels appear, so we sample a
+    balanced mix: `count // 2` pairs whose path exists (true) and the rest whose path
+    does not (false). For each shuffled anchor we draw a partner of the still-needed
+    label via `bridge_candidates(exists=...)`, then run the ASK .rq and store *its*
+    result as ground truth (the .rq stays the source of truth; the bridge query only
+    steers which label we go looking for). One instance per anchor, for variety.
+    """
+    specs = list(placeholders.values())
+    anchor, partner = specs[0], specs[1]
+    need = {True: tpl["count"] // 2, False: tpl["count"] - tpl["count"] // 2}
+
+    anchor_pool = has_edge_candidates(
+        anchor["node_type"], anchor["edge"], endpoint=endpoint, target_type=anchor.get("target_type"),
+    )
+    rng.shuffle(anchor_pool)
+
+    instances = []
+    for a_uri, a_label in anchor_pool:
+        if need[True] + need[False] == 0:
+            break
+        # Prefer filling the true quota first; fall through to false once true is done.
+        for want in (True, False):
+            if need[want] <= 0:
+                continue
+            pool = bridge_candidates(a_uri, anchor["edge"], partner, exists=want, endpoint=endpoint)
+            if not pool:
+                continue
+            b_uri, b_label = rng.choice(pool)
+            query = rewrite_values(rewrite_values(rq_text, anchor["bind_var"], a_uri), partner["bind_var"], b_uri)
+            gt = shape_ground_truth(run_query(query, endpoint=endpoint), tpl["answer_var"], tpl["scoring"])
+            # The ASK must agree with the label we steered toward; if not, the bridge
+            # query and the .rq disagree — skip rather than store a mislabeled pair.
+            if str(gt).lower() != str(want).lower():
+                print(f"  ! {tpl['id']}: ASK={gt} but steered {want} for {a_label}+{b_label}; skipping")
+                continue
+            instances.append(
+                {
+                    "seeds": [_seed_entry(anchor, a_uri, a_label), _seed_entry(partner, b_uri, b_label)],
+                    "ground_truth": gt,
+                }
+            )
+            need[want] -= 1
+            break  # one instance per anchor
+    if need[True] + need[False] > 0:
+        print(f"  ! {tpl['id']}: short by true={need[True]} false={need[False]} of {tpl['count']}")
+    return instances
+
+
 def instantiate(tpl: dict, *, seed: str, endpoint: str) -> list[dict]:
     """Sample entities for one template and return its questions.jsonl records."""
     placeholders = tpl.get("placeholders") or {}
@@ -398,7 +490,10 @@ def instantiate(tpl: dict, *, seed: str, endpoint: str) -> list[dict]:
     if len(placeholders) == 1:
         instances = sample_single(tpl, next(iter(placeholders.values())), rq_text, rng, endpoint)
     elif len(placeholders) == 2:
-        instances = sample_paired(tpl, placeholders, rq_text, rng, endpoint)
+        if tpl["scoring"] == "boolean":
+            instances = sample_paired_boolean(tpl, placeholders, rq_text, rng, endpoint)
+        else:
+            instances = sample_paired(tpl, placeholders, rq_text, rng, endpoint)
     else:
         raise NotImplementedError(f"{tpl['id']}: {len(placeholders)} placeholders not supported")
 

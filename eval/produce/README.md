@@ -305,14 +305,17 @@ seeds)`, so storing it would be redundant bloat.
 
 | Mode | Used by types | Pool constraint |
 |---|---|---|
-| `has_edge` | 01, 02, 05 | node carries `edge`; optional fan bound |
+| `has_edge` (direct) | 01, 02, 05 | node carries `edge`; optional fan bound |
+| `has_edge` + answer post-check | 03, 04 | node carries head `edge`; `.rq` answer kept only if in `[min_answer, max_answer]` |
 | `lacks_edge` | 08 | node lacks `edge` but has `presence_edge` |
 | `paired` | 06, 07 | fan-bounded anchor + partner sharing ≥1 `edge`-target |
+| `paired` boolean | 09 | anchor + partner that share a bridge node (true) or share none (false), balanced |
 
-Type **09** (path existence, boolean) is also paired but needs *true/false label
-balancing* rather than answer-size bounding — its own increment, not yet implemented.
-Type **10** (fuzzy/semantic) is **not sampled**: the answer entity is intentionally
-not named in the question, so those ~6 instances are hand-authored 1:1.
+Type **09** (path existence, boolean) is paired but the two sides traverse *different*
+edges to a shared bridge node, and a boolean needs both labels — so the producer
+samples a balanced true/false mix (see `sample_paired_boolean`). Type **10**
+(fuzzy/semantic) is **not sampled**: the answer entity is intentionally not named in
+the question, so those ~6 instances are hand-authored 1:1.
 
 ### Running it
 
@@ -338,5 +341,5 @@ GraphDB execution seam shared with the registry generator.
 | 3 | `lacks_edge` | 08 | done |
 | 4 | `paired` + anchor fan bound + `target_type` | 06, 07 | done |
 | 5 | multi-hop single placeholder + answer post-check | 03, 04 | done |
-| 6 | `paired` + true/false balance | 09 | pending |
+| 6 | `paired` boolean + true/false balance | 09 | done |
 | — | hand-authored (not sampled) | 10 | pending |
