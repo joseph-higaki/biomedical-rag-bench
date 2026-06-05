@@ -1,4 +1,4 @@
-.PHONY: help hooks test ingest ingest-rdf ingest-vectors ingest-smoke ingest-load up down clean-graphdb
+.PHONY: help hooks test registry ingest ingest-rdf ingest-vectors ingest-smoke ingest-load up down clean-graphdb
 
 help:  ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -44,6 +44,9 @@ ingest-load:  ## Load ontology/hetionet.ttl into GraphDB (clears existing data f
 	curl -i -X POST -H 'Content-Type: text/turtle' \
 	     -T ontology/hetionet.ttl \
 	     'http://localhost:7200/repositories/hetionet/statements'
+
+registry:  ## Regenerate template registry + eval distribution table from YAML (offline)
+	uv run --extra produce python eval/templates/build_registry.py
 
 test:  ## Run the test suite (hermetic — no downloaded data required)
 	uv run --extra ingest pytest
