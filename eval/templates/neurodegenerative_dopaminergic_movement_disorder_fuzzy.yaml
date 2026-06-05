@@ -1,0 +1,20 @@
+# Template: neurodegenerative_dopaminergic_movement_disorder_fuzzy
+# Type 10_fuzzy_semantic. Describes the reference entity (Parkinson's disease) by
+# pathology/discourse — loss of substantia-nigra dopaminergic neurons, resting tremor,
+# rigidity, bradykinesia — without naming it. Vector is predicted to win via the language
+# of the disease's abstracts; the graph has no edge encoding "resting tremor" and may be
+# unable to answer (H4). LLM-judge scored.
+#
+# Ground truth is graph-anchored: the .rq is a trivial label lookup pinning the disease's
+# canonical label (--verify-able), NOT a traversal that answers the discourse question.
+# No placeholders — the producer emits one fixed record.
+
+id: neurodegenerative_dopaminergic_movement_disorder_fuzzy
+type: 10_fuzzy_semantic
+question: "Which neurodegenerative movement disorder arises from the loss of dopaminergic neurons in the substantia nigra and presents with resting tremor, rigidity, and bradykinesia?"
+
+ground_truth: ground_truth/neurodegenerative_dopaminergic_movement_disorder_fuzzy.rq
+
+scoring: semantic             # LLM judge: does the system answer mean this entity?
+answer_var: diseaseLabel      # the reference entity's canonical label
+count: 1                      # 0-placeholder fuzzy template: one fixed reference, one question

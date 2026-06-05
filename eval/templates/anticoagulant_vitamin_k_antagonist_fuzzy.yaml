@@ -1,0 +1,20 @@
+# Template: anticoagulant_vitamin_k_antagonist_fuzzy
+# Type 10_fuzzy_semantic. Describes the reference entity (Warfarin) by mechanism/history
+# — vitamin K antagonist anticoagulant, rodenticide origin, narrow therapeutic window /
+# INR monitoring — without naming it. Vector is predicted to win via the language of
+# Warfarin's abstracts; the graph has no edge encoding "vitamin K antagonist" or "INR
+# monitoring" and may be unable to answer (H4). LLM-judge scored.
+#
+# Ground truth is graph-anchored: the .rq is a trivial label lookup pinning Warfarin's
+# canonical label (--verify-able), NOT a traversal that answers the discourse question.
+# No placeholders — the producer emits one fixed record.
+
+id: anticoagulant_vitamin_k_antagonist_fuzzy
+type: 10_fuzzy_semantic
+question: "Which oral anticoagulant, a vitamin K antagonist first developed as a rodenticide, has a narrow therapeutic window requiring regular INR monitoring?"
+
+ground_truth: ground_truth/anticoagulant_vitamin_k_antagonist_fuzzy.rq
+
+scoring: semantic             # LLM judge: does the system answer mean this entity?
+answer_var: compoundLabel     # the reference entity's canonical label
+count: 1                      # 0-placeholder fuzzy template: one fixed reference, one question

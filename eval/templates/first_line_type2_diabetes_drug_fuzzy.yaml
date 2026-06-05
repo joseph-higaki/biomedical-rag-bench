@@ -1,0 +1,20 @@
+# Template: first_line_type2_diabetes_drug_fuzzy
+# Type 10_fuzzy_semantic. Describes the reference entity (Metformin) by mechanism/origin
+# — first-line type 2 diabetes drug, suppresses hepatic glucose production, biguanide
+# derived from French lilac (Galega officinalis) — without naming it. Vector is predicted
+# to win via the language of Metformin's abstracts; the graph has no edge encoding
+# "first-line for type 2 diabetes" as discourse and may be unable to answer (H4).
+#
+# Ground truth is graph-anchored: the .rq is a trivial label lookup pinning Metformin's
+# canonical label (--verify-able), NOT a traversal that answers the discourse question.
+# No placeholders — the producer emits one fixed record.
+
+id: first_line_type2_diabetes_drug_fuzzy
+type: 10_fuzzy_semantic
+question: "Which first-line oral drug for type 2 diabetes lowers blood glucose mainly by suppressing hepatic glucose production, and derives from a guanidine compound found in French lilac?"
+
+ground_truth: ground_truth/first_line_type2_diabetes_drug_fuzzy.rq
+
+scoring: semantic             # LLM judge: does the system answer mean this entity?
+answer_var: compoundLabel     # the reference entity's canonical label
+count: 1                      # 0-placeholder fuzzy template: one fixed reference, one question

@@ -1,0 +1,27 @@
+# Authoritative ground-truth record for this template. The registry generator
+# (build_registry.py) copies the block below verbatim into eval/templates/README.md;
+# --verify re-runs the query against GraphDB and asserts the live answer still
+# equals the `answer` set. Keep it in sync with the query (or let --verify catch you).
+#
+# --- registry ---
+# seed: Parkinson's disease
+# seed_uri: do:14330
+# chain: reference-entity label lookup (fuzzy/semantic — no traversal derives this answer)
+# answer:
+#   - "Parkinson's disease"
+# --- end registry ---
+#
+# Type 10_fuzzy_semantic. Label lookup pinning the reference entity (Parkinson's
+# disease), NOT an answer-deriving traversal — no edge encodes "resting tremor" (H4).
+# The system answers the natural-language question; an LLM judge scores semantic
+# equivalence to Parkinson's disease (accepting PD / paralysis agitans).
+
+PREFIX do: <http://purl.obolibrary.org/obo/DOID_>
+PREFIX hetio: <https://het.io/schema/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?disease ?diseaseLabel WHERE {
+  VALUES ?disease { do:14330 }        # Parkinson's disease — reference entity, hand-chosen
+  ?disease a hetio:Disease ;
+           rdfs:label ?diseaseLabel .
+}

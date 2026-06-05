@@ -1,0 +1,20 @@
+# Template: neurodegenerative_amyloid_tau_dementia_fuzzy
+# Type 10_fuzzy_semantic. Describes the reference entity (Alzheimer's disease) by
+# pathology/discourse — amyloid-beta plaques, tau neurofibrillary tangles, progressive
+# memory loss — without naming it. Vector is predicted to win via the language of the
+# disease's abstracts; the graph has no edge encoding "amyloid plaques" and may be
+# unable to answer (H4). LLM-judge scored.
+#
+# Ground truth is graph-anchored: the .rq is a trivial label lookup pinning the disease's
+# canonical label (--verify-able), NOT a traversal that answers the discourse question.
+# No placeholders — the producer emits one fixed record.
+
+id: neurodegenerative_amyloid_tau_dementia_fuzzy
+type: 10_fuzzy_semantic
+question: "Which progressive neurodegenerative disorder is characterized by extracellular amyloid-beta plaques and intracellular tau neurofibrillary tangles, leading to gradual memory loss and cognitive decline?"
+
+ground_truth: ground_truth/neurodegenerative_amyloid_tau_dementia_fuzzy.rq
+
+scoring: semantic             # LLM judge: does the system answer mean this entity?
+answer_var: diseaseLabel      # the reference entity's canonical label
+count: 1                      # 0-placeholder fuzzy template: one fixed reference, one question

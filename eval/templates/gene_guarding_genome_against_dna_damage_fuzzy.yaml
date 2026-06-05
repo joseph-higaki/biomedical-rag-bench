@@ -1,0 +1,21 @@
+# Template: gene_guarding_genome_against_dna_damage_fuzzy
+# Type 10_fuzzy_semantic. Describes the reference entity (TP53) by mechanism/discourse
+# — DNA-damage response, cell-cycle arrest/apoptosis, the most-mutated cancer gene —
+# without naming it; identifying it is the task. Vector is predicted to win via the
+# language of TP53's abstracts; the graph has no edge encoding "guardian of the genome"
+# and may be unable to answer (H4). LLM-judge scored (semantic equivalence).
+#
+# Ground truth is graph-anchored per the project constraint: the .rq is a trivial label
+# lookup pinning TP53's canonical label (--verify-able), NOT a traversal that answers
+# the discourse question. No placeholders: the answer entity is intentionally unnamed,
+# so nothing is sampled — the producer emits one fixed record.
+
+id: gene_guarding_genome_against_dna_damage_fuzzy
+type: 10_fuzzy_semantic
+question: "Which gene, often called the \"guardian of the genome,\" halts the cell cycle or triggers apoptosis in response to DNA damage and is the most frequently mutated gene in human cancers?"
+
+ground_truth: ground_truth/gene_guarding_genome_against_dna_damage_fuzzy.rq
+
+scoring: semantic             # LLM judge: does the system answer mean this entity?
+answer_var: geneLabel         # the reference entity's canonical label
+count: 1                      # 0-placeholder fuzzy template: one fixed reference, one question

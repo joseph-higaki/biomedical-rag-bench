@@ -16,7 +16,12 @@ The `.rq` frontmatter is authoritative for the committed seed and answer; this t
 | `07_set_difference` | `pathways_in_one_gene_excluding_another` | Which pathways does {gene_a} participate in that {gene_b} does not? | BRCA2 (`ncbigene:675`), BRCA1 (`ncbigene:672`) | 7 results |
 | `08_negative_unanswerable` | `diseases_treated_by_compound_negative` | Which diseases does {compound} treat? | Caffeine (`db:DB00201`) | none (negative) |
 | `09_path_existence` | `path_between_compound_and_disease_via_gene` | Is there a path from {compound} to {disease} through a gene the compound binds and the disease is associated with? | Tamoxifen (`db:DB00675`), breast cancer (`do:1612`) | `True` |
+| `10_fuzzy_semantic` | `anticoagulant_vitamin_k_antagonist_fuzzy` | Which oral anticoagulant, a vitamin K antagonist first developed as a rodenticide, has a narrow therapeutic window requiring regular INR monitoring? | Warfarin (`db:DB00682`) | 1 results |
+| `10_fuzzy_semantic` | `first_line_type2_diabetes_drug_fuzzy` | Which first-line oral drug for type 2 diabetes lowers blood glucose mainly by suppressing hepatic glucose production, and derives from a guanidine compound found in French lilac? | Metformin (`db:DB00331`) | 1 results |
+| `10_fuzzy_semantic` | `gene_guarding_genome_against_dna_damage_fuzzy` | Which gene, often called the "guardian of the genome," halts the cell cycle or triggers apoptosis in response to DNA damage and is the most frequently mutated gene in human cancers? | TP53 (`ncbigene:7157`) | 1 results |
 | `10_fuzzy_semantic` | `gene_whose_loss_promotes_metastasis_fuzzy` | Which gene's loss promotes tumor metastasis through breakdown of cell-cell adhesion? | CDH1 (`ncbigene:999`) | 1 results |
+| `10_fuzzy_semantic` | `neurodegenerative_amyloid_tau_dementia_fuzzy` | Which progressive neurodegenerative disorder is characterized by extracellular amyloid-beta plaques and intracellular tau neurofibrillary tangles, leading to gradual memory loss and cognitive decline? | Alzheimer's disease (`do:10652`) | 1 results |
+| `10_fuzzy_semantic` | `neurodegenerative_dopaminergic_movement_disorder_fuzzy` | Which neurodegenerative movement disorder arises from the loss of dopaminergic neurons in the substantia nigra and presents with resting tremor, rigidity, and bradykinesia? | Parkinson's disease (`do:14330`) | 1 results |
 
 ## Per-template detail
 
@@ -184,6 +189,45 @@ The `.rq` frontmatter is authoritative for the committed seed and answer; this t
 
 **Ground-truth answer:** `True`
 
+### `10_fuzzy_semantic` — anticoagulant_vitamin_k_antagonist_fuzzy
+
+**Question:** Which oral anticoagulant, a vitamin K antagonist first developed as a rodenticide, has a narrow therapeutic window requiring regular INR monitoring?
+
+**Chain:** reference-entity label lookup (fuzzy/semantic — no traversal derives this answer)
+
+**Committed seed:** Warfarin (`db:DB00682`)
+
+**Scoring:** `semantic` · answer column `compoundLabel`
+
+**Ground-truth answer (1):**
+- Warfarin
+
+### `10_fuzzy_semantic` — first_line_type2_diabetes_drug_fuzzy
+
+**Question:** Which first-line oral drug for type 2 diabetes lowers blood glucose mainly by suppressing hepatic glucose production, and derives from a guanidine compound found in French lilac?
+
+**Chain:** reference-entity label lookup (fuzzy/semantic — no traversal derives this answer)
+
+**Committed seed:** Metformin (`db:DB00331`)
+
+**Scoring:** `semantic` · answer column `compoundLabel`
+
+**Ground-truth answer (1):**
+- Metformin
+
+### `10_fuzzy_semantic` — gene_guarding_genome_against_dna_damage_fuzzy
+
+**Question:** Which gene, often called the "guardian of the genome," halts the cell cycle or triggers apoptosis in response to DNA damage and is the most frequently mutated gene in human cancers?
+
+**Chain:** reference-entity label lookup (fuzzy/semantic — no traversal derives this answer)
+
+**Committed seed:** TP53 (`ncbigene:7157`)
+
+**Scoring:** `semantic` · answer column `geneLabel`
+
+**Ground-truth answer (1):**
+- TP53
+
 ### `10_fuzzy_semantic` — gene_whose_loss_promotes_metastasis_fuzzy
 
 **Question:** Which gene's loss promotes tumor metastasis through breakdown of cell-cell adhesion?
@@ -196,4 +240,30 @@ The `.rq` frontmatter is authoritative for the committed seed and answer; this t
 
 **Ground-truth answer (1):**
 - CDH1
+
+### `10_fuzzy_semantic` — neurodegenerative_amyloid_tau_dementia_fuzzy
+
+**Question:** Which progressive neurodegenerative disorder is characterized by extracellular amyloid-beta plaques and intracellular tau neurofibrillary tangles, leading to gradual memory loss and cognitive decline?
+
+**Chain:** reference-entity label lookup (fuzzy/semantic — no traversal derives this answer)
+
+**Committed seed:** Alzheimer's disease (`do:10652`)
+
+**Scoring:** `semantic` · answer column `diseaseLabel`
+
+**Ground-truth answer (1):**
+- Alzheimer's disease
+
+### `10_fuzzy_semantic` — neurodegenerative_dopaminergic_movement_disorder_fuzzy
+
+**Question:** Which neurodegenerative movement disorder arises from the loss of dopaminergic neurons in the substantia nigra and presents with resting tremor, rigidity, and bradykinesia?
+
+**Chain:** reference-entity label lookup (fuzzy/semantic — no traversal derives this answer)
+
+**Committed seed:** Parkinson's disease (`do:14330`)
+
+**Scoring:** `semantic` · answer column `diseaseLabel`
+
+**Ground-truth answer (1):**
+- Parkinson's disease
 
