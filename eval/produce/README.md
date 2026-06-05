@@ -320,6 +320,7 @@ GraphDB execution seam shared with the registry generator.
 |---|---|---|---|
 | 1–2 | `has_edge` (single placeholder) | 01, 02, 05 | done |
 | 3 | `lacks_edge` | 08 | done |
-| 4 | `paired` + anchor fan bound | 06, 07 | done |
-| 5 | `paired` + true/false balance | 09 | pending |
+| 4 | `paired` + anchor fan bound + `target_type` | 06, 07 | done |
+| 5 | multi-hop single placeholder | 03, 04 | pending — answer-size bound can't come from the head-edge fan (it bounds the wrong hop); needs an answer post-check like `paired` |
+| 6 | `paired` + true/false balance | 09 | pending |
 | — | hand-authored (not sampled) | 10 | pending |
