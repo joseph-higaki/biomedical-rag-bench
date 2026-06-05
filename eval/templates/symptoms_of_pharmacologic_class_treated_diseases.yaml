@@ -33,3 +33,7 @@ placeholders:
 
 scoring: set_match            # order-independent set comparison
 answer_var: symptomLabel      # which SELECT column carries the ground-truth answer
+count: 8                      # instances to sample (type 04 target, eval/README.md)
+min_answer: 2                 # 3-hop answer; the head `includes` fan can't bound it, so
+max_answer: 25                #   the producer post-checks the actual .rq answer size
+                              #   (also rejects empty answers: a chain may terminate dry)

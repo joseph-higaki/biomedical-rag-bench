@@ -282,22 +282,51 @@ def _seed_entry(spec: dict, uri: str, label: str) -> dict:
 
 
 def sample_single(tpl: dict, spec: dict, rq_text: str, rng: random.Random, endpoint: str) -> list[dict]:
-    """Single-placeholder sampling: draw `count` from the candidate pool, run the .rq."""
+    """Single-placeholder sampling: pick entities, run the .rq, emit one record each.
+
+    Two regimes, chosen by whether the template declares answer-size bounds:
+
+    - **Direct** (no `min_answer`/`max_answer`): the sampled edge *is* the answer edge
+      (single hop), so the placeholder's own fan bound already shaped the answer.
+      Draw `count` picks straight from the pool.
+    - **Answer post-check** (`min_answer`/`max_answer` set): the answer is multi-hop —
+      the sampled head edge (e.g. a compound's `treats`) does NOT determine the answer
+      size (the genes two hops downstream), and may even be empty. The fan bound is on
+      the wrong hop. So we shuffle, run the real .rq per candidate, and keep only those
+      whose answer lands in bounds, until `count` are collected. This is the
+      single-placeholder analogue of the bound-check `sample_paired` does.
+    """
     pool = candidate_pool(spec, endpoint=endpoint)
     if not pool:
         sys.exit(f"{tpl['id']}: candidate pool is empty — check node_type/edge")
-    count = min(tpl["count"], len(pool))
-    if count < tpl["count"]:
-        print(f"  ! {tpl['id']}: pool has only {len(pool)} candidates, sampling {count} of {tpl['count']}")
-    instances = []
-    for uri, label in rng.sample(pool, count):
+
+    def make(uri: str, label: str) -> dict:
         rows = run_query(rewrite_values(rq_text, spec["bind_var"], uri), endpoint=endpoint)
-        instances.append(
-            {
-                "seeds": [_seed_entry(spec, uri, label)],
-                "ground_truth": shape_ground_truth(rows, tpl["answer_var"], tpl["scoring"]),
-            }
-        )
+        return {
+            "seeds": [_seed_entry(spec, uri, label)],
+            "ground_truth": shape_ground_truth(rows, tpl["answer_var"], tpl["scoring"]),
+        }
+
+    min_answer = tpl.get("min_answer")
+    max_answer = tpl.get("max_answer")
+    if min_answer is None and max_answer is None:
+        count = min(tpl["count"], len(pool))
+        if count < tpl["count"]:
+            print(f"  ! {tpl['id']}: pool has only {len(pool)} candidates, sampling {count} of {tpl['count']}")
+        return [make(uri, label) for uri, label in rng.sample(pool, count)]
+
+    lo = min_answer if min_answer is not None else 1
+    rng.shuffle(pool)
+    instances = []
+    for uri, label in pool:
+        if len(instances) >= tpl["count"]:
+            break
+        inst = make(uri, label)
+        n = len(inst["ground_truth"])
+        if n >= lo and (max_answer is None or n <= max_answer):
+            instances.append(inst)
+    if len(instances) < tpl["count"]:
+        print(f"  ! {tpl['id']}: found {len(instances)} bounded answers of {tpl['count']} requested")
     return instances
 
 

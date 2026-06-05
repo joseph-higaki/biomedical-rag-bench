@@ -30,3 +30,8 @@ placeholders:
 
 scoring: set_match            # order-independent set comparison
 answer_var: geneLabel         # which SELECT column carries the ground-truth answer
+count: 7                      # instances to sample (type 03 target, eval/README.md)
+min_answer: 2                 # 2-hop answer; the head `treats` fan can't bound it, so
+max_answer: 25                #   the producer post-checks the actual .rq answer size
+                              #   (also rejects empty answers: a treated disease may
+                              #   associate zero genes)

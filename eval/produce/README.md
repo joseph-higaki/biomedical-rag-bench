@@ -153,6 +153,22 @@ The presence constraint matters: a negative about an *unknown* compound is a tri
 treat things in the real world but have no `treats` edge in Hetionet — is a *tempting
 hallucination* for the vector retriever. That tension is the H2 test.
 
+### Multi-hop answers (`has_edge` + an answer post-check)
+
+Types 03 (2-hop) and 04 (3-hop) are single-placeholder `has_edge` templates, but with
+a twist: the sampled head edge does **not** determine the answer. Sampling a compound
+that `treats` something says nothing about how many *genes* are two hops away — a
+treated disease may associate zero genes, or hundreds. So the fan bound (which counts
+the head edge) is on the wrong hop, and `has_edge` alone neither guarantees a non-empty
+answer nor bounds its size.
+
+The fix lives in the producer, not a new candidate query: when a template declares
+`min_answer`/`max_answer`, `sample_single` switches from "take `count` picks directly"
+to "shuffle candidates, run the real `.rq` per candidate, and keep only those whose
+answer lands in bounds, until `count` are collected." Same bound-check shape as
+`paired`. Single-hop types (01/02/05) omit the bounds and use the direct path, because
+there the sampled edge *is* the answer edge and the fan bound already shaped it.
+
 ### Mode `paired` — "two entities with a non-empty intersection/difference"
 
 Used by types 06 (intersection) and 07 (difference). This is the hard one, and where
@@ -321,6 +337,6 @@ GraphDB execution seam shared with the registry generator.
 | 1–2 | `has_edge` (single placeholder) | 01, 02, 05 | done |
 | 3 | `lacks_edge` | 08 | done |
 | 4 | `paired` + anchor fan bound + `target_type` | 06, 07 | done |
-| 5 | multi-hop single placeholder | 03, 04 | pending — answer-size bound can't come from the head-edge fan (it bounds the wrong hop); needs an answer post-check like `paired` |
+| 5 | multi-hop single placeholder + answer post-check | 03, 04 | done |
 | 6 | `paired` + true/false balance | 09 | pending |
 | — | hand-authored (not sampled) | 10 | pending |
