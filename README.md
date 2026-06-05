@@ -58,6 +58,49 @@ Published per release in `.github/release-notes/<version>.md` and on the GitHub 
 
 ## Architecture
 
+The container view (C4 level 2): the three subsystems — ingestion, retrieval, eval —
+the two stores they share, and the external systems. Component-level diagrams for each
+subsystem land with their build steps (retrieval at step 4, eval at step 5).
+
+```mermaid
+flowchart TB
+    researcher(["Researcher<br/>[person]<br/>runs the benchmark, reads findings"])
+
+    subgraph sys[" biomedical-rag-bench "]
+        direction TB
+        ingest["Ingestion<br/>[Python · uv]<br/>Hetionet→RDF · PubMed→vectors"]
+        retrieve["Retrieval<br/>[Python · uv]<br/>graph · vector · closed-book<br/>behind one Retriever interface"]
+        eval["Eval<br/>[Python · uv]<br/>producer → harness → judges → metrics"]
+        graphdb[("GraphDB<br/>[triplestore]<br/>hetionet.ttl")]
+        chroma[("Chroma<br/>[vector store]<br/>abstract embeddings")]
+    end
+
+    hetionet["Hetionet<br/>[external · JSON dataset]"]
+    pubmed["PubMed<br/>[external · NCBI E-utilities]"]
+    llm["Generator LLM + Judge<br/>[external · Anthropic API / local]"]
+
+    researcher -->|"runs eval, reads metrics"| eval
+    hetionet -->|"nodes + edges"| ingest
+    pubmed -->|"abstracts"| ingest
+    ingest -->|"loads hetionet.ttl"| graphdb
+    ingest -->|"writes embeddings"| chroma
+    eval -->|"ground-truth SPARQL"| graphdb
+    retrieve -->|"SPARQL"| graphdb
+    retrieve -->|"similarity search"| chroma
+    eval -->|"invokes per question"| retrieve
+    eval -->|"generates answers, judges fuzzy"| llm
+
+    classDef person fill:#08427b,stroke:#052e56,color:#fff
+    classDef container fill:#1168bd,stroke:#0b4884,color:#fff
+    classDef db fill:#1168bd,stroke:#0b4884,color:#fff
+    classDef ext fill:#999999,stroke:#6b6b6b,color:#fff
+    class researcher person
+    class ingest,retrieve,eval container
+    class graphdb,chroma db
+    class hetionet,pubmed,llm ext
+    style sys fill:none,stroke:#08427b,stroke-dasharray:5 5
+```
+
 ### One interface, many retrievers, one harness
 
 Every retriever — vector, graph, future Neo4j, future OWL-reasoning — implements the same protocol and returns the same shape. The eval harness is retriever-agnostic and calls each in turn against the shared question set.
@@ -207,7 +250,7 @@ Project 1 follows a strict build order — each step validates before the next b
 - [ ] **4. Build the retriever interface and three retrievers.** vector, graph, and closed-book null retriever. All implement the `Retriever` protocol in `retrievers/base.py`. *Isolated smoke: exercise each retriever on one query against the smoke slice and confirm it returns a `RetrievalResult` with populated telemetry.*
 - [ ] **5. Build the eval harness and judges.** Harness loads `questions.jsonl`, runs each retriever + generator against each question, records telemetry. Judges implement a pluggable `Judge` protocol — one per scoring type (set match, numerical, binary, LLM judge for fuzzy/semantic). *Isolated smoke: score known correct/incorrect answer pairs through each judge and confirm expected verdicts.*
   - [ ] *(low priority)* **Shared config module.** The harness is the first script needing `ANTHROPIC_API_KEY`/`GENERATOR_MODEL` alongside `pubmed_fetch.py`'s `NCBI_API_KEY`. Consolidate the per-script `find_dotenv("secrets/.env")` into a `config.py` exposing an immutable `settings` (`from config import settings`), fail-fast on required keys, `.env` as dev-only fallback (`override=False`). Prereq: no package today, so adopt `python -m` invocation (puts repo root on `sys.path`); add `python-dotenv` to the `eval`/`produce` extras. Only worth it once there's a second consumer — don't land dead code.
-  - [ ] **Architecture sequence diagram.** Once producer → harness → judge all exist, add a sequence diagram to the root README Architecture section synthesizing the end-to-end flow (templates → questions.jsonl → retriever+generator → judge → metrics). Keep it in sync as stages evolve.
+  - [ ] **Architecture diagrams.** The container view (C4 level 2) is in the root README Architecture section. Remaining: a Component-level diagram per subsystem in the same flowchart-C4 style (retrieval at step 4, eval here at step 5), and — once producer → harness → judge all exist — a sequence diagram synthesizing the end-to-end flow (templates → questions.jsonl → retriever+generator → judge → metrics). Keep them in sync as stages evolve.
 - [ ] **6. Verify the full eval pipeline on a question subset.** With each piece already validated in isolation (steps 2–5), run the integrated pipeline end-to-end on a small subset of questions (against GraphDB) and confirm metrics are produced for all three retriever conditions.
 - [ ] **7. Scale to full Hetionet and full question set (~58).**
 - [ ] **8. Run eval, calibrate LLM judge, analyze, tag `v1.0.0`, create release, write up findings.**
