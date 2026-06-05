@@ -23,16 +23,25 @@ ground_truth: ground_truth/shared_pathways_of_two_genes.rq
 placeholders:
   gene_a:
     node_type: hetio:Gene
-    sample: paired            # first member of a co-sampled gene pair
+    sample: paired            # first member of a co-sampled gene pair (the anchor)
     edge: hetio:participates
+    target_type: hetio:Pathway  # participates is polymorphic; the .rq counts only Pathways
+    min_fan: 2                # anchor needs >=2 pathways for the overlap to reach min_answer
+    max_fan: 25               # caps |A|, hence the intersection (<= |A|) — no per-partner size rejection
     bind_var: geneA           # the ?geneA VALUES variable in the .rq
     label_into: gene_a        # the {gene_a} token in the question string
   gene_b:
     node_type: hetio:Gene
-    sample: paired            # second member; pair must share >=1 pathway
+    sample: paired            # second member (the partner)
     edge: hetio:participates
+    target_type: hetio:Pathway  # count shared Pathways only, matching the .rq
+    min_overlap: 2            # overlap IS the intersection answer, so this == min_answer:
+                              #   the pairing pool is pre-valid, .rq runs ~once per anchor
     bind_var: geneB           # the ?geneB VALUES variable in the .rq
     label_into: gene_b        # the {gene_b} token in the question string
 
 scoring: set_match            # order-independent set comparison
 answer_var: pathwayLabel      # which SELECT column carries the ground-truth answer
+count: 5                      # instances to sample (type 06 target, eval/README.md)
+min_answer: 2                 # the intersection must be a genuine overlap, not a single pathway
+max_answer: 25                #   ...and bounded so the answer stays enumerable

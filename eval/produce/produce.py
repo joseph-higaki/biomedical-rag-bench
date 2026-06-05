@@ -64,12 +64,19 @@ PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"""
 # meaningless None. `boolean` (type 09 path existence) is the genuine scalar true/false.
 SCALAR_SCORINGS = {"numerical", "string_match", "boolean"}
 
+# Safety net for paired sampling: try at most this many partners per anchor before
+# giving up on it and moving to the next. With a bounded anchor fan the answer-size
+# check almost never rejects, so this cap is rarely reached — it exists so a future
+# template can never reproduce the unbounded-anchor query explosion.
+PARTNER_ATTEMPT_CAP = 200
+
 
 def has_edge_candidates(
     node_type: str,
     edge: str,
     *,
     endpoint: str,
+    target_type: str | None = None,
     min_fan: int | None = None,
     max_fan: int | None = None,
 ) -> list[tuple[str, str]]:
@@ -83,7 +90,14 @@ def has_edge_candidates(
     sampling analogue of step 2 hand-picking bounded seeds; we push the bound into
     the pool rather than rejecting after the fact. ORDER BY fixes a stable pool so
     seeded sampling is reproducible.
+
+    `target_type` constrains the edge's object to a node type, mirroring a type filter
+    in the .rq. This is REQUIRED for polymorphic edges: hetio:participates reaches
+    Pathway, BiologicalProcess, MolecularFunction, and CellularComponent, but the
+    pathway .rq counts only Pathways. Without the filter, the fan count (and any pair
+    overlap) measures the wrong thing and disagrees with the .rq answer.
     """
+    target_constraint = f"\n     ?o a {target_type} ." if target_type else ""
     having = []
     if min_fan is not None:
         having.append(f"COUNT(DISTINCT ?o) >= {min_fan}")
@@ -95,7 +109,7 @@ def has_edge_candidates(
 SELECT ?e ?label (COUNT(DISTINCT ?o) AS ?fan) WHERE {{
   ?e a {node_type} ;
      {edge} ?o ;
-     rdfs:label ?label .
+     rdfs:label ?label .{target_constraint}
 }}
 GROUP BY ?e ?label{having_clause}
 ORDER BY ?e ?label"""
@@ -153,6 +167,7 @@ def candidate_pool(spec: dict, *, endpoint: str) -> list[tuple[str, str]]:
             spec["node_type"],
             spec["edge"],
             endpoint=endpoint,
+            target_type=spec.get("target_type"),
             min_fan=spec.get("min_fan"),
             max_fan=spec.get("max_fan"),
         )
@@ -209,39 +224,160 @@ def load_template(template_id: str) -> dict:
     return tpl
 
 
-def instantiate(tpl: dict, *, seed: str, endpoint: str) -> list[dict]:
-    """Sample entities for one template and return its questions.jsonl records."""
-    placeholders = tpl.get("placeholders") or {}
-    if len(placeholders) != 1:
-        raise NotImplementedError(
-            f"{tpl['id']}: {len(placeholders)} placeholders — increment 1 supports "
-            "single-placeholder has_edge templates only"
-        )
-    name, spec = next(iter(placeholders.items()))
-    if "count" not in tpl:
-        sys.exit(f"{tpl['id']}: template is missing a `count:` field")
+def paired_candidates(
+    anchor_uri: str,
+    partner: dict,
+    *,
+    endpoint: str,
+    target_type: str | None = None,
+    min_overlap: int | None = None,
+    max_overlap: int | None = None,
+) -> list[tuple[str, str]]:
+    """Partners sharing `edge`-targets with the anchor, within an overlap bound.
 
+    The structurally hard part of pair sampling: two random genes almost never share
+    a pathway, so blind pairing would reject endlessly. This query returns only genes
+    that co-participate in the anchor's targets, collapsing the O(n^2) pair space to a
+    small valid set.
+
+    `min_overlap`/`max_overlap` (declared per template on the partner placeholder)
+    bound how many targets the pair must share, via HAVING. This is what keeps the
+    per-partner answer check from churning: type 06 sets `min_overlap: 2` because the
+    overlap *is* the intersection answer, so every returned partner already clears the
+    `min_answer` floor and the .rq runs about once per anchor. Crucially the producer
+    stays type-agnostic — it just enforces whatever overlap the *template* declares; it
+    never computes the answer from the overlap. The .rq remains the single source of
+    the stored ground truth.
+    """
+    having = []
+    if min_overlap is not None:
+        having.append(f"COUNT(DISTINCT ?shared) >= {min_overlap}")
+    if max_overlap is not None:
+        having.append(f"COUNT(DISTINCT ?shared) <= {max_overlap}")
+    having_clause = f"\nHAVING ({' && '.join(having)})" if having else ""
+
+    # Mirror the .rq's object-type filter so the overlap count matches the actual
+    # intersection (see has_edge_candidates: participates is polymorphic).
+    target_constraint = f"\n  ?shared a {target_type} ." if target_type else ""
+    query = f"""{PREFIXES}
+SELECT ?e ?label (COUNT(DISTINCT ?shared) AS ?overlap) WHERE {{
+  <{anchor_uri}> {partner['edge']} ?shared .
+  ?e {partner['edge']} ?shared ;
+     a {partner['node_type']} ;
+     rdfs:label ?label .{target_constraint}
+  FILTER (?e != <{anchor_uri}>)
+}}
+GROUP BY ?e ?label{having_clause}
+ORDER BY ?e ?label"""
+    rows = run_query(query, endpoint=endpoint)
+    pool: dict[str, str] = {}
+    for row in rows:
+        pool.setdefault(row["e"], row["label"])
+    return list(pool.items())
+
+
+def _seed_entry(spec: dict, uri: str, label: str) -> dict:
+    """One seed binding, carrying label_into for question-text substitution (stripped before write)."""
+    return {"bind_var": spec["bind_var"], "label": label, "uri": uri, "label_into": spec["label_into"]}
+
+
+def sample_single(tpl: dict, spec: dict, rq_text: str, rng: random.Random, endpoint: str) -> list[dict]:
+    """Single-placeholder sampling: draw `count` from the candidate pool, run the .rq."""
     pool = candidate_pool(spec, endpoint=endpoint)
     if not pool:
         sys.exit(f"{tpl['id']}: candidate pool is empty — check node_type/edge")
+    count = min(tpl["count"], len(pool))
+    if count < tpl["count"]:
+        print(f"  ! {tpl['id']}: pool has only {len(pool)} candidates, sampling {count} of {tpl['count']}")
+    instances = []
+    for uri, label in rng.sample(pool, count):
+        rows = run_query(rewrite_values(rq_text, spec["bind_var"], uri), endpoint=endpoint)
+        instances.append(
+            {
+                "seeds": [_seed_entry(spec, uri, label)],
+                "ground_truth": shape_ground_truth(rows, tpl["answer_var"], tpl["scoring"]),
+            }
+        )
+    return instances
+
+
+def sample_paired(tpl: dict, placeholders: dict, rq_text: str, rng: random.Random, endpoint: str) -> list[dict]:
+    """Two-placeholder sampling (types 06/07): anchor + overlap-constrained partner.
+
+    Insertion order is significant: the first placeholder is the anchor (geneA /
+    minuend), the second the partner (geneB / subtrahend). For each shuffled anchor we
+    draw the first partner whose actual answer (intersection or difference, from the
+    .rq) lands in [min_answer, max_answer]; overlap is already guaranteed, so this only
+    filters answer *size*, not validity. One anchor yields at most one instance, for
+    entity variety.
+    """
+    specs = list(placeholders.values())
+    anchor, partner = specs[0], specs[1]
+    if anchor["sample"] != "paired" or partner["sample"] != "paired":
+        raise NotImplementedError(f"{tpl['id']}: two-placeholder templates require sample: paired on both")
+    if tpl["scoring"] != "set_match":
+        # Boolean path-existence (type 09) is also paired but needs true/false label
+        # balancing rather than answer-size bounding — its own increment.
+        raise NotImplementedError(f"{tpl['id']}: paired scoring {tpl['scoring']!r} not yet supported")
+
+    min_answer = tpl.get("min_answer", 1)
+    max_answer = tpl.get("max_answer")
+    anchor_pool = has_edge_candidates(
+        anchor["node_type"], anchor["edge"], endpoint=endpoint,
+        target_type=anchor.get("target_type"),
+        min_fan=anchor.get("min_fan"), max_fan=anchor.get("max_fan"),
+    )
+    rng.shuffle(anchor_pool)
+
+    instances = []
+    for a_uri, a_label in anchor_pool:
+        if len(instances) >= tpl["count"]:
+            break
+        partner_pool = paired_candidates(
+            a_uri, partner, endpoint=endpoint,
+            target_type=partner.get("target_type"),
+            min_overlap=partner.get("min_overlap"), max_overlap=partner.get("max_overlap"),
+        )
+        rng.shuffle(partner_pool)
+        for b_uri, b_label in partner_pool[:PARTNER_ATTEMPT_CAP]:
+            query = rewrite_values(rewrite_values(rq_text, anchor["bind_var"], a_uri), partner["bind_var"], b_uri)
+            gt = shape_ground_truth(run_query(query, endpoint=endpoint), tpl["answer_var"], tpl["scoring"])
+            if len(gt) >= min_answer and (max_answer is None or len(gt) <= max_answer):
+                instances.append(
+                    {
+                        "seeds": [_seed_entry(anchor, a_uri, a_label), _seed_entry(partner, b_uri, b_label)],
+                        "ground_truth": gt,
+                    }
+                )
+                break  # one partner per anchor — move on for variety
+    if len(instances) < tpl["count"]:
+        print(f"  ! {tpl['id']}: found {len(instances)} bounded pairs of {tpl['count']} requested")
+    return instances
+
+
+def instantiate(tpl: dict, *, seed: str, endpoint: str) -> list[dict]:
+    """Sample entities for one template and return its questions.jsonl records."""
+    placeholders = tpl.get("placeholders") or {}
+    if "count" not in tpl:
+        sys.exit(f"{tpl['id']}: template is missing a `count:` field")
 
     # Per-template RNG keyed on (seed, template_id): adding or reordering templates
     # never reshuffles another template's draws.
     rng = random.Random(f"{seed}:{tpl['id']}")
-    count = min(tpl["count"], len(pool))
-    if count < tpl["count"]:
-        print(
-            f"  ! {tpl['id']}: pool has only {len(pool)} candidates, "
-            f"sampling {count} of requested {tpl['count']}"
-        )
-    picks = rng.sample(pool, count)
-
     rq_text = tpl["_rq_path"].read_text()
+
+    if len(placeholders) == 1:
+        instances = sample_single(tpl, next(iter(placeholders.values())), rq_text, rng, endpoint)
+    elif len(placeholders) == 2:
+        instances = sample_paired(tpl, placeholders, rq_text, rng, endpoint)
+    else:
+        raise NotImplementedError(f"{tpl['id']}: {len(placeholders)} placeholders not supported")
+
     records = []
-    for i, (uri, label) in enumerate(picks):
-        query = rewrite_values(rq_text, spec["bind_var"], uri)
-        rows = run_query(query, endpoint=endpoint)
-        question = tpl["question"].replace(f"{{{spec['label_into']}}}", label)
+    for i, inst in enumerate(instances):
+        question = tpl["question"]
+        for s in inst["seeds"]:
+            question = question.replace(f"{{{s['label_into']}}}", s["label"])
         records.append(
             {
                 "question_id": f"{tpl['type']}__{tpl['id']}__{i:02d}",
@@ -250,8 +386,9 @@ def instantiate(tpl: dict, *, seed: str, endpoint: str) -> list[dict]:
                 "question": question,
                 "scoring": tpl["scoring"],
                 "answer_var": tpl["answer_var"],
-                "ground_truth": shape_ground_truth(rows, tpl["answer_var"], tpl["scoring"]),
-                "seeds": [{"bind_var": spec["bind_var"], "label": label, "uri": uri}],
+                "ground_truth": inst["ground_truth"],
+                # Strip the internal label_into; it's a substitution aid, not provenance.
+                "seeds": [{k: s[k] for k in ("bind_var", "label", "uri")} for s in inst["seeds"]],
                 "sampling_seed": f"{seed}:{tpl['id']}",
             }
         )
