@@ -322,6 +322,19 @@ def _seed_entry(spec: dict, uri: str, label: str) -> dict:
     return {"bind_var": spec["bind_var"], "label": label, "uri": uri, "label_into": spec["label_into"]}
 
 
+def sample_fixed(tpl: dict, rq_text: str, endpoint: str) -> list[dict]:
+    """No-placeholder template (type 10 fuzzy): nothing is sampled.
+
+    The reference entity is hand-chosen inside the .rq (a label lookup), not drawn from
+    the graph — identifying the unnamed entity from the discourse is the task, so the
+    question text has no blank to fill. We run the .rq once and emit a single record;
+    the ground truth is the reference label the lookup returns. These templates are
+    `count: 1` by definition (one fixed reference apiece).
+    """
+    rows = run_query(rq_text, endpoint=endpoint)
+    return [{"seeds": [], "ground_truth": shape_ground_truth(rows, tpl["answer_var"], tpl["scoring"])}]
+
+
 def sample_single(tpl: dict, spec: dict, rq_text: str, rng: random.Random, endpoint: str) -> list[dict]:
     """Single-placeholder sampling: pick entities, run the .rq, emit one record each.
 
@@ -487,7 +500,9 @@ def instantiate(tpl: dict, *, seed: str, endpoint: str) -> list[dict]:
     rng = random.Random(f"{seed}:{tpl['id']}")
     rq_text = tpl["_rq_path"].read_text()
 
-    if len(placeholders) == 1:
+    if len(placeholders) == 0:
+        instances = sample_fixed(tpl, rq_text, endpoint)
+    elif len(placeholders) == 1:
         instances = sample_single(tpl, next(iter(placeholders.values())), rq_text, rng, endpoint)
     elif len(placeholders) == 2:
         if tpl["scoring"] == "boolean":

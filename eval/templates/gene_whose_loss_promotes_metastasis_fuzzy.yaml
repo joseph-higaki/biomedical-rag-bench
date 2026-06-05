@@ -30,3 +30,4 @@ ground_truth: ground_truth/gene_whose_loss_promotes_metastasis_fuzzy.rq
 
 scoring: semantic             # LLM judge: does the system answer mean this entity?
 answer_var: geneLabel         # the reference entity's canonical label
+count: 1                      # 0-placeholder fuzzy template: one fixed reference, one question
