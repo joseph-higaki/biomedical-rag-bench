@@ -24,8 +24,11 @@ placeholders:
     node_type: hetio:Compound
     sample: lacks_edge        # draw a compound with NO treats edge (empty answer)
     edge: hetio:treats        #   ...the absent edge under test
+    presence_edge: hetio:causes  # but it MUST have side effects: a real, studied drug
+    min_presence_fan: 10      #   ...with enough that it's a tempting hallucination, not a trivial unknown
     bind_var: compound        # the ?compound VALUES variable in the .rq
     label_into: compound      # the {compound} token in the question string
 
 scoring: binary               # refused/"none" vs hallucinated a disease
 answer_var: diseaseLabel      # the SELECT column; empty for this template
+count: 7                      # instances to sample (type 08 target, eval/README.md)

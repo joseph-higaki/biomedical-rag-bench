@@ -58,7 +58,10 @@ PREFIX hetio: <https://het.io/schema/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"""
 
 # Scoring types whose ground truth is a single value, not a set. Everything else
-# (set_match, semantic) is stored as a sorted list.
+# (set_match, binary, semantic) is stored as a sorted list. `binary` (type 08
+# negative) is a list on purpose: its ground truth is the *empty* set — the correct
+# response is refusal — and [] carries that, whereas a scalar would flatten it to a
+# meaningless None. `boolean` (type 09 path existence) is the genuine scalar true/false.
 SCALAR_SCORINGS = {"numerical", "string_match", "boolean"}
 
 
@@ -105,6 +108,72 @@ ORDER BY ?e ?label"""
     return list(pool.items())
 
 
+def lacks_edge_candidates(
+    node_type: str,
+    edge: str,
+    presence_edge: str,
+    *,
+    endpoint: str,
+    min_presence_fan: int | None = None,
+) -> list[tuple[str, str]]:
+    """Return (uri, label) for nodes of `node_type` that LACK `edge` but carry `presence_edge`.
+
+    The `lacks_edge` sample mode's candidate query (type 08 negative). `FILTER NOT
+    EXISTS` on `edge` makes the ground-truth answer provably empty — the point of a
+    negative question. The `presence_edge` requirement keeps the entity well-attested
+    (e.g. a Compound with side effects, hence real PubMed abstracts), so the negative
+    is a *tempting hallucination* for the vector retriever rather than a trivial
+    unknown-entity case (H2). `min_presence_fan` raises that bar to genuinely studied
+    entities. Pushing both constraints into the pool keeps sampling rejection-free.
+    """
+    having = (
+        f"\nHAVING (COUNT(DISTINCT ?p) >= {min_presence_fan})" if min_presence_fan else ""
+    )
+    query = f"""{PREFIXES}
+SELECT ?e ?label (COUNT(DISTINCT ?p) AS ?pfan) WHERE {{
+  ?e a {node_type} ;
+     {presence_edge} ?p ;
+     rdfs:label ?label .
+  FILTER NOT EXISTS {{ ?e {edge} ?x }}
+}}
+GROUP BY ?e ?label{having}
+ORDER BY ?e ?label"""
+    rows = run_query(query, endpoint=endpoint)
+    pool: dict[str, str] = {}
+    for row in rows:
+        pool.setdefault(row["e"], row["label"])
+    return list(pool.items())
+
+
+def candidate_pool(spec: dict, *, endpoint: str) -> list[tuple[str, str]]:
+    """Dispatch a single-placeholder spec to its sample mode's candidate query."""
+    mode = spec["sample"]
+    if mode == "has_edge":
+        return has_edge_candidates(
+            spec["node_type"],
+            spec["edge"],
+            endpoint=endpoint,
+            min_fan=spec.get("min_fan"),
+            max_fan=spec.get("max_fan"),
+        )
+    if mode == "lacks_edge":
+        if "presence_edge" not in spec:
+            sys.exit(
+                f"lacks_edge placeholder needs a `presence_edge` so the entity stays "
+                "well-attested (a tempting hallucination, not a trivial unknown)"
+            )
+        return lacks_edge_candidates(
+            spec["node_type"],
+            spec["edge"],
+            spec["presence_edge"],
+            endpoint=endpoint,
+            min_presence_fan=spec.get("min_presence_fan"),
+        )
+    raise NotImplementedError(
+        f"sample mode {mode!r} not yet supported (single-placeholder has_edge/lacks_edge only)"
+    )
+
+
 def rewrite_values(query_text: str, bind_var: str, uri: str) -> str:
     """Replace `VALUES ?<bind_var> { ... }` with the sampled URI as a full IRI.
 
@@ -149,21 +218,10 @@ def instantiate(tpl: dict, *, seed: str, endpoint: str) -> list[dict]:
             "single-placeholder has_edge templates only"
         )
     name, spec = next(iter(placeholders.items()))
-    if spec["sample"] != "has_edge":
-        raise NotImplementedError(
-            f"{tpl['id']}: sample mode {spec['sample']!r} not yet supported "
-            "(increment 1 = has_edge)"
-        )
     if "count" not in tpl:
         sys.exit(f"{tpl['id']}: template is missing a `count:` field")
 
-    pool = has_edge_candidates(
-        spec["node_type"],
-        spec["edge"],
-        endpoint=endpoint,
-        min_fan=spec.get("min_fan"),
-        max_fan=spec.get("max_fan"),
-    )
+    pool = candidate_pool(spec, endpoint=endpoint)
     if not pool:
         sys.exit(f"{tpl['id']}: candidate pool is empty — check node_type/edge")
 
