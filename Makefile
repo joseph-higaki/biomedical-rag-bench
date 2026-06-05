@@ -1,4 +1,4 @@
-.PHONY: help hooks test registry ingest ingest-rdf ingest-vectors ingest-smoke ingest-load up down clean-graphdb
+.PHONY: help hooks test registry explain ingest ingest-rdf ingest-vectors ingest-smoke ingest-load up down clean-graphdb
 
 help:  ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -47,6 +47,9 @@ ingest-load:  ## Load ontology/hetionet.ttl into GraphDB (clears existing data f
 
 registry:  ## Regenerate template registry + eval distribution table from YAML (offline)
 	uv run --extra produce python eval/templates/build_registry.py
+
+explain:  ## Regenerate producer worked examples (eval/produce/EXAMPLE.md) — needs GraphDB + full graph
+	uv run --extra produce python eval/produce/produce.py --explain --out eval/produce/EXAMPLE.md
 
 test:  ## Run the test suite (hermetic — no downloaded data required)
 	uv run --extra ingest pytest

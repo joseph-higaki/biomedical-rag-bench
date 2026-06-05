@@ -11,7 +11,10 @@ Related docs: [`eval/README.md`](../README.md) owns the question *taxonomy*, tar
 *distribution*, and *scoring* strategy (the "what" and "why" of the eval design);
 this file owns the *production mechanism* (the "how"). The generated
 [`eval/templates/README.md`](../templates/README.md) is the human-readable registry
-of each template's committed example seed and answer.
+of each template's committed example seed and answer. For a concrete end-to-end
+trace of the mechanism described here — candidate query, seeded pick, instantiated
+query, answer, record — see the generated [`EXAMPLE.md`](EXAMPLE.md), one worked
+example per question type.
 
 ---
 
@@ -332,6 +335,22 @@ GraphDB (the full Hetionet graph) must be running; override the endpoint with
 `--endpoint` or `GRAPHDB_ENDPOINT`. The producer reuses `run_query` from
 [`eval/templates/run_ground_truth.py`](../templates/run_ground_truth.py) — the single
 GraphDB execution seam shared with the registry generator.
+
+### Worked examples (`--explain`)
+
+`--explain` emits a markdown trace instead of producing questions — for each template
+it shows the candidate query that defines the sampling pool, the seeded pick, the
+instantiated ground-truth query, the answer, and the emitted record. It reuses the
+real production path (`instantiate` plus the same `*_query` builders), so the trace
+cannot drift from what the producer actually runs. Like production, it needs GraphDB.
+
+```bash
+# Trace one template to stdout (ad-hoc debugging on any template):
+uv run --extra produce python eval/produce/produce.py --explain --template shared_pathways_of_two_genes
+
+# Regenerate the committed EXAMPLE.md (one trace per type):
+make explain
+```
 
 ### Validating the output
 

@@ -20,12 +20,16 @@ for the paired types (06/07/09) where random pairs almost never satisfy the
 constraint; it also makes seeded sampling deterministic (the pool is fixed, so the
 RNG draws reproducibly).
 
-INCREMENT 1 supports only single-placeholder `has_edge` templates (types 01/02/05).
-`lacks_edge` and `paired` raise NotImplementedError until their increments land, so
-the supported surface is explicit.
+All sample modes are supported: single-placeholder `has_edge` (01/02/05, with an
+optional multi-hop answer post-check for 03/04), `lacks_edge` (08), `paired` set
+(06/07), `paired` boolean (09), and 0-placeholder fixed (10). See the build-increment
+table in eval/produce/README.md.
 
     uv run --extra produce python eval/produce/produce.py \\
         --template genes_expressed_in_anatomy --out /tmp/q.jsonl
+
+`--explain` emits a markdown worked-example trace (candidate query, seeded pick,
+instantiated query, answer, record) instead of producing questions; see `make explain`.
 """
 from __future__ import annotations
 
@@ -71,6 +75,48 @@ SCALAR_SCORINGS = {"numerical", "string_match", "boolean"}
 PARTNER_ATTEMPT_CAP = 200
 
 
+def _run_pool(query: str, *, endpoint: str) -> list[tuple[str, str]]:
+    """Run a candidate query and dedup its rows to (uri, label) pairs.
+
+    Every sample mode's candidate query selects `?e` (entity URI) and `?label` and is
+    `ORDER BY`'d, so keeping the first label per entity is deterministic. Shared by all
+    four candidate queries so the dedup rule lives in one place.
+    """
+    pool: dict[str, str] = {}
+    for row in run_query(query, endpoint=endpoint):
+        pool.setdefault(row["e"], row["label"])
+    return list(pool.items())
+
+
+def has_edge_query(
+    node_type: str,
+    edge: str,
+    *,
+    target_type: str | None = None,
+    min_fan: int | None = None,
+    max_fan: int | None = None,
+) -> str:
+    """Build the `has_edge` candidate query. See `has_edge_candidates` for the rationale.
+
+    Split from execution so `--explain` can display the exact SPARQL the producer runs.
+    """
+    target_constraint = f"\n     ?o a {target_type} ." if target_type else ""
+    having = []
+    if min_fan is not None:
+        having.append(f"COUNT(DISTINCT ?o) >= {min_fan}")
+    if max_fan is not None:
+        having.append(f"COUNT(DISTINCT ?o) <= {max_fan}")
+    having_clause = f"\nHAVING ({' && '.join(having)})" if having else ""
+    return f"""{PREFIXES}
+SELECT ?e ?label (COUNT(DISTINCT ?o) AS ?fan) WHERE {{
+  ?e a {node_type} ;
+     {edge} ?o ;
+     rdfs:label ?label .{target_constraint}
+}}
+GROUP BY ?e ?label{having_clause}
+ORDER BY ?e ?label"""
+
+
 def has_edge_candidates(
     node_type: str,
     edge: str,
@@ -97,29 +143,32 @@ def has_edge_candidates(
     pathway .rq counts only Pathways. Without the filter, the fan count (and any pair
     overlap) measures the wrong thing and disagrees with the .rq answer.
     """
-    target_constraint = f"\n     ?o a {target_type} ." if target_type else ""
-    having = []
-    if min_fan is not None:
-        having.append(f"COUNT(DISTINCT ?o) >= {min_fan}")
-    if max_fan is not None:
-        having.append(f"COUNT(DISTINCT ?o) <= {max_fan}")
-    having_clause = f"\nHAVING ({' && '.join(having)})" if having else ""
+    return _run_pool(
+        has_edge_query(node_type, edge, target_type=target_type, min_fan=min_fan, max_fan=max_fan),
+        endpoint=endpoint,
+    )
 
-    query = f"""{PREFIXES}
-SELECT ?e ?label (COUNT(DISTINCT ?o) AS ?fan) WHERE {{
+
+def lacks_edge_query(
+    node_type: str,
+    edge: str,
+    presence_edge: str,
+    *,
+    min_presence_fan: int | None = None,
+) -> str:
+    """Build the `lacks_edge` candidate query. See `lacks_edge_candidates` for the rationale."""
+    having = (
+        f"\nHAVING (COUNT(DISTINCT ?p) >= {min_presence_fan})" if min_presence_fan else ""
+    )
+    return f"""{PREFIXES}
+SELECT ?e ?label (COUNT(DISTINCT ?p) AS ?pfan) WHERE {{
   ?e a {node_type} ;
-     {edge} ?o ;
-     rdfs:label ?label .{target_constraint}
+     {presence_edge} ?p ;
+     rdfs:label ?label .
+  FILTER NOT EXISTS {{ ?e {edge} ?x }}
 }}
-GROUP BY ?e ?label{having_clause}
+GROUP BY ?e ?label{having}
 ORDER BY ?e ?label"""
-    rows = run_query(query, endpoint=endpoint)
-    # A node could in principle carry more than one label; keep the first (the pool
-    # is sorted, so "first" is deterministic).
-    pool: dict[str, str] = {}
-    for row in rows:
-        pool.setdefault(row["e"], row["label"])
-    return list(pool.items())
 
 
 def lacks_edge_candidates(
@@ -140,23 +189,10 @@ def lacks_edge_candidates(
     unknown-entity case (H2). `min_presence_fan` raises that bar to genuinely studied
     entities. Pushing both constraints into the pool keeps sampling rejection-free.
     """
-    having = (
-        f"\nHAVING (COUNT(DISTINCT ?p) >= {min_presence_fan})" if min_presence_fan else ""
+    return _run_pool(
+        lacks_edge_query(node_type, edge, presence_edge, min_presence_fan=min_presence_fan),
+        endpoint=endpoint,
     )
-    query = f"""{PREFIXES}
-SELECT ?e ?label (COUNT(DISTINCT ?p) AS ?pfan) WHERE {{
-  ?e a {node_type} ;
-     {presence_edge} ?p ;
-     rdfs:label ?label .
-  FILTER NOT EXISTS {{ ?e {edge} ?x }}
-}}
-GROUP BY ?e ?label{having}
-ORDER BY ?e ?label"""
-    rows = run_query(query, endpoint=endpoint)
-    pool: dict[str, str] = {}
-    for row in rows:
-        pool.setdefault(row["e"], row["label"])
-    return list(pool.items())
 
 
 def candidate_pool(spec: dict, *, endpoint: str) -> list[tuple[str, str]]:
@@ -224,6 +260,38 @@ def load_template(template_id: str) -> dict:
     return tpl
 
 
+def paired_query(
+    anchor_uri: str,
+    partner_edge: str,
+    partner_node_type: str,
+    *,
+    target_type: str | None = None,
+    min_overlap: int | None = None,
+    max_overlap: int | None = None,
+) -> str:
+    """Build the `paired` overlap candidate query. See `paired_candidates` for the rationale."""
+    having = []
+    if min_overlap is not None:
+        having.append(f"COUNT(DISTINCT ?shared) >= {min_overlap}")
+    if max_overlap is not None:
+        having.append(f"COUNT(DISTINCT ?shared) <= {max_overlap}")
+    having_clause = f"\nHAVING ({' && '.join(having)})" if having else ""
+
+    # Mirror the .rq's object-type filter so the overlap count matches the actual
+    # intersection (see has_edge_query: participates is polymorphic).
+    target_constraint = f"\n  ?shared a {target_type} ." if target_type else ""
+    return f"""{PREFIXES}
+SELECT ?e ?label (COUNT(DISTINCT ?shared) AS ?overlap) WHERE {{
+  <{anchor_uri}> {partner_edge} ?shared .
+  ?e {partner_edge} ?shared ;
+     a {partner_node_type} ;
+     rdfs:label ?label .{target_constraint}
+  FILTER (?e != <{anchor_uri}>)
+}}
+GROUP BY ?e ?label{having_clause}
+ORDER BY ?e ?label"""
+
+
 def paired_candidates(
     anchor_uri: str,
     partner: dict,
@@ -249,31 +317,36 @@ def paired_candidates(
     never computes the answer from the overlap. The .rq remains the single source of
     the stored ground truth.
     """
-    having = []
-    if min_overlap is not None:
-        having.append(f"COUNT(DISTINCT ?shared) >= {min_overlap}")
-    if max_overlap is not None:
-        having.append(f"COUNT(DISTINCT ?shared) <= {max_overlap}")
-    having_clause = f"\nHAVING ({' && '.join(having)})" if having else ""
+    return _run_pool(
+        paired_query(
+            anchor_uri, partner["edge"], partner["node_type"],
+            target_type=target_type, min_overlap=min_overlap, max_overlap=max_overlap,
+        ),
+        endpoint=endpoint,
+    )
 
-    # Mirror the .rq's object-type filter so the overlap count matches the actual
-    # intersection (see has_edge_candidates: participates is polymorphic).
-    target_constraint = f"\n  ?shared a {target_type} ." if target_type else ""
-    query = f"""{PREFIXES}
-SELECT ?e ?label (COUNT(DISTINCT ?shared) AS ?overlap) WHERE {{
-  <{anchor_uri}> {partner['edge']} ?shared .
-  ?e {partner['edge']} ?shared ;
-     a {partner['node_type']} ;
-     rdfs:label ?label .{target_constraint}
-  FILTER (?e != <{anchor_uri}>)
+
+def bridge_query(anchor_uri: str, anchor_edge: str, partner_edge: str, partner_node_type: str, *, exists: bool) -> str:
+    """Build the type-09 `bridge` candidate query. See `bridge_candidates` for the rationale."""
+    pe, pnt = partner_edge, partner_node_type
+    if exists:
+        body = f"""  <{anchor_uri}> {anchor_edge} ?bridge .
+  ?e {pe} ?bridge ;
+     a {pnt} ;
+     rdfs:label ?label ."""
+    else:
+        body = f"""  ?e a {pnt} ;
+     {pe} ?anyTarget ;
+     rdfs:label ?label .
+  FILTER NOT EXISTS {{
+    <{anchor_uri}> {anchor_edge} ?bridge .
+    ?e {pe} ?bridge .
+  }}"""
+    return f"""{PREFIXES}
+SELECT DISTINCT ?e ?label WHERE {{
+{body}
 }}
-GROUP BY ?e ?label{having_clause}
 ORDER BY ?e ?label"""
-    rows = run_query(query, endpoint=endpoint)
-    pool: dict[str, str] = {}
-    for row in rows:
-        pool.setdefault(row["e"], row["label"])
-    return list(pool.items())
 
 
 def bridge_candidates(anchor_uri: str, anchor_edge: str, partner: dict, *, exists: bool, endpoint: str) -> list[tuple[str, str]]:
@@ -291,30 +364,10 @@ def bridge_candidates(anchor_uri: str, anchor_edge: str, partner: dict, *, exist
     property path (`binds / ^associates`), which applies no node-type filter, so neither
     do we.
     """
-    pe, pnt = partner["edge"], partner["node_type"]
-    if exists:
-        body = f"""  <{anchor_uri}> {anchor_edge} ?bridge .
-  ?e {pe} ?bridge ;
-     a {pnt} ;
-     rdfs:label ?label ."""
-    else:
-        body = f"""  ?e a {pnt} ;
-     {pe} ?anyTarget ;
-     rdfs:label ?label .
-  FILTER NOT EXISTS {{
-    <{anchor_uri}> {anchor_edge} ?bridge .
-    ?e {pe} ?bridge .
-  }}"""
-    query = f"""{PREFIXES}
-SELECT DISTINCT ?e ?label WHERE {{
-{body}
-}}
-ORDER BY ?e ?label"""
-    rows = run_query(query, endpoint=endpoint)
-    pool: dict[str, str] = {}
-    for row in rows:
-        pool.setdefault(row["e"], row["label"])
-    return list(pool.items())
+    return _run_pool(
+        bridge_query(anchor_uri, anchor_edge, partner["edge"], partner["node_type"], exists=exists),
+        endpoint=endpoint,
+    )
 
 
 def _seed_entry(spec: dict, uri: str, label: str) -> dict:
@@ -534,6 +587,265 @@ def instantiate(tpl: dict, *, seed: str, endpoint: str) -> list[dict]:
     return records
 
 
+# One template per taxonomy type, in type order — the curated set `--explain` renders
+# into EXAMPLE.md. Types whose template count > 1 (only type 10) pick one representative;
+# its siblings share the same code path and are named in that section's regime note.
+EXPLAIN_ARCHETYPES = [
+    "chromosome_of_gene",                               # 01 has_edge · direct · string_match
+    "genes_expressed_in_anatomy",                       # 02 has_edge · direct · set_match
+    "genes_associated_with_compound_treated_diseases",  # 03 has_edge · post-check · set_match
+    "symptoms_of_pharmacologic_class_treated_diseases", # 04 has_edge · post-check · set_match
+    "count_of_side_effects_caused_by_compound",         # 05 has_edge · direct · numerical
+    "shared_pathways_of_two_genes",                     # 06 paired · set_match
+    "pathways_in_one_gene_excluding_another",           # 07 paired · set_match
+    "diseases_treated_by_compound_negative",            # 08 lacks_edge · binary
+    "path_between_compound_and_disease_via_gene",       # 09 paired · boolean
+    "first_line_type2_diabetes_drug_fuzzy",             # 10 fixed (1 of 6 fuzzy siblings)
+]
+
+
+def _clean_query(text: str) -> str:
+    """Drop a `.rq`'s leading comment/frontmatter block and aligned trailing comments.
+
+    For display only: comments are inert, so the shown query is logically identical to
+    what ran, but without the registry frontmatter (redundant with the registry doc) or
+    the stale `# <committed-seed>` trailing comment that `rewrite_values` leaves on the
+    rewritten VALUES line. Aligned trailing comments use 2+ spaces, so the regex never
+    touches the single `#` inside a `<...#>` IRI on a PREFIX line.
+    """
+    lines = text.splitlines()
+    i = 0
+    while i < len(lines) and (lines[i].strip() == "" or lines[i].lstrip().startswith("#")):
+        i += 1
+    body = [re.sub(r"\s{2,}#.*$", "", ln).rstrip() for ln in lines[i:]]
+    while body and body[-1] == "":
+        body.pop()
+    return "\n".join(body)
+
+
+def _sparql(q: str) -> str:
+    return f"```sparql\n{q}\n```"
+
+
+def _details(summary: str, body: str) -> str:
+    return f"<details>\n<summary>{summary}</summary>\n\n{body}\n\n</details>"
+
+
+def _format_answer(gt, scoring: str) -> str:
+    """One-line headline of the ground truth, truncated for legibility."""
+    if isinstance(gt, list):
+        if not gt:
+            return "**none** — the empty set; the correct response is refusal, not a guess"
+        shown = ", ".join(gt[:10])
+        more = f" … (+{len(gt) - 10} more)" if len(gt) > 10 else ""
+        return f"**{len(gt)}** result(s) — {shown}{more}"
+    return f"`{gt}`"
+
+
+def explain_template(tpl: dict, *, seed: str, endpoint: str) -> str:
+    """Render one template's faithful trace as a markdown section.
+
+    Faithful by construction: the emitted record comes from `instantiate` (the real
+    producer path), the candidate SPARQL from the same `*_query` builders the producer
+    runs, and the instantiated `.rq` from `rewrite_values`. Nothing here re-derives the
+    sampling logic — it narrates what the real functions did.
+    """
+    placeholders = tpl.get("placeholders") or {}
+    rq_text = tpl["_rq_path"].read_text()
+    records = instantiate(tpl, seed=seed, endpoint=endpoint)
+    tid, type_id, scoring = tpl["id"], tpl["type"], tpl["scoring"]
+
+    lines = [
+        f'<a id="type-{type_id}"></a>',
+        f"## `{type_id}` — {tid}",
+        "",
+        f"**Scoring:** {scoring} · **count:** {tpl['count']} · "
+        f"**seed:** `{seed}:{tid}`",
+        "",
+    ]
+    if not records:
+        lines += ["_Producer emitted no instances (pool empty or bounds unmet)._", ""]
+        return "\n".join(lines)
+
+    inst = records[0]
+
+    if len(placeholders) == 0:
+        # Fixed: no placeholder, no candidate query — the reference is hand-coded in the .rq.
+        lines += [
+            "**1. No sampling.** This template has no `{placeholder}`: the reference "
+            "entity is fixed inside the `.rq` (a label lookup). Identifying the unnamed "
+            "entity from the discourse *is* the task, so there is no blank to fill.",
+            "",
+            f"**2. Answer** — {_format_answer(inst['ground_truth'], scoring)}",
+            "",
+            _details("the fixed ground-truth query (`.rq`)", _sparql(_clean_query(rq_text))),
+            "",
+            f"> **How this type samples:** 0-placeholder fuzzy (type 10), `count: 1` by "
+            f"definition (one fixed reference). The other 5 fuzzy templates share this exact "
+            f"shape — only the hand-picked reference differs.",
+            "",
+        ]
+    elif len(placeholders) == 1:
+        spec = next(iter(placeholders.values()))
+        mode = spec["sample"]
+        s = inst["seeds"][0]
+        if mode == "has_edge":
+            cand_q = has_edge_query(
+                spec["node_type"], spec["edge"], target_type=spec.get("target_type"),
+                min_fan=spec.get("min_fan"), max_fan=spec.get("max_fan"),
+            )
+            pool_n = len(candidate_pool(spec, endpoint=endpoint))
+            post = tpl.get("min_answer") is not None or tpl.get("max_answer") is not None
+            note = (
+                f"`has_edge` **post-check** (type {type_id[:2]}): the answer is multi-hop, so "
+                f"the sampled head edge doesn't bound the answer size. The producer runs the "
+                f"`.rq` per candidate and keeps only answers in "
+                f"`[{tpl.get('min_answer')}, {tpl.get('max_answer')}]`."
+                if post else
+                f"`has_edge` **direct** (type {type_id[:2]}): the sampled edge *is* the answer "
+                f"edge, so the placeholder's fan bound already shaped the answer — picks are "
+                f"drawn straight from the pool, no post-check."
+            )
+        else:  # lacks_edge
+            cand_q = lacks_edge_query(
+                spec["node_type"], spec["edge"], spec["presence_edge"],
+                min_presence_fan=spec.get("min_presence_fan"),
+            )
+            pool_n = len(candidate_pool(spec, endpoint=endpoint))
+            note = (
+                "`lacks_edge` (type 08 negative): `FILTER NOT EXISTS` makes the answer "
+                "provably empty, while `presence_edge` keeps the entity well-attested — a "
+                "*tempting hallucination* for the vector retriever, not a trivial unknown (H2)."
+            )
+        inst_rq = rewrite_values(rq_text, spec["bind_var"], s["uri"])
+        lines += [
+            f"**1. Candidate pool** — sample mode `{mode}`. Pool: **{pool_n}** entities.",
+            "",
+            _sparql(cand_q),
+            "",
+            f"**2. The pick** — the seeded RNG drew **{s['label']}** (`{s['uri']}`) "
+            f"from the {pool_n}-entity pool.",
+            "",
+            f"**3. Answer** — {_format_answer(inst['ground_truth'], scoring)}",
+            "",
+            _details("instantiated ground-truth query (`VALUES` rewritten)", _sparql(_clean_query(inst_rq))),
+            "",
+            f"> **How this type samples:** {note}",
+            "",
+        ]
+    else:  # two placeholders: paired set or paired boolean
+        specs = list(placeholders.values())
+        anchor, partner = specs[0], specs[1]
+        a, b = inst["seeds"][0], inst["seeds"][1]
+        anchor_q = has_edge_query(
+            anchor["node_type"], anchor["edge"], target_type=anchor.get("target_type"),
+            min_fan=anchor.get("min_fan"), max_fan=anchor.get("max_fan"),
+        )
+        anchor_n = len(has_edge_candidates(
+            anchor["node_type"], anchor["edge"], endpoint=endpoint,
+            target_type=anchor.get("target_type"),
+            min_fan=anchor.get("min_fan"), max_fan=anchor.get("max_fan"),
+        ))
+        if scoring == "boolean":
+            exists = str(inst["ground_truth"]).lower() == "true"
+            partner_q = bridge_query(
+                a["uri"], anchor["edge"], partner["edge"], partner["node_type"], exists=exists,
+            )
+            partner_n = len(bridge_candidates(
+                a["uri"], anchor["edge"], partner, exists=exists, endpoint=endpoint,
+            ))
+            partner_label = f"bridge query (`exists={exists}`)"
+            note = (
+                "`paired` **boolean** (type 09 path existence): a boolean answer is signal-free "
+                "unless both labels appear, so the producer balances `count//2` true and the "
+                "rest false, steering each partner via the bridge query, then stores the ASK "
+                "`.rq`'s own result as ground truth."
+            )
+        else:
+            partner_q = paired_query(
+                a["uri"], partner["edge"], partner["node_type"],
+                target_type=partner.get("target_type"),
+                min_overlap=partner.get("min_overlap"), max_overlap=partner.get("max_overlap"),
+            )
+            partner_n = len(paired_candidates(
+                a["uri"], partner, endpoint=endpoint, target_type=partner.get("target_type"),
+                min_overlap=partner.get("min_overlap"), max_overlap=partner.get("max_overlap"),
+            ))
+            partner_label = "partner overlap query"
+            note = (
+                f"`paired` **set** (type {type_id[:2]}): two random entities almost never share "
+                f"a target, so the partner query returns only co-participating entities (overlap "
+                f"≥ `{partner.get('min_overlap')}`), collapsing the O(n²) pair space. One partner "
+                f"per anchor whose `.rq` answer lands in bounds."
+            )
+        inst_rq = rewrite_values(
+            rewrite_values(rq_text, anchor["bind_var"], a["uri"]), partner["bind_var"], b["uri"]
+        )
+        lines += [
+            f"**1. Anchor pool** — `has_edge` on the first placeholder. Pool: **{anchor_n}** entities.",
+            "",
+            _sparql(anchor_q),
+            "",
+            f"**2. Anchor pick** — **{a['label']}** (`{a['uri']}`).",
+            "",
+            f"**3. Partner pool** — for that anchor, the {partner_label} yields **{partner_n}** "
+            f"candidates; the RNG drew **{b['label']}** (`{b['uri']}`).",
+            "",
+            _sparql(partner_q),
+            "",
+            f"**4. Answer** — {_format_answer(inst['ground_truth'], scoring)}",
+            "",
+            _details("instantiated ground-truth query (both `VALUES` rewritten)", _sparql(_clean_query(inst_rq))),
+            "",
+            f"> **How this type samples:** {note}",
+            "",
+        ]
+
+    lines += [
+        _details("emitted questions.jsonl record", f"```json\n{json.dumps(inst, indent=2)}\n```"),
+        "",
+        f"**Question:** {inst.get('question') or records[0].get('question')}",
+        "",
+        "---",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def render_explain(template_ids: list[str], *, seed: str, endpoint: str) -> str:
+    """Render the full EXAMPLE.md: GENERATED banner, table of contents, one section per type."""
+    sections = []
+    toc = []
+    for tid in template_ids:
+        tpl = load_template(tid)
+        toc.append(f"- [`{tpl['type']}` — {tid}](#type-{tpl['type']})")
+        print(f"Explaining {tid} ({tpl['type']}) ...", file=sys.stderr)
+        sections.append(explain_template(tpl, seed=seed, endpoint=endpoint))
+
+    header = [
+        "# Producer worked examples",
+        "",
+        "> **GENERATED — do not edit by hand.** Produced by `produce.py --explain`"
+        " (run `make explain`). One trace per taxonomy type; the SPARQL and answers are"
+        " live from GraphDB at generation time, so they shift if the graph changes"
+        " (same contract as the registry's committed answers).",
+        "",
+        "Each section traces one template end to end: the **candidate query** that defines"
+        " the sampling pool, the **seeded pick**, the **instantiated ground-truth query**,"
+        " the **answer**, and the emitted **record**. Verbose artifacts (full `.rq`, JSON"
+        " record) are folded — click to expand. For the design behind this, see"
+        " [`README.md`](README.md).",
+        "",
+        "## Contents",
+        "",
+        *toc,
+        "",
+        "---",
+        "",
+    ]
+    return "\n".join(header) + "\n" + "\n".join(sections)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -542,19 +854,36 @@ def main() -> None:
         dest="templates",
         help="template id to produce (repeatable). Default: all *.yaml templates.",
     )
-    parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help=f"output JSONL (default {DEFAULT_OUT})")
+    parser.add_argument(
+        "--out", type=Path, default=None,
+        help=f"output path. Produce mode: JSONL (default {DEFAULT_OUT}). "
+        "Explain mode: markdown file (default stdout).",
+    )
     parser.add_argument("--seed", default=DEFAULT_SEED, help=f"sampling seed (default {DEFAULT_SEED})")
     parser.add_argument(
         "--endpoint",
         default=DEFAULT_GRAPHDB_ENDPOINT,
         help=f"GraphDB SPARQL endpoint (default {DEFAULT_GRAPHDB_ENDPOINT})",
     )
+    parser.add_argument(
+        "--explain", action="store_true",
+        help="emit a markdown worked-example trace instead of producing questions.jsonl. "
+        "Defaults to one template per taxonomy type; narrow with --template.",
+    )
     args = parser.parse_args()
 
-    if args.templates:
-        template_ids = args.templates
-    else:
-        template_ids = sorted(p.stem for p in TEMPLATES_DIR.glob("*.yaml"))
+    if args.explain:
+        template_ids = args.templates or EXPLAIN_ARCHETYPES
+        doc = render_explain(template_ids, seed=args.seed, endpoint=args.endpoint)
+        if args.out:
+            args.out.write_text(doc)
+            print(f"Wrote worked examples for {len(template_ids)} template(s) to {args.out}", file=sys.stderr)
+        else:
+            print(doc)
+        return
+
+    template_ids = args.templates or sorted(p.stem for p in TEMPLATES_DIR.glob("*.yaml"))
+    out = args.out or DEFAULT_OUT
 
     all_records: list[dict] = []
     for tid in template_ids:
@@ -562,8 +891,8 @@ def main() -> None:
         print(f"Producing {tid} ({tpl['type']}) ...")
         all_records.extend(instantiate(tpl, seed=args.seed, endpoint=args.endpoint))
 
-    args.out.write_text("\n".join(json.dumps(r) for r in all_records) + "\n")
-    print(f"Wrote {len(all_records)} question(s) to {args.out}")
+    out.write_text("\n".join(json.dumps(r) for r in all_records) + "\n")
+    print(f"Wrote {len(all_records)} question(s) to {out}")
 
 
 if __name__ == "__main__":
