@@ -21,8 +21,11 @@ placeholders:
     node_type: hetio:Anatomy
     sample: has_edge          # only draw anatomies that actually have the edge below
     edge: hetio:expresses     #   ...so the ground-truth set is never empty
+    min_fan: 2                # keep it a genuine set, not a single-gene factoid
+    max_fan: 25               #   ...and exclude hub anatomies (CNS expresses ~11k genes)
     bind_var: anatomy         # the ?anatomy VALUES variable in the .rq
     label_into: anatomy       # the {anatomy} token in the question string
 
 scoring: set_match            # order-independent set comparison
 answer_var: geneLabel         # which SELECT column carries the ground-truth answer
+count: 5                      # instances to sample (type 02 target, eval/README.md)

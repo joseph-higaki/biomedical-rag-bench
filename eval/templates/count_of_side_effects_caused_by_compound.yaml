@@ -28,3 +28,4 @@ placeholders:
 
 scoring: numerical            # numerical exact match against the COUNT
 answer_var: n                 # the SELECT column carrying the aggregate
+count: 8                      # instances to sample (type 05 target, eval/README.md)

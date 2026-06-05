@@ -27,3 +27,4 @@ placeholders:
 
 scoring: string_match         # exact string match against hetio:chromosome
 answer_var: chromosome        # the SELECT column carrying the property value
+count: 3                      # instances to sample (type 01 target, eval/README.md)
