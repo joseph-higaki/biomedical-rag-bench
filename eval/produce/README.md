@@ -360,4 +360,7 @@ seed and `diff` the outputs.
 | 4 | `paired` + anchor fan bound + `target_type` | 06, 07 | done |
 | 5 | multi-hop single placeholder + answer post-check | 03, 04 | done |
 | 6 | `paired` boolean + true/false balance | 09 | done |
-| — | hand-authored (not sampled) | 10 | pending |
+| 7 | `sample_fixed` — 0-placeholder, hand-authored | 10 | done |
+
+All ten types produce; the full run writes 58 questions to `eval/questions.jsonl`,
+validated by `validate.py`.
