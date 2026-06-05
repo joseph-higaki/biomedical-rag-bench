@@ -333,6 +333,24 @@ GraphDB (the full Hetionet graph) must be running; override the endpoint with
 [`eval/templates/run_ground_truth.py`](../templates/run_ground_truth.py) — the single
 GraphDB execution seam shared with the registry generator.
 
+### Validating the output
+
+`validate.py` is the quality gate on the produced artifact — schema, no unfilled
+placeholders, ground-truth shape per scoring type, the negative type's empty answer,
+the boolean type's balanced labels, answer-size bounds, unique ids, and per-template
+`count`. It inspects the file, not the graph, so it needs no GraphDB. Expected counts
+and bounds come from the templates' YAML, so it works on a partial dry run or the full
+artifact alike.
+
+```bash
+uv run --extra produce python eval/produce/validate.py --questions eval/questions.jsonl
+```
+
+The validation logic lives in a pure `validate_records(records, meta)` function so it
+can be unit-tested hermetically. One criterion is deliberately *not* here:
+**reproducibility** is a property of two runs, not one file — produce twice at the same
+seed and `diff` the outputs.
+
 ### Build-increment status
 
 | Increment | Sample mode(s) | Types | State |
