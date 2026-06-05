@@ -101,11 +101,7 @@ The comparison is representation, not content. Both sides see the same entities.
 
 ### Ingestion is streaming, not in-memory
 
-**Decision (provisional, May 2026).** The Hetionet JSON → Turtle transform streams both sides: the source is parsed incrementally with `ijson` and Turtle is written statement-by-statement. It never materializes the full document via `json.load`, nor builds the full graph in an in-memory `rdflib.Graph`.
-
-**Why.** Decompressed, the Hetionet graph is ~712 MB of JSON (47k nodes, 2.25M edges), and the RDF-star expansion multiplies the statement count. On a 7 GB-RAM dev box, the naive `json.load` + in-memory `Graph` build does not fit. Streaming keeps memory bounded and roughly constant regardless of dataset size. The cost is hand-written Turtle serialization instead of a library serializer; correctness is guarded by round-tripping the smoke slice through `pyoxigraph` (Rust-backed Oxigraph, which parses Turtle-star and runs SPARQL-star offline) and asserting a sample query returns the expected answer. `rdflib` 7.6 has no RDF-star support, so it cannot parse the edge annotations — see `ingest/rdf/hetionet-data-notes.md`.
-
-**Revisit if** the transform proves too slow or the hand-written serializer accumulates escaping bugs that a library serializer would have handled. The swap point is contained to `ingest/rdf/hetionet_to_rdf.py`; nothing downstream cares how the Turtle was produced.
+The Hetionet JSON → Turtle transform streams both sides (`ijson` in, statement-by-statement out) so memory stays bounded on a 7 GB-RAM box despite a ~712 MB source. Rationale, trade-offs, and the revisit condition: [`ingest/rdf/README.md` → Why streaming, not in-memory](ingest/rdf/README.md#why-streaming-not-in-memory).
 
 ### Stack
 

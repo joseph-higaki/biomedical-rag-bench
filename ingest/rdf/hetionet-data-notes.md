@@ -18,7 +18,7 @@ assumptions. Update this file when the data or mapping changes.
 
 Dev box has ~7 GB RAM. `json.load` of a 712 MB document plus an in-memory `rdflib.Graph` of the full
 graph does not fit. The transform therefore **streams** with `ijson` and writes Turtle line-by-line.
-See the README "Ingestion is streaming, not in-memory" decision.
+See [`README.md` → Why streaming, not in-memory](README.md#why-streaming-not-in-memory).
 
 ## Top-level JSON structure
 
