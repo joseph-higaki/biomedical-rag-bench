@@ -152,8 +152,11 @@ def main() -> int:
     # runs under the `ingest` extra and has neither httpx nor python-dotenv.
     import httpx
     try:
-        from dotenv import load_dotenv
-        load_dotenv()
+        from dotenv import find_dotenv, load_dotenv
+        # A bare load_dotenv() looks for a file named ".env" in the cwd and never
+        # finds secrets/.env. find_dotenv walks up the tree for the given relative
+        # path, so this resolves the same secrets/.env regardless of cwd.
+        load_dotenv(find_dotenv("secrets/.env", usecwd=True))
     except ModuleNotFoundError:
         pass
 
