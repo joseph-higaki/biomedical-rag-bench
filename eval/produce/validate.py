@@ -34,8 +34,6 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-import yaml
-
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 DEFAULT_QUESTIONS = Path(__file__).parent.parent / "questions.jsonl"
 
@@ -50,7 +48,13 @@ PLACEHOLDER_RE = re.compile(r"\{[a-z_]+\}")
 
 
 def load_template_meta() -> dict[str, dict]:
-    """Map template_id -> the YAML fields validation needs (count, scoring, bounds)."""
+    """Map template_id -> the YAML fields validation needs (count, scoring, bounds).
+
+    yaml is imported lazily (like httpx in run_ground_truth) so the pure
+    `validate_records` can be imported and unit-tested without the `produce` extra.
+    """
+    import yaml
+
     meta = {}
     for yaml_path in TEMPLATES_DIR.glob("*.yaml"):
         tpl = yaml.safe_load(yaml_path.read_text())
