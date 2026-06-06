@@ -17,10 +17,13 @@ in the dated files alongside this one.
 > Next: **step 4 — three retrievers** (vector, graph, closed-book null) behind the
 > `Retriever` protocol. Carried into step 4: graph retriever must be inverse-aware for
 > `both`-direction edges; retrieval component diagram in the same flowchart-C4 style.
-> Full context: [2026-06-05-02.md](2026-06-05-02.md) → "Next steps".
+> Full context: [2026-06-05_02.md](2026-06-05_02.md) → "Next steps".
 
-**Convention.** One file per session, named `YYYY-MM-DD.md` (add `-02`, `-03` for
-multiple sessions in a day). Each session: record the model, fill the token table
+**Convention.** One file per session, named `YYYY-MM-DD.md` (add a zero-padded
+`_02`, `_03` suffix for multiple sessions in a day). The separator is `_`, not `-`:
+`_` (byte 95) sorts *after* `.` (46) while `-` (45) sorts *before* it, so `_02`
+keeps the second session ordered after the bare first file rather than ahead of it.
+Each session: record the model, fill the token table
 from `/cost` before closing, and add a row here. Sum the token columns for the
 cumulative cost of building the solution.
 

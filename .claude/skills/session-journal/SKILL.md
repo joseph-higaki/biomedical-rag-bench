@@ -57,8 +57,11 @@ Gotchas to keep in mind:
 ## Step 2 — Write the dated journal entry
 
 File: `journal/YYYY-MM-DD.md`. If a file for today already exists, this is a
-second session that day — use the `-02` suffix (`-03`, … after that). Match the
-existing entries' structure (see `journal/2026-05-24.md`):
+second session that day — use a zero-padded `_02` suffix (`_03`, … after that).
+Use `_`, not `-`: `_` (byte 95) sorts after `.` (46), so `YYYY-MM-DD_02.md` orders
+after the bare `YYYY-MM-DD.md`; a `-` suffix (45) sorts before `.` and would put
+the second session ahead of the first. Match the existing entries' structure (see
+`journal/2026-05-24.md`):
 
 ```markdown
 # Session journal — YYYY-MM-DD (Session NN)
