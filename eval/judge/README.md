@@ -74,7 +74,10 @@ Built from each judge's own `scoring` attribute (`DETERMINISTIC_JUDGES` in
   bullet/numbered markers) and so can be split into discrete claims; then `score` is F1
   and `passed` requires an exact set. On **prose** answers, comma-splitting would shred
   multi-word labels and invent false members, so precision is skipped (`basis="recall_only"`,
-  `precision=None`) and `passed` requires full recall only.
+  `precision=None`) and `passed` requires full recall only. These per-question precision /
+  recall / F1 values are defined — and rolled up into the benchmark-level metrics
+  (accuracy, and the type-08 sensitivity/specificity that test H2) — in the
+  [Metrics section of `eval/README.md`](../README.md#metrics).
 - **`numerical`** — passes iff the expected count is one of the integers extracted from the
   answer (handles thousands separators), so other numbers in the sentence don't matter.
 - **`binary`** — for the designed empty-ground-truth case, passes iff the answer asserts

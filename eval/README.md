@@ -131,3 +131,66 @@ escalate to LLM-assisted entity linking for that specific question type.
 Manually grade them, compute Cohen's kappa against the LLM judge's grades, and
 report kappa in the release notes. Trust the LLM judge for the remainder if
 kappa > 0.7; redesign otherwise.
+
+## Metrics
+
+The judges (above) produce a per-question verdict; metrics *aggregate* those verdicts
+into the numbers the benchmark reports and the hypotheses are tested against. The
+definitions live here (eval-design); the analysis layer (build step 6, the `eval`
+extra) only *computes* them — single source of truth, same discipline as the question
+distribution.
+
+These terms operate at two levels, and conflating them is a category error.
+
+### Within a question — set-level (precision / recall / F1)
+
+For `set_match` questions the answer is a *set* of entities, so correctness is graded
+against the ground-truth set. Let **P** = the set of entities the answer claims, **G** =
+the ground-truth set:
+
+- **Recall** = |P ∩ G| / |G| — of the correct entities, the fraction the answer named.
+  *Always measurable* (the judge searches each ground-truth label over the whole answer).
+- **Precision** = |P ∩ G| / |P| — of the entities the answer named, the fraction correct.
+  *Only measurable on list-shaped answers*, where P can be extracted; on prose the judge
+  reports recall only (`basis="recall_only"`, `precision=None`). See
+  [`eval/judge/README.md`](judge/README.md).
+- **F1** = 2·precision·recall / (precision + recall) — the harmonic mean, the set judge's
+  partial-credit `score`.
+
+These are emitted per question in `JudgeResult.details`. Averaged per `type_id` (which is
+a hop-count for the traversal types), recall is exactly the **H3 curve** — graph recall
+staying flat as hops grow while vector recall decays — and the headline chart of Project 1.
+
+### Across questions — benchmark-level (accuracy, sensitivity, specificity)
+
+Aggregating the boolean `passed` across questions, per **(retriever × `type_id`)** cell:
+
+- **Accuracy** = passed / total in the cell — the headline metric. Note it is *strict*:
+  for `set_match`, `passed` requires an **exact** set (full recall, no extra members), so
+  top-line accuracy is exact-match pass-rate, while the set-level precision/recall/F1 above
+  give the partial-credit picture. Report both; they answer different questions.
+
+The confusion-matrix terms apply **only where a type is a binary classification** — i.e.
+type 08 (negative/unanswerable), where "no answer exists" is the positive class. Applying
+them to a set-retrieval type is meaningless. With TP = correctly refused an unanswerable,
+FN = answered (hallucinated) an unanswerable, TN = correctly answered an answerable, FP =
+wrongly refused an answerable:
+
+- **Sensitivity** (recall of refusal) = TP / (TP + FN) — of the truly-unanswerable
+  questions, the fraction the model correctly refused. The direct **H2** metric: a model
+  that hallucinates on negatives has low sensitivity here.
+- **Specificity** = TN / (TN + FP) — of the answerable questions, the fraction *not*
+  falsely refused. Guards against a model that games sensitivity by refusing everything.
+
+(Measuring these at scale needs both answerable and unanswerable questions in the type-08
+cell; the deterministic `binary` judge supplies the refusal/answer outcome per question.)
+
+### Metric → hypothesis map
+
+| Metric | Level | Primarily answers |
+|--------|-------|-------------------|
+| Recall vs hop-count | set-level | H3 (multi-hop recall: graph flat, vector decays) |
+| Accuracy per type | benchmark | H1, H5, H6, H7 (per-type winner; closed-book gap) |
+| Sensitivity/specificity on type 08 | benchmark | H2 (vector hallucinates on negatives) |
+| Accuracy on type 10 (LLM-judged) | benchmark | H4 (fuzzy/semantic: vector wins) |
+| `context_tokens` / billed input (closed-book baseline) | per-retrieval | H7 (retrieval necessity / token cost) |
