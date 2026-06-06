@@ -4,20 +4,19 @@ Running log of Claude Code sessions building biomedical-rag-bench. Tracked in gi
 (build-cost / token-usage data, now published). Detailed notes per session live
 in the dated files alongside this one.
 
-> **▶ Resume here (next session).** Build-order **step 3 complete**: the eval
-> producer (`eval/produce/`) instantiates all ten types into
-> **`eval/questions.jsonl` (58 questions)**, validated by `validate.py`. Five sampler
-> regimes (fixed / single-direct / single-post-check / paired / paired-boolean);
-> constrained candidate-query sampling throughout. Central lesson: a candidate query
-> must mirror every constraint the `.rq` applies (the polymorphic-`participates` bug).
-> Session 11 (cross-cutting cleanup, no new step): producer `--explain` trace +
-> `EXAMPLE.md`, distribution single-sourced on YAML, C4 container diagram in the README,
-> `make registry`/`make explain`, and `pubmed_fetch.py` `.env` loading fixed
-> (`find_dotenv("secrets/.env")` — just drop the key in `secrets/.env`).
-> Next: **step 4 — three retrievers** (vector, graph, closed-book null) behind the
-> `Retriever` protocol. Carried into step 4: graph retriever must be inverse-aware for
-> `both`-direction edges; retrieval component diagram in the same flowchart-C4 style.
-> Full context: [2026-06-05_02.md](2026-06-05_02.md) → "Next steps".
+> **▶ Resume here (next session).** Build-order **step 4 complete** (three retrievers —
+> `closed_book` / `vector` / `graph_neighborhood` — behind the `Retriever` protocol, all
+> registered in `eval/run_eval.py`) and **step 5 well under way**: deterministic judges
+> (`eval/judge/`, 9 of 10 types), a **provider-neutral generator layer** (`eval/generate/`
+> — `Generator` protocol + Strategy-pattern adapters; Anthropic is the first, the only
+> file importing an SDK), and the `retrieve→generate→judge` **harness loop** (`eval/harness.py`
+> + `run_eval.py --run`). First live e2e `closed_book → claude-haiku-4-5` ran (1/9 — the
+> H7 baseline shape, as a smoke); see **`eval/FINDINGS.md`**. 77 hermetic tests pass.
+> Next: (1) fix the three `FINDINGS.md` caveats (closed-book prompt refusal-bias, verbosity
+> vs set precision, binary judge missing `don't`); (2) bring up GraphDB + Chroma and run
+> `graph_neighborhood` + `vector` e2e — the first real cross-retriever comparison; (3) the
+> type-10 `semantic` LLM judge; (4) the analysis notebook/dashboard over `eval/results/*.jsonl`.
+> Full context: [2026-06-06_02.md](2026-06-06_02.md) → "Next steps".
 
 **Convention.** One file per session, named `YYYY-MM-DD.md` (add a zero-padded
 `_02`, `_03` suffix for multiple sessions in a day). The separator is `_`, not `-`:
@@ -41,6 +40,7 @@ cumulative cost of building the solution.
 | 2026-06-05 | 10 | Claude Opus 4.8 (`claude-opus-4-8`) | 21,983 | 208,996 | 26,418,755 | 661,400 | 27,311,134 | Step 3 complete: eval producer (`eval/produce/`) across 7 increments — 5 sampler regimes (fixed/single-direct/single-post-check/paired/paired-boolean), constrained candidate-query sampling; `validate.py` gate + 13 hermetic tests; 4-level producer README; 5 fuzzy questions authored; full run → `eval/questions.jsonl` (58 across all ten types, validated). Key fix: `target_type` mirrors the `.rq` (polymorphic `participates`) — ~50× speedup |
 | 2026-06-05 | 11 | Claude Opus 4.8 (`claude-opus-4-8`) | 5,337 | 134,361 | 14,949,991 | 399,233 | 15,488,922 | Cross-cutting cleanup (no new build step): fix pubmed_fetch `.env` resolution (find_dotenv→secrets/.env, keyed NCBI rate); move streaming ADR to ingest/rdf; single-source question distribution on YAML (build_registry generates the table) + `make registry`; producer `--explain` worked-example trace + generated EXAMPLE.md + `make explain` (candidate-query builders extracted, eval set byte-identical); C4 container diagram in root README Architecture |
 | 2026-06-06 | 12 | Claude Opus 4.8 (`claude-opus-4-8`) | 3,408 | 128,819 | 5,257,214 | 140,523 | 5,529,964 | Step 4 (retrievers): `base.py` contract (RetrievalResult + Retriever protocol; count_tokens proxy / stopwatch / build_result seams; offline-proxy-vs-billed token-units rule + `context_tokenizer` tag); `null.py` `closed_book`; `graph.py` `graph_neighborhood` (gazetteer entity-link + bounded k-hop + per-predicate fan caps, no LLM); `retrievers/README.md` subsystem doc. Design settled: generator-vs-judge, swappable multi-provider generator (step 5), neighborhood-now/text-to-SPARQL-later, factorial provenance recording. Provenance bug fixed (sources match served context) |
+| 2026-06-06 | 13 | Claude Opus 4.8 (`claude-opus-4-8`) | 8,074 | 147,461 | 17,370,273 | 350,947 | 17,876,755 | Step 4 closed (`vector.py` + retriever registry) + step 5 in three increments: deterministic judges (`eval/judge/`, 9/10 types) + eval/README Metrics section; **provider-neutral generator layer** (`eval/generate/` — Generator protocol + Strategy adapters, Anthropic first, neutral message/system/token/tool surface); `retrieve→generate→judge` harness loop (`eval/harness.py` + `run_eval.py --run`, JSONL+manifest + tracked `eval/FINDINGS.md`). Journal sort fix (`-NN`→`_NN`). First live e2e `closed_book → claude-haiku-4-5`: 1/9 (H7 baseline shape, a smoke). 77 hermetic tests. git-SHA manifest factor deferred |
 
 > Token figures are summed from the session transcript JSONL (`/cost` output does
 > not reach Claude's context). Cache read is the bulk — full context re-read each
