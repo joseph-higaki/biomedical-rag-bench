@@ -33,14 +33,17 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from collections.abc import Callable
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
+from eval import harness  # noqa: E402
 from eval.generate.anthropic_generator import AnthropicGenerator  # noqa: E402
 from eval.generate.base import Generator  # noqa: E402
+from eval.judge.deterministic import DETERMINISTIC_JUDGES  # noqa: E402
 from retrievers.base import Retriever  # noqa: E402
 from retrievers.graph import NeighborhoodGraphRetriever  # noqa: E402
 from retrievers.null import NullRetriever  # noqa: E402
@@ -93,6 +96,33 @@ def build_generator(spec: str) -> Generator:
         )
 
 
+def _print_verdicts(rows: list[dict], manifest: harness.RunManifest, rows_path: Path) -> None:
+    """Human-readable verdict table + a pass count and per-type breakdown (no real stats —
+    definitive metrics are the analysis layer's job; this is the run's eyeball check)."""
+    print(f"\nrun {manifest.run_id}  ({manifest.retriever} → "
+          f"{manifest.generator_provider}:{manifest.generator_model})\n")
+    per_type: dict[str, list[bool]] = {}
+    in_tok = out_tok = 0
+    for r in rows:
+        mark = "PASS" if r["passed"] else "FAIL"
+        per_type.setdefault(r["type_id"], []).append(bool(r["passed"]))
+        in_tok += r["input_tokens"]
+        out_tok += r["output_tokens"]
+        pred = r["predicted"].replace("\n", " / ")
+        pred = pred[:64] + "…" if len(pred) > 64 else pred
+        print(f"  [{mark}] {r['type_id']:<26} {r['verdict']}")
+        print(f"         predicted: {pred!r}")
+
+    npass = sum(1 for r in rows if r["passed"])
+    print(f"\n  {npass}/{len(rows)} passed   ·   billed tokens: {in_tok} in / {out_tok} out")
+    print("  by type:")
+    for t in sorted(per_type):
+        p = per_type[t]
+        print(f"    {t:<28} {sum(p)}/{len(p)}")
+    print(f"\n  rows:     {rows_path}")
+    print(f"  manifest: {rows_path.with_suffix('.manifest.json')}\n")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -120,9 +150,57 @@ def main() -> int:
     ap.add_argument(
         "--generator",
         metavar="PROVIDER:MODEL",
-        help="Generator spec for --ask, e.g. 'anthropic:claude-haiku-4-5'.",
+        help="Generator spec for --ask / --run, e.g. 'anthropic:claude-haiku-4-5'.",
+    )
+    ap.add_argument(
+        "--run",
+        action="store_true",
+        help="Run the eval loop (retrieve→generate→judge) over a sample; write results + manifest.",
+    )
+    ap.add_argument(
+        "--limit", type=int, default=8,
+        help="Max questions for --run, round-robin across types (default 8).",
+    )
+    ap.add_argument(
+        "--questions", type=Path, default=REPO_ROOT / "eval" / "questions.jsonl",
+        help="Question set for --run.",
+    )
+    ap.add_argument(
+        "--out", type=Path, default=REPO_ROOT / "eval" / "results",
+        help="Directory for --run JSONL rows + manifest (gitignored, machine-readable).",
+    )
+    ap.add_argument(
+        "--report", type=Path, default=REPO_ROOT / "eval" / "FINDINGS.md",
+        help="Tracked markdown report for --run (human-reviewable; default eval/FINDINGS.md).",
     )
     args = ap.parse_args()
+
+    if args.run:
+        if not args.generator:
+            raise SystemExit("--run requires --generator PROVIDER:MODEL")
+        rows_in = [json.loads(ln) for ln in args.questions.read_text().splitlines() if ln.strip()]
+        selected = harness.select_deterministic(rows_in, args.limit)
+        if not selected:
+            raise SystemExit(f"no deterministic-judge questions in {args.questions}")
+        retriever = build_retriever(args.retriever)
+        generator = build_generator(args.generator)
+        rows = harness.run(retriever, generator, DETERMINISTIC_JUDGES, selected)
+
+        run_id = f"{time.strftime('%Y%m%dT%H%M%S')}-{retriever.name}-{generator.provider}"
+        manifest = harness.make_manifest(
+            retriever, generator, selected, run_id=run_id, questions_path=str(args.questions)
+        )
+        args.out.mkdir(parents=True, exist_ok=True)
+        rows_path = args.out / f"{run_id}.jsonl"
+        rows_path.write_text("".join(json.dumps(r) + "\n" for r in rows))
+        (args.out / f"{run_id}.manifest.json").write_text(
+            json.dumps(manifest.to_dict(), indent=2)
+        )
+        # Tracked markdown report (the artifact pushed for offline review).
+        args.report.write_text(harness.to_markdown(rows, manifest))
+        _print_verdicts(rows, manifest, rows_path)
+        print(f"  report:   {args.report}\n")
+        return 0
 
     if args.ask:
         if not args.generator:
