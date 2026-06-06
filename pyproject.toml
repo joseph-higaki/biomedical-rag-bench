@@ -33,6 +33,14 @@ fetch = [
     "httpx>=0.27",
     "python-dotenv>=1.0",
 ]
+# Generator-under-test adapters (the Generator protocol's concrete strategies).
+# anthropic is the first provider adapter; python-dotenv loads ANTHROPIC_API_KEY from
+# secrets/.env. Both are imported lazily inside the adapter, so the protocol/base and the
+# generator registry import with no extra installed. Ollama/OpenAI adapters extend this.
+generate = [
+    "anthropic>=0.40",
+    "python-dotenv>=1.0",
+]
 # Eval-set production (stage 1 in eval/README.md): reads YAML templates + their
 # ground-truth .rq files. PyYAML parses templates; httpx runs the ground-truth
 # queries against GraphDB (the registry generator's --verify path; the step-3

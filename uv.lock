@@ -139,6 +139,25 @@ wheels = [
 ]
 
 [[package]]
+name = "anthropic"
+version = "0.106.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "distro" },
+    { name = "docstring-parser" },
+    { name = "httpx" },
+    { name = "jiter" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bf/69/f1b6b5918d18ab47193bc7dd316bc208bc98decab5cf69b328d8a3e258dc/anthropic-0.106.0.tar.gz", hash = "sha256:f26e2645e31f66eff526b923f539b80b4b6eda1a918790cd77c0afe5e24a2203", size = 855469, upload-time = "2026-06-05T21:13:26.555Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0c/7a/8c64e9ba12b16d5d1c64e0fc9da1f32cbf6742f14fe2ad943f83a2ed8639/anthropic-0.106.0-py3-none-any.whl", hash = "sha256:d0e4a7448e54c3942833cee5b3de5f1b31289fd49999bfbcc2ec0c0acaddf75f", size = 838152, upload-time = "2026-06-05T21:13:28.404Z" },
+]
+
+[[package]]
 name = "anyio"
 version = "4.13.0"
 source = { registry = "https://pypi.org/simple" }
@@ -356,6 +375,10 @@ fetch = [
     { name = "httpx" },
     { name = "python-dotenv" },
 ]
+generate = [
+    { name = "anthropic" },
+    { name = "python-dotenv" },
+]
 graph = [
     { name = "httpx" },
 ]
@@ -379,6 +402,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", marker = "extra == 'generate'", specifier = ">=0.40" },
     { name = "chromadb", marker = "extra == 'vector'", specifier = ">=0.5" },
     { name = "httpx", marker = "extra == 'fetch'", specifier = ">=0.27" },
     { name = "httpx", marker = "extra == 'graph'", specifier = ">=0.27" },
@@ -389,11 +413,12 @@ requires-dist = [
     { name = "pandas", marker = "extra == 'eval'", specifier = ">=2.2" },
     { name = "pyoxigraph", marker = "extra == 'ingest'", specifier = ">=0.4" },
     { name = "python-dotenv", marker = "extra == 'fetch'", specifier = ">=1.0" },
+    { name = "python-dotenv", marker = "extra == 'generate'", specifier = ">=1.0" },
     { name = "pyyaml", marker = "extra == 'produce'", specifier = ">=6" },
     { name = "ragas", marker = "extra == 'eval'", specifier = ">=0.2" },
     { name = "sentence-transformers", marker = "extra == 'vector'", specifier = ">=3.0" },
 ]
-provides-extras = ["ingest", "graph", "vector", "fetch", "produce", "eval"]
+provides-extras = ["ingest", "graph", "vector", "fetch", "generate", "produce", "eval"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=8.3" }]

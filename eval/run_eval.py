@@ -1,27 +1,29 @@
 #!/usr/bin/env python3
-"""eval/run_eval.py — retriever registry (build step 4) + eval harness (step 5).
+"""eval/run_eval.py — the swap-point registries (retrievers, generators) + eval harness.
 
-Today this file carries the **retriever registry**: the single place that maps a
-retriever's `name` to its constructor. The contract in .claude/CLAUDE.md — "adding a
-retriever is one file in `retrievers/` plus a registration here, nothing else changes"
-— is enforced by this dict. Anything that needs to enumerate retrievers iterates
-`REGISTRY`; nothing else hard-codes the roster.
+This file is the single place the benchmark's conditions are wired: the **retriever
+registry** (`REGISTRY`, build step 4) and the **generator registry** (`GENERATORS`,
+build step 5). The contract in .claude/CLAUDE.md — "adding a retriever is one file plus
+a registration here, nothing else changes" — holds for generators too. Anything that
+enumerates a condition iterates the registry; nothing else hard-codes the roster. Both
+stay provider-agnostic: a retriever or generator names itself, and the generator's
+provider SDK lives only in its adapter (see eval/generate/base.py).
 
-The **full harness is build step 5** and grows around this registry: load
-`questions.jsonl`, run each registered retriever + the fixed generator against each
-question, score with the pluggable judges, and write per-row telemetry plus a per-run
-manifest (the factorial-provenance record). That loop depends on the generator/judge
-layer, which does not exist yet, so it is left as the explicit TODO in `main()` rather
-than a stub that fakes a generator and produces meaningless numbers.
+The **remaining step-5 work** grows around these registries: load `questions.jsonl`, run
+each registered retriever + the fixed generator against each question, score with the
+pluggable judges (eval/judge/), and write per-row telemetry plus a per-run manifest (the
+factorial-provenance record). That loop is the next increment — left as the explicit
+TODO in `main()` rather than a stub that fabricates numbers.
 
-Until then the CLI exercises the registry directly — the step-4 isolated smoke for the
-swap point:
+Until then the CLI exercises each registry in isolation (the per-increment smoke):
 
     uv run python eval/run_eval.py --list
     uv run --extra vector python eval/run_eval.py --retriever vector --retrieve "..."
     uv run --extra graph  python eval/run_eval.py --retriever graph_neighborhood --retrieve "..."
+    uv run --extra generate python eval/run_eval.py --ask "..." --generator anthropic:claude-haiku-4-5
 
-(closed_book needs no extra; vector needs `--extra vector`; graph needs `--extra graph`.)
+(closed_book needs no extra; vector → `--extra vector`; graph → `--extra graph`;
+--ask → `--extra generate` + a provider key in secrets/.env.)
 
 Run path-based from the repo root (see README); the sys.path insert below puts the
 repo root on the path so `retrievers.*` imports resolve, mirroring produce.py.
@@ -37,6 +39,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
+from eval.generate.anthropic_generator import AnthropicGenerator  # noqa: E402
+from eval.generate.base import Generator  # noqa: E402
 from retrievers.base import Retriever  # noqa: E402
 from retrievers.graph import NeighborhoodGraphRetriever  # noqa: E402
 from retrievers.null import NullRetriever  # noqa: E402
@@ -65,6 +69,30 @@ def build_retriever(name: str) -> Retriever:
         )
 
 
+# The generator registry: provider name -> adapter constructor (the Strategy pattern;
+# see eval/generate/base.py). The harness names a generator as "provider:model" so the
+# benchmark stays provider-agnostic — nothing here imports a provider SDK (the adapter
+# does, lazily). New providers (ollama, openai) are one entry each.
+GENERATORS: dict[str, Callable[..., Generator]] = {
+    AnthropicGenerator.provider: AnthropicGenerator,
+}
+
+
+def build_generator(spec: str) -> Generator:
+    """Build a generator from a 'provider:model' spec, e.g. 'anthropic:claude-haiku-4-5'."""
+    provider, _, model = spec.partition(":")
+    if not model:
+        raise SystemExit(
+            f"--generator must be 'provider:model' (e.g. anthropic:claude-haiku-4-5); got {spec!r}"
+        )
+    try:
+        return GENERATORS[provider](model)
+    except KeyError:
+        raise SystemExit(
+            f"unknown provider {provider!r}; registered: {', '.join(GENERATORS)}"
+        )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -84,21 +112,39 @@ def main() -> int:
         help="Run one retrieval for QUESTION and print the RetrievalResult as JSON (registry smoke).",
     )
     ap.add_argument(
+        "--ask",
+        metavar="QUESTION",
+        help="Generate one answer to QUESTION (no retrieval) and print it as JSON — the "
+        "generator-registry smoke. Requires --generator.",
+    )
+    ap.add_argument(
         "--generator",
-        metavar="MODEL_ID",
-        help="(build step 5) Generator model id for the full eval loop — not implemented yet.",
+        metavar="PROVIDER:MODEL",
+        help="Generator spec for --ask, e.g. 'anthropic:claude-haiku-4-5'.",
     )
     args = ap.parse_args()
 
-    if args.generator:
-        # The generator + judge + manifest loop is build step 5; refuse rather than
-        # fabricate. See the module docstring.
+    if args.ask:
+        if not args.generator:
+            raise SystemExit("--ask requires --generator PROVIDER:MODEL")
+        gen = build_generator(args.generator)
+        res = gen.generate(args.ask)
         print(
-            "error: the generator/judge eval loop is build step 5 and is not implemented yet.\n"
-            "       For now use --list or --retrieve to exercise the retriever registry.",
-            file=sys.stderr,
+            json.dumps(
+                {
+                    "provider": res.provider,
+                    "model": res.model,
+                    "input_tokens": res.input_tokens,
+                    "output_tokens": res.output_tokens,
+                    "latency_ms": round(res.latency_ms, 1),
+                    "finish_reason": res.finish_reason,
+                    "tool_calls": res.tool_calls,
+                    "text": res.text,
+                },
+                indent=2,
+            )
         )
-        return 2
+        return 0
 
     if args.list or not args.retrieve:
         for name in REGISTRY:
