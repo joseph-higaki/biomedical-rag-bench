@@ -10,8 +10,9 @@ token-units rule, the per-retriever mechanisms, and the telemetry each contribut
 The root `README.md` owns the hypotheses and build order; `eval/README.md` owns the
 eval/scoring design and the per-run experiment manifest.
 
-> **Status (build step 4).** `closed_book` and `graph_neighborhood` built and
-> smoke-validated. `vector` in progress. `graph_sparqlgen` deferred to step 5+.
+> **Status (build step 4).** `closed_book`, `vector`, and `graph_neighborhood` built,
+> smoke-validated, and registered in [`eval/run_eval.py`](../eval/run_eval.py).
+> `graph_sparqlgen` deferred to step 5+.
 
 ## The contract
 
@@ -88,7 +89,7 @@ in `eval/README.md`. Retrievers own only their per-retrieval slice.
 | `name` | File | Mechanism | Status |
 |---|---|---|---|
 | `closed_book` | [`null.py`](null.py) | empty context (baseline) | ✅ built |
-| `vector` | `vector.py` | embed question → top-k Chroma chunks | 🚧 in progress |
+| `vector` | [`vector.py`](vector.py) | embed question → top-k Chroma chunks | ✅ built |
 | `graph_neighborhood` | [`graph.py`](graph.py) | entity-link → bounded k-hop subgraph | ✅ built |
 | `graph_sparqlgen` | `sparqlgen.py` | LLM writes SPARQL from schema vocab | 🔜 step 5+ |
 
@@ -108,7 +109,7 @@ is exactly the non-retrieval payload, the unit-safe subtrahend in the rule above
 hand-built constant — deliberately bypasses `build_result` (nothing to tokenize, no
 work to time).
 
-### `vector` — the control 🚧
+### `vector` — the control ✅
 
 Embeds the question with the **same** model `build_vectors.py` used
 (`all-MiniLM-L6-v2` — the embedding model is a single visible swap point; query and
