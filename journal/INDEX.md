@@ -4,19 +4,21 @@ Running log of Claude Code sessions building biomedical-rag-bench. Tracked in gi
 (build-cost / token-usage data, now published). Detailed notes per session live
 in the dated files alongside this one.
 
-> **▶ Resume here (next session).** Build-order **step 4 complete** (three retrievers —
-> `closed_book` / `vector` / `graph_neighborhood` — behind the `Retriever` protocol, all
-> registered in `eval/run_eval.py`) and **step 5 well under way**: deterministic judges
-> (`eval/judge/`, 9 of 10 types), a **provider-neutral generator layer** (`eval/generate/`
-> — `Generator` protocol + Strategy-pattern adapters; Anthropic is the first, the only
-> file importing an SDK), and the `retrieve→generate→judge` **harness loop** (`eval/harness.py`
-> + `run_eval.py --run`). First live e2e `closed_book → claude-haiku-4-5` ran (1/9 — the
-> H7 baseline shape, as a smoke); see **`eval/FINDINGS.md`**. 77 hermetic tests pass.
-> Next: (1) fix the three `FINDINGS.md` caveats (closed-book prompt refusal-bias, verbosity
-> vs set precision, binary judge missing `don't`); (2) bring up GraphDB + Chroma and run
-> `graph_neighborhood` + `vector` e2e — the first real cross-retriever comparison; (3) the
-> type-10 `semantic` LLM judge; (4) the analysis notebook/dashboard over `eval/results/*.jsonl`.
-> Full context: [2026-06-06_02.md](2026-06-06_02.md) → "Next steps".
+> **▶ Resume here (next session).** **Step 5 (eval) executed end-to-end.** First full
+> cross-retriever benchmark run over all 52 deterministic questions (3–8/type),
+> `claude-haiku-4-5`: closed_book **4/52**, vector(real) **8/52**, graph_neighborhood_1hop
+> **13/52**, graph_neighborhood_2hop 12/52. Harness hardened (crash-safe streaming `--run` +
+> per-question error isolation), graph hop budgets registered as named conditions
+> (`_1hop`/`_2hop`), and **vector turned into a fair arm** — fixed `parse_entities` silently
+> dropping all genes/compounds, built a targeted corpus (10,735 chunks, `data/chroma`).
+> Headline findings in **`eval/FINDINGS.md`**: graph_1hop is the only arm answering structured
+> questions (1-hop factoid 5/5); deep-structural types 04/05/06/07/09 are 0 across every
+> condition; dense literature retrieval is 0/52 on content even with full coverage (the answer
+> is a graph relationship, not abstract prose). 86 hermetic tests pass. GraphDB up.
+> Next (priority order): (1) **`graph_sparqlgen`** (text-to-SPARQL, LLM-in-retriever) — the
+> structural-question mechanism; (2) type-10 `semantic` LLM judge; (3) analysis
+> notebook/dashboard; (4) full vector corpus via a parallelized fetcher.
+> Full context: [2026-06-08.md](2026-06-08.md) → "Next steps".
 
 **Convention.** One file per session, named `YYYY-MM-DD.md` (add a zero-padded
 `_02`, `_03` suffix for multiple sessions in a day). The separator is `_`, not `-`:
@@ -41,6 +43,7 @@ cumulative cost of building the solution.
 | 2026-06-05 | 11 | Claude Opus 4.8 (`claude-opus-4-8`) | 5,337 | 134,361 | 14,949,991 | 399,233 | 15,488,922 | Cross-cutting cleanup (no new build step): fix pubmed_fetch `.env` resolution (find_dotenv→secrets/.env, keyed NCBI rate); move streaming ADR to ingest/rdf; single-source question distribution on YAML (build_registry generates the table) + `make registry`; producer `--explain` worked-example trace + generated EXAMPLE.md + `make explain` (candidate-query builders extracted, eval set byte-identical); C4 container diagram in root README Architecture |
 | 2026-06-06 | 12 | Claude Opus 4.8 (`claude-opus-4-8`) | 3,408 | 128,819 | 5,257,214 | 140,523 | 5,529,964 | Step 4 (retrievers): `base.py` contract (RetrievalResult + Retriever protocol; count_tokens proxy / stopwatch / build_result seams; offline-proxy-vs-billed token-units rule + `context_tokenizer` tag); `null.py` `closed_book`; `graph.py` `graph_neighborhood` (gazetteer entity-link + bounded k-hop + per-predicate fan caps, no LLM); `retrievers/README.md` subsystem doc. Design settled: generator-vs-judge, swappable multi-provider generator (step 5), neighborhood-now/text-to-SPARQL-later, factorial provenance recording. Provenance bug fixed (sources match served context) |
 | 2026-06-06 | 13 | Claude Opus 4.8 (`claude-opus-4-8`) | 8,074 | 147,461 | 17,370,273 | 350,947 | 17,876,755 | Step 4 closed (`vector.py` + retriever registry) + step 5 in three increments: deterministic judges (`eval/judge/`, 9/10 types) + eval/README Metrics section; **provider-neutral generator layer** (`eval/generate/` — Generator protocol + Strategy adapters, Anthropic first, neutral message/system/token/tool surface); `retrieve→generate→judge` harness loop (`eval/harness.py` + `run_eval.py --run`, JSONL+manifest + tracked `eval/FINDINGS.md`). Journal sort fix (`-NN`→`_NN`). First live e2e `closed_book → claude-haiku-4-5`: 1/9 (H7 baseline shape, a smoke). 77 hermetic tests. git-SHA manifest factor deferred |
+| 2026-06-08 | 14 | Claude Opus 4.8 (`claude-opus-4-8`) | 7,701 | 182,463 | 23,348,933 | 493,443 | 24,032,540 | **Step 5 executed end-to-end.** First full cross-retriever run (52 deterministic q, 3–8/type): closed 4/52, vector(real) 8/52, graph_1hop **13/52**, graph_2hop 12/52. Fixed three FINDINGS caveats (judge `don't`+apostrophe, set-precision scaffolding, closed-book refusal prompt); split generated `LATEST_RUN.md` from curated `FINDINGS.md`; graph hop budgets as named conditions (`_1hop`/`_2hop`) + no-drift test; crash-safe streaming `--run` + per-question error isolation + SDK retries. **Vector made fair**: fixed `parse_entities` dropping all 20,945 genes + 1,552 compounds, reproducible targeted corpus (10,735 chunks). Findings: graph_1hop only arm answering structure (1-hop 5/5); deep-structural 04/05/06/07/09 = 0 everywhere; dense literature 0/52 on content even with coverage; type-08 empty-context + hops/caps-coupling caveats. 86 hermetic tests |
 
 > Token figures are summed from the session transcript JSONL (`/cost` output does
 > not reach Claude's context). Cache read is the bulk — full context re-read each
