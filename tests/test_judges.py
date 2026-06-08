@@ -71,6 +71,23 @@ def test_set_match_over_claim_fails_on_precision():
     assert not r.passed and r.details["extra"]
 
 
+def test_set_match_ignores_markdown_header_in_precision():
+    # FINDINGS caveat #2: a title line is scaffolding, not a claimed entity — counting it
+    # as an over-claim wrongly tanked precision. The header must not appear in `extra`.
+    gt = ["BMP4", "CHD7", "COCH"]
+    answer = "# Genes Expressed in Semicircular Canal\n- BMP4\n- CHD7\n- COCH"
+    r = _j("set_match").score(answer, gt)
+    assert r.passed and r.score == 1.0
+    assert not r.details["extra"]
+
+
+def test_set_match_ignores_label_lead_in_in_precision():
+    # A bare "Section:" lead-in is likewise scaffolding, not a member.
+    gt = ["BMP4", "CHD7"]
+    r = _j("set_match").score("The genes are:\n- BMP4\n- CHD7", gt)
+    assert r.passed and not r.details["extra"]
+
+
 def test_set_match_prose_is_recall_only():
     gt = ["BMP4", "CHD7", "COCH"]
     r = _j("set_match").score("The genes are BMP4, CHD7 and COCH.", gt)
@@ -101,6 +118,19 @@ def test_binary_refusal_passes_on_empty_ground_truth():
 def test_binary_hallucinated_answer_fails():
     r = _j("binary").score("Testolactone treats breast cancer and prostate cancer.", [])
     assert not r.passed
+
+
+def test_binary_detects_contraction_refusal():
+    # FINDINGS caveat #3: "I don't have …" must register as a refusal. The earlier regex
+    # had `doesn't` but not the `don't` contraction, so this scored as a hallucination.
+    r = _j("binary").score("I don't have specific context about Testolactone's uses.", [])
+    assert r.passed and r.details["refusal_detected"]
+
+
+def test_binary_detects_refusal_with_typographic_apostrophe():
+    # Models emit a curly apostrophe (U+2019); the cue must match regardless of typography.
+    r = _j("binary").score("I don’t have information on that compound.", [])
+    assert r.passed and r.details["refusal_detected"]
 
 
 # --- boolean (type 09) ------------------------------------------------------

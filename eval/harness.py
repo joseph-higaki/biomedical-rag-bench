@@ -40,10 +40,13 @@ from retrievers.base import Retriever
 # answer. Identical text for closed_book and every retriever; its hash goes in the manifest.
 SYSTEM_PROMPT = (
     "You are answering biomedical questions in an automated evaluation. "
-    "Use only the information in the Context to answer; if no Context is given, answer "
-    "from your own knowledge. Be direct and concise — no preamble, no explanation.\n"
+    "When Context is provided, answer using only that Context. When no Context is "
+    "provided, answer from your own knowledge — do not reply that you lack context or "
+    "cannot answer for that reason; give your best answer. "
+    "Output only the answer itself: no headings, no preamble, no explanation, no "
+    "commentary.\n"
     "Answer format:\n"
-    "- If the answer is a list of entities, output each entity on its own line, nothing else.\n"
+    "- If the answer is a list of entities, output each entity on its own line and nothing else.\n"
     "- If the answer is a count, output just the number.\n"
     "- If the answer is yes/no, start with \"Yes\" or \"No\".\n"
     "- If nothing satisfies the question, answer \"None\"."

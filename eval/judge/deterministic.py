@@ -23,11 +23,24 @@ from eval.judge.base import Judge, JudgeResult, normalize
 
 # Numbers the model might write as "1,184" or "184"; commas stripped before int().
 _NUMBER = re.compile(r"\d[\d,]*")
-# Explicit negation/empty-answer cues for the unanswerable judge.
+# Typographic apostrophes models emit ("I don't", U+2019/U+2018/U+02BC) folded to ASCII
+# so the contraction cues below match regardless of the answer's typography.
+_APOSTROPHES = str.maketrans({"’": "'", "‘": "'", "ʼ": "'"})
+# Explicit negation/empty-answer cues for the unanswerable / boolean judges. A refusal
+# almost always arrives as a contraction ("I don't have …", "there isn't …"), so the
+# contraction family carries as much weight here as the spelled-out forms; "not" already
+# covers the "does not"/"is not" spelled variants.
 _NEGATION = re.compile(
-    r"\b(no|none|not|cannot|can't|doesn't|does not|isn't|aren't|never|"
-    r"unanswerable|unknown|zero|empty|nothing|no such|not aware|no known)\b"
+    r"\b(no|none|not|cannot|never|unanswerable|unknown|zero|empty|nothing|"
+    r"no such|not aware|no known|"
+    r"can't|don't|doesn't|didn't|isn't|aren't|wasn't|weren't|"
+    r"won't|wouldn't|couldn't|shouldn't|haven't|hasn't|hadn't)\b"
 )
+
+
+def _has_negation(text: str) -> bool:
+    """True if `text` carries an explicit negation/refusal cue, apostrophe-insensitive."""
+    return bool(_NEGATION.search(text.lower().translate(_APOSTROPHES)))
 
 
 def _tokens(text: str) -> list[str]:
@@ -84,12 +97,25 @@ def _looks_like_list(text: str) -> bool:
     return bool(re.search(r"(^|\n)\s*([-*•]|\d+[.)])\s+", text))
 
 
+def _is_scaffolding(line: str) -> bool:
+    """A non-entity scaffolding line — a markdown header or a bare 'Section:' label —
+    that must not be counted as a claimed set member. Filtering these is *extraction*,
+    not leniency: a title like '# Genes Expressed in Semicircular Canal' or a lead-in
+    like 'The genes are:' is not an entity the model claimed, and counting it as one
+    wrongly inflates the 'extra' set and depresses precision (FINDINGS caveat #2). The
+    prose-sentence preamble case ('To answer this, I need to…') is left to the system
+    prompt's format steering — it can't be told from a real label deterministically."""
+    s = line.strip()
+    return s.startswith("#") or s.endswith(":")
+
+
 def _split_items(text: str) -> list[str]:
-    """Split a list-shaped answer into claimed items (strip bullets/numbering)."""
+    """Split a list-shaped answer into claimed items (strip bullets/numbering, drop
+    scaffolding lines that are not entities)."""
     items: list[str] = []
     for ln in text.splitlines():
         ln = re.sub(r"^\s*([-*•]|\d+[.)])\s+", "", ln).strip()
-        if not ln:
+        if not ln or _is_scaffolding(ln):
             continue
         # A single line may still pack several comma/semicolon-separated items.
         items.extend(p.strip() for p in re.split(r"[;,]", ln) if p.strip())
@@ -189,7 +215,7 @@ class BinaryJudge:
 
     def score(self, predicted, ground_truth, *, answer_var=None, question=None) -> JudgeResult:
         is_empty_gt = not ground_truth
-        refused = bool(_NEGATION.search(predicted.lower()))
+        refused = _has_negation(predicted)
         if is_empty_gt:
             passed = refused
             verdict = ("correctly refused / asserted none" if refused
@@ -221,7 +247,7 @@ class BooleanJudge:
         expected = str(ground_truth).strip().lower() in ("true", "yes", "1")
         toks = set(_tokens(predicted))
         says_true = bool({"yes", "true"} & toks) or "there is a path" in predicted.lower()
-        says_false = bool({"no", "false"} & toks) or bool(_NEGATION.search(predicted.lower()))
+        says_false = bool({"no", "false"} & toks) or _has_negation(predicted)
         ambiguous = says_true == says_false  # both or neither
         predicted_bool = says_true and not says_false
         passed = (not ambiguous) and (predicted_bool == expected)
