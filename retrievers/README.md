@@ -90,10 +90,19 @@ in `eval/README.md`. Retrievers own only their per-retrieval slice.
 |---|---|---|---|
 | `closed_book` | [`null.py`](null.py) | empty context (baseline) | ✅ built |
 | `vector` | [`vector.py`](vector.py) | embed question → top-k Chroma chunks | ✅ built |
-| `graph_neighborhood` | [`graph.py`](graph.py) | entity-link → bounded k-hop subgraph | ✅ built |
+| `graph_neighborhood_1hop` | [`graph.py`](graph.py) | entity-link → 1-hop subgraph | ✅ built |
+| `graph_neighborhood_2hop` | [`graph.py`](graph.py) | entity-link → 2-hop subgraph | ✅ built |
 | `graph_sparqlgen` | `sparqlgen.py` | LLM writes SPARQL from schema vocab | 🔜 step 5+ |
 
-Two graph conditions, two research questions: `graph_neighborhood` isolates the
+The hop budget is **embedded in the registered name** (`graph_neighborhood_<n>hop`) rather
+than passed as a separate factor: the budget defines what the condition can answer, so it
+is a condition in its own right, not a tuning parameter of one condition. Encoding it in
+the name keeps each budget a single grouping key (no extra manifest factor) and
+auto-namespaces its result files; the value is also in `traversal_info["hops"]`, the
+source of truth. (Reserve name-encoding for the curated budgets you actually compare — if
+you ever sweep many knobs, that knob graduates to a real factor.)
+
+Two graph *mechanisms*, two research questions: `graph_neighborhood` isolates the
 *representation* (no LLM, deterministic); `graph_sparqlgen` measures the realistic
 *system* (text-to-SPARQL, as deployed in the wild). Both are valid; the architecture
 carries both as separate registered conditions.

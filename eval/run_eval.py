@@ -19,7 +19,7 @@ Until then the CLI exercises each registry in isolation (the per-increment smoke
 
     uv run python eval/run_eval.py --list
     uv run --extra vector python eval/run_eval.py --retriever vector --retrieve "..."
-    uv run --extra graph  python eval/run_eval.py --retriever graph_neighborhood --retrieve "..."
+    uv run --extra graph  python eval/run_eval.py --retriever graph_neighborhood_1hop --retrieve "..."
     uv run --extra generate python eval/run_eval.py --ask "..." --generator anthropic:claude-haiku-4-5
 
 (closed_book needs no extra; vector → `--extra vector`; graph → `--extra graph`;
@@ -49,16 +49,27 @@ from retrievers.graph import NeighborhoodGraphRetriever  # noqa: E402
 from retrievers.null import NullRetriever  # noqa: E402
 from retrievers.vector import VectorRetriever  # noqa: E402
 
-# The registry: retriever `name` -> zero-arg constructor. Keyed off each class's own
-# `name` attribute so the registry key and the RetrievalResult's reported name cannot
-# drift. Importing the modules is cheap — their heavy deps (httpx, chromadb,
-# sentence-transformers) are imported lazily inside `retrieve`, so the registry loads
-# with no extra installed and `--list` runs anywhere. `graph_sparqlgen` joins once the
-# LLM-in-retriever layer exists (step 5+).
+# The registry: retriever `name` -> zero-arg constructor. The key must equal the
+# constructed retriever's reported `name` so the registry key and the RetrievalResult's
+# reported name cannot drift (pinned by tests/test_registry.py). For the parameter-free
+# retrievers the key is just the class's `name`; for the graph condition each hop budget
+# is its own named entry — embedding the budget in the name keeps it a single condition
+# key (no extra manifest factor) and auto-namespaces its result files via run_id. The hop
+# value is also in traversal_info, so this is a grouping label, not the source of truth.
+# Importing the modules is cheap — heavy deps (httpx, chromadb, sentence-transformers) are
+# lazy inside `retrieve`, so the registry loads with no extra installed and `--list` runs
+# anywhere. `graph_sparqlgen` joins once the LLM-in-retriever layer exists (step 5+).
+def _graph(hops: int) -> Callable[[], Retriever]:
+    """Bind a hop budget into a zero-arg constructor; the instance names itself
+    graph_neighborhood_<hops>hop, so the registry key and reported name stay in lockstep."""
+    return lambda: NeighborhoodGraphRetriever(hops=hops)
+
+
 REGISTRY: dict[str, Callable[[], Retriever]] = {
     NullRetriever.name: NullRetriever,
     VectorRetriever.name: VectorRetriever,
-    NeighborhoodGraphRetriever.name: NeighborhoodGraphRetriever,
+    "graph_neighborhood_1hop": _graph(1),
+    "graph_neighborhood_2hop": _graph(2),
 }
 
 

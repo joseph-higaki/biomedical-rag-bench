@@ -60,7 +60,11 @@ class NeighborhoodGraphRetriever:
     step (build order 6/7), calibrated against the question set.
     """
 
-    name = "graph_neighborhood"
+    # The base label; the live `name` embeds the hop budget (set per instance below) so
+    # each configured budget is its own registry condition — graph_neighborhood_1hop /
+    # graph_neighborhood_2hop. The hop value is also in traversal_info, so the name is the
+    # grouping label and the telemetry is the source of truth. See run_eval.REGISTRY.
+    base_name = "graph_neighborhood"
 
     def __init__(
         self,
@@ -72,6 +76,7 @@ class NeighborhoodGraphRetriever:
     ) -> None:
         self.endpoint = endpoint or DEFAULT_ENDPOINT
         self.hops = hops
+        self.name = f"{self.base_name}_{hops}hop"
         self.max_per_predicate = max_per_predicate
         self.max_triples = max_triples
         self._gazetteer: dict[str, tuple[str, str]] | None = None  # norm_label -> (uri, label)
