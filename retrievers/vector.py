@@ -33,7 +33,9 @@ from retrievers.base import RetrievalResult, build_result, stopwatch
 # Must match build_vectors.py — query and corpus share one embedding space.
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 COLLECTION = "pubmed_abstracts"
-DEFAULT_STORE = os.environ.get("CHROMA_STORE", "data/chroma-smoke")
+# The real targeted corpus (data/chroma, ~10.7k chunks) is the default; the 28-doc
+# smoke store stays reachable via CHROMA_STORE=data/chroma-smoke for quick checks.
+DEFAULT_STORE = os.environ.get("CHROMA_STORE", "data/chroma")
 
 
 class VectorRetriever:

@@ -130,7 +130,11 @@ def main() -> int:
     except Exception:
         pass
     coll = client.create_collection(COLLECTION, metadata={"hnsw:space": "cosine"})
-    coll.add(ids=ids, documents=docs, metadatas=metas, embeddings=embeddings)
+    # Chroma caps a single add() (~5.4k); a real corpus exceeds it, so add in batches.
+    BATCH = 5000
+    for i in range(0, len(ids), BATCH):
+        sl = slice(i, i + BATCH)
+        coll.add(ids=ids[sl], documents=docs[sl], metadatas=metas[sl], embeddings=embeddings[sl])
     print(f"wrote {coll.count()} chunks to collection '{COLLECTION}' at {args.out}", file=sys.stderr)
 
     if args.query:
