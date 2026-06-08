@@ -75,7 +75,44 @@ behaves," promote it to `eval/README.md` (the methodology reference). Findings g
 
 ## Run log (newest first)
 
-### 2026-06-08 (latest) — `graph_sparqlgen` first full run (52 q, run `20260608T203128`)
+### 2026-06-08 (latest) — `semantic` LLM judge online; first type-10 verdicts
+
+Built the LLM judge for type-10 (`eval/judge/semantic.py`): given the question, the
+graph-derived reference entity, and the candidate, it returns EQUIVALENT / DIFFERENT
+(temperature 0, judge model logged + costed separately from the generator). Ran the 6 type-10
+questions in isolation (`--types 10`) for two retrievers, same `claude-haiku-4-5` generator.
+Runs: `closed_book` `20260608T215424`, `vector` `20260608T215522`. **Both 5/6.**
+
+1. **The judge earns its existence on one verdict the deterministic judges *cannot* reach.**
+   On the TP53 question, `closed_book` answered **"TP53"** and `vector` answered **"p53"** —
+   both judged **equivalent** (correctly: p53 is the TP53 protein). A deterministic
+   token-match passes "TP53" and **fails "p53"** (no shared token), so without the LLM judge
+   the *same correct answer* scores differently by surface form. This is precisely the
+   surface-form equivalence type-10 reserves for an LLM — demonstrated, not assumed.
+
+2. **The judge is discriminating, not lenient.** The one FAIL in each run is a genuinely
+   wrong answer the judge correctly rejected with a sound biological reason: the CDH1
+   "loss promotes metastasis via cell-cell adhesion" question drew **"CDKN2A (p16)"**
+   (closed_book) and **"IGF1R / KRIT1"** (vector, distracted by retrieved abstracts) — both
+   different genes, both marked *different*. The judge passed 5 true synonyms/variants
+   (Warfarin, Metformin, TP53/p53, Alzheimer's, Parkinson's) and rejected 2 wrong entities.
+
+3. **On these 6, retrieval neither helped nor hurt the score (both 5/6) — H4 not yet
+   testable.** The type-10 entities are textbook-famous, so the parametric baseline already
+   nails them (H7 territory); `vector`'s extra context changed *wording* (p53 vs TP53) and
+   on the CDH1 item actively *distracted* the generator into a wrong answer. A real H4 test
+   ("vector wins on fuzzy/semantic") needs type-10 questions whose answer is **not** a
+   household-name entity — a question-set expansion (append-only, a separate authorized task),
+   not a judge problem.
+
+4. **Calibration is pending — the judge is built, not yet trusted.** Per the determinism rule
+   (eval/README.md) the LLM judge is trusted only after Cohen's kappa > 0.7 over a ≥20-question
+   human-graded hold-out, reported in the release notes. Only 6 type-10 questions exist today,
+   too few for a meaningful kappa. First-run verdicts were **manually spot-checked: 12/12
+   agreed** with human grading (incl. the p53/TP53 accept and both CDH1 rejects) — promising,
+   but not the formal study. **Do not cite type-10 accuracy as calibrated** until kappa lands.
+
+### 2026-06-08 (earlier) — `graph_sparqlgen` first full run (52 q, run `20260608T203128`)
 
 The new condition: an LLM writes one SPARQL `SELECT` from the question + a schema-vocabulary
 prompt, the retriever runs it and serializes the rows (see retrievers/README.md). Writer model
