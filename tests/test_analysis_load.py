@@ -79,6 +79,18 @@ def test_tidy_explodes_telemetry_and_derives_hops(tmp_path):
     assert df.loc["graph_neighborhood_2hop", "hops"] == 2  # parsed from the name
 
 
+def test_guarantees_newer_schema_columns_on_an_old_corpus(tmp_path):
+    # Rows from before the resolved-id / cache backfill carry none of those keys, so pandas
+    # wouldn't create the columns. The loader must still expose them (as NaN) so consumers
+    # (the notebook) can select them without a KeyError.
+    _write_run(tmp_path, "old", "vector", "m", "2026-06-01T00:00:00+0000",
+               [_row("q1", "vector")])  # _row has no resolved-id / cache / error keys
+    df = L.load(tmp_path)
+    for col in ["generator_model_resolved", "cache_read_input_tokens",
+                "cache_creation_input_tokens", "error"]:
+        assert col in df.columns and df[col].isna().all()
+
+
 def test_token_premium_is_input_minus_closed_book(tmp_path):
     _write_run(tmp_path, "cb", "closed_book", "m", "2026-06-02T00:00:00+0000",
                [_row("q1", "closed_book", input_tokens=100)])

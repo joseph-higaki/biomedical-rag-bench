@@ -51,6 +51,12 @@ _JUDGE_COLS = ["recall", "precision", "f1", "expected_count", "found_count",
 _TRAVERSAL_COLS = ["mechanism", "writer_input_tokens", "writer_output_tokens", "sparql_valid",
                    "num_rows", "num_linked", "num_triples", "top_k", "hops"]
 _HOPS_RE = re.compile(r"_(\d+)hop")
+# Top-level row fields that only newer runs carry (additive harness changes). pandas creates a
+# column only if some row has the key, so on an all-old corpus these would be *absent* — not
+# just NaN — and break consumers that select them. The loader guarantees them as NaN columns so
+# its output schema is stable; whether they're populated is the telemetry-coverage question.
+_GUARANTEED_COLS = ["generator_model_resolved", "cache_read_input_tokens",
+                    "cache_creation_input_tokens", "error"]
 # Manifests carry the generator id inconsistently — some runs logged the alias
 # (`claude-haiku-4-5`), some the resolved snapshot it expands to (`claude-haiku-4-5-20251001`).
 # Stripping the trailing -YYYYMMDD yields a `generator_model_family` that treats them as one
@@ -148,7 +154,11 @@ def tidy(df: pd.DataFrame) -> pd.DataFrame:
     name_hops = df["retriever"].str.extract(_HOPS_RE)[0].astype("Float64")
     df["hops"] = df["hops"].astype("Float64").fillna(name_hops)
     df["num_extra"] = df["judge_details"].apply(lambda d: len(d.get("extra", [])) if isinstance(d, dict) else 0)
-    return _add_token_premium(df)
+    df = _add_token_premium(df)
+    for c in _GUARANTEED_COLS:  # stable output schema even on a pre-backfill corpus
+        if c not in df.columns:
+            df[c] = pd.NA
+    return df
 
 
 def load(results_dir: Path = DEFAULT_RESULTS) -> pd.DataFrame:
