@@ -37,6 +37,9 @@ behaves," promote it to `eval/README.md` (the methodology reference). Findings g
   score is therefore only meaningful for a retriever that *otherwise retrieves*. The analysis
   layer must not rank retrievers on aggregate accuracy without isolating this, or it will
   rate a useless retriever highly. Read 08 alongside whether the retriever had real content.
+  **Demonstrated directly:** rebuilding `vector` on a real entity-covering corpus dropped 08
+  from 7/7 → 4/7 (the refuse-on-empty crutch removed) while content questions stayed 0, so the
+  *fairer* corpus *lowered* the headline (11 → 8/52). Aggregate accuracy is the wrong top-line.
 
 - **More hops is not more capability — `hops` and the fan caps are coupled.** At the default
   caps (`max_per_predicate=25`, `max_triples=200`, tuned for 1 hop), raising `hops` 1→2 is a
@@ -51,6 +54,40 @@ behaves," promote it to `eval/README.md` (the methodology reference). Findings g
 ---
 
 ## Run log (newest first)
+
+### 2026-06-08 (later) — `vector` on the real targeted corpus (run `20260608T161819`)
+
+Built a targeted vector corpus — every question-seed entity (61) + 1,500 random distractors
+→ 1,893 entity files → **10,735 chunks** in `data/chroma` (commits `e367508` parser fix that
+had been silently excluding all genes/compounds, `ff3560f` seeded selection, `2fa29a1`
+batched build + default re-point). Re-ran `vector` against it — **the first *fair*
+dense-retrieval arm** (the earlier 11/52 was the 28-abstract smoke store).
+
+| type | closed | vec(smoke) | **vec(real)** | graph_1hop |
+|---|---|---|---|---|
+| 02_1hop_factoid | 0/5 | 0/5 | **0/5** | 5/5 |
+| 08_negative_unanswerable | 0/7 | 7/7 | **4/7** | 4/7 |
+| **total** | 4/52 | 11/52 | **8/52** | 13/52 |
+
+1. **Dense literature retrieval cannot answer structured graph questions even with full entity
+   coverage.** `vec(real)` is **0/52 on every content question (02–07)** though the corpus now
+   contains every question entity. Worked example — *"Which genes are expressed in semicircular
+   canal?"* (truth: 11 Hetionet genes): vector retrieved 5 topically-relevant abstracts and the
+   model answered `tmc1 / tmc2a / …` — TMC/hearing genes named *in the abstract prose*, not the
+   Hetionet expressed-in set (F1=0.00). The answer is a graph *relationship*, not a sentence in
+   any abstract; topical similarity returns plausible-but-wrong sets. **The benchmark's thesis
+   (H2/H4/H7), now demonstrated with a fair corpus** — not an artifact of a thin store.
+
+2. **A fairer corpus *lowered* the headline (11 → 8) — the type-08 artifact, demonstrated**
+   (→ caveat above). The smoke store's extra points were refuse-on-empty passes on 08; real
+   content removes that crutch (7/7 → 4/7) while content stays 0, so the net is a drop.
+
+`graph_neighborhood_1hop` (13/52) **remains the only arm that answers structured questions**
+(02: 5/5) — the neighborhood literally contains the relationships vector's prose can't encode.
+The fair vector arm *sharpens* the graph's advantage rather than closing it.
+
+> The full-set entry below still lists `vector` at 11/52 (smoke); `vec(real)` 8/52 above is now
+> the canonical vector arm. The other three conditions are unchanged.
 
 ### 2026-06-08 — full deterministic set (52 q), all four conditions (`claude-haiku-4-5`)
 
