@@ -119,6 +119,31 @@ def test_run_question_passes_on_correct_answer_and_records_factors():
     assert row["scoring"] == "string_match" and row["type_id"] == "01_0hop_attribute"
 
 
+class AliasGenerator:
+    """Configured with an alias; the API resolves it to a dated snapshot in the response."""
+    provider, model = "fake", "claude-haiku-4-5"  # what was requested (an alias)
+
+    def generate(self, prompt, *, system=None, tools=None):
+        return GenerationResult(
+            text="It is on chromosome 11.", model="claude-haiku-4-5-20251001",  # resolved
+            provider=self.provider, input_tokens=12, output_tokens=3, latency_ms=2.0,
+        )
+
+
+def test_run_question_records_both_requested_and_resolved_model():
+    # base.py's contract: the resolved snapshot is attributable per result, distinct from the
+    # requested (possibly-alias) id. Both are kept; they legitimately differ.
+    row = harness.run_question(FakeRetriever(), AliasGenerator(), DETERMINISTIC_JUDGES, _q())
+    assert row["generator_model"] == "claude-haiku-4-5"            # requested
+    assert row["generator_model_resolved"] == "claude-haiku-4-5-20251001"  # resolved
+
+
+def test_error_row_has_null_resolved_model():
+    # generate() never returned, so there is no resolved snapshot — honest null, not a guess.
+    row = harness.run_question(FakeRetriever(), RaisingGenerator(), DETERMINISTIC_JUDGES, _q())
+    assert row["generator_model"] == "fake-1" and row["generator_model_resolved"] is None
+
+
 def test_run_question_persists_retriever_telemetry_for_analysis():
     # The analysis layer reads retriever telemetry (writer cost, hops, sparql_valid, …) off
     # the row, so it must survive verbatim — stored whole, not whitelisted.
@@ -196,3 +221,10 @@ def test_make_manifest_carries_run_constant_factors():
     assert d["num_questions"] == 2 and d["run_id"] == "testrun"
     assert len(d["system_prompt_sha256"]) == 16  # prompt version pinned
     assert "git_sha" not in d  # code-version factor deferred (see harness TODO)
+
+
+def test_make_manifest_pins_resolved_model_snapshot():
+    m = harness.make_manifest(FakeRetriever(), FakeGenerator("x"), [_q()], run_id="r",
+                              questions_path="q.jsonl",
+                              generator_model_resolved="claude-haiku-4-5-20251001")
+    assert m.to_dict()["generator_model_resolved"] == "claude-haiku-4-5-20251001"

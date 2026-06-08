@@ -252,9 +252,14 @@ def main() -> int:
                 fh.flush()
                 rows.append(row)
 
+        # The exact snapshot the provider resolved the (possibly-alias) model to — taken from
+        # the first successful row, so the manifest pins it at the run level too.
+        resolved = next((r["generator_model_resolved"] for r in rows
+                         if r.get("generator_model_resolved")), None)
         manifest = harness.make_manifest(
             retriever, generator, selected, run_id=run_id,
             questions_path=str(args.questions), judge=judge_label,
+            generator_model_resolved=resolved,
         )
         (args.out / f"{run_id}.manifest.json").write_text(
             json.dumps(manifest.to_dict(), indent=2)

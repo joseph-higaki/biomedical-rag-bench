@@ -145,6 +145,8 @@ def run_question(
     except Exception as e:  # transient API error, GraphDB hiccup, etc. — isolate, don't abort
         row |= {
             "predicted": None,
+            # generate() never returned, so there is no resolved snapshot to attribute to.
+            "generator_model_resolved": None,
             "input_tokens": 0, "output_tokens": 0,
             "cache_read_input_tokens": None, "cache_creation_input_tokens": None,
             "context_tokens_proxy": None, "num_sources": 0,
@@ -158,6 +160,10 @@ def run_question(
 
     row |= {
         "predicted": gr.text,
+        # The resolved snapshot the provider reports it actually ran (gr.model), distinct from
+        # the requested/configured `generator_model` above (which may be a moving alias). Logged
+        # per result so a verdict is always attributable to the exact model — base.py's contract.
+        "generator_model_resolved": gr.model,
         "input_tokens": gr.input_tokens,
         "output_tokens": gr.output_tokens,
         # Generator's billed cache tokens (when the provider reports them) — the cost panel
@@ -236,6 +242,10 @@ class RunManifest:
     questions_path: str
     num_questions: int
     system_prompt_sha256: str
+    # The configured `generator_model` may be an alias; this is the exact dated snapshot the
+    # provider resolved it to (from the rows, post-run). Optional/additive — None for an
+    # all-errored run, or a run made before the row carried it.
+    generator_model_resolved: str | None = None
     harness_version: str = "harness-v1"
 
     def to_dict(self) -> dict:
@@ -250,6 +260,7 @@ def make_manifest(
     run_id: str,
     questions_path: str,
     judge: str = "deterministic-v1",
+    generator_model_resolved: str | None = None,
 ) -> RunManifest:
     return RunManifest(
         run_id=run_id,
@@ -261,6 +272,7 @@ def make_manifest(
         questions_path=questions_path,
         num_questions=len(questions),
         system_prompt_sha256=hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest()[:16],
+        generator_model_resolved=generator_model_resolved,
     )
 
 
