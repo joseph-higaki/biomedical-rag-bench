@@ -36,7 +36,12 @@ LITERATURE_KINDS = {"Gene", "Disease", "Compound", "Symptom", "SideEffect", "Pha
 # The serializer writes each node as two lines: `<term> a hetio:<Kind> ;` then
 # `    rdfs:label "<label>" .`. We pair a node line with the label line that follows.
 _NODE_RE = re.compile(r"^(\S+)\s+a\s+hetio:(\w+)\s*;")
-_LABEL_RE = re.compile(r'^\s*rdfs:label\s+"(.*)"\s*\.\s*$')
+# The label may terminate the node block (`… "Label" .`) or be followed by more triples
+# (`… "Label" ;`) — Gene/Compound nodes carry trailing hetio:chromosome / description /
+# inchikey attributes after the label (the session-09 node-attribute extension), so the
+# terminator is `;` there, `.` for kinds with no extra attributes. Accept either, or every
+# Gene and Compound — the bulk of the question entities — is silently dropped from the corpus.
+_LABEL_RE = re.compile(r'^\s*rdfs:label\s+"(.*)"\s*[;.]\s*$')
 
 
 def _unescape(s: str) -> str:

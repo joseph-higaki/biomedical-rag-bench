@@ -31,6 +31,28 @@ def test_parse_entities_pairs_term_kind_label(tmp_path):
     ]
 
 
+def test_parse_entities_reads_label_followed_by_more_triples(tmp_path):
+    # Regression: Gene/Compound nodes carry trailing hetio:chromosome / description /
+    # inchikey attributes (the node-attribute extension), so their rdfs:label line ends
+    # with `;`, not `.`. The label terminator must accept either, or every gene and
+    # compound — the bulk of the question entities — is silently dropped from the corpus.
+    ttl = (
+        'ncbigene:5345 a hetio:Gene ;\n'
+        '    rdfs:label "SERPINF2" ;\n'
+        '    hetio:chromosome "17" ;\n'
+        '    hetio:description "serpin peptidase inhibitor" .\n'
+        'db:DB00201 a hetio:Compound ;\n'
+        '    rdfs:label "Caffeine" ;\n'
+        '    hetio:inchikey "InChIKey=RYYVLZVUVIJVGH-UHFFFAOYSA-N" .\n'
+        'do:14227 a hetio:Disease ;\n    rdfs:label "lung cancer" .\n'
+    )
+    assert list(pf.parse_entities(_write(tmp_path, ttl))) == [
+        ("ncbigene:5345", "Gene", "SERPINF2"),
+        ("db:DB00201", "Compound", "Caffeine"),
+        ("do:14227", "Disease", "lung cancer"),
+    ]
+
+
 def test_parse_entities_ignores_edges_and_rdfstar(tmp_path):
     # Base edge triples and RDF-star annotation lines must not be mistaken for
     # node declarations — their predicate is hetio:<kind>, never `a`.
