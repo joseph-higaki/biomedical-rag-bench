@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import hashlib
 import time
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 
 from eval.generate.base import Generator
@@ -100,11 +100,12 @@ def run_question(
     tokens, latencies) plus the verdict, so the analysis layer can slice without joining.
     A question whose `scoring` has no registered judge (e.g. `semantic` before the LLM
     judge exists) is run through retrieve+generate but recorded `judged: false`.
-    """
-    rr = retriever.retrieve(question["question"])
-    system, user = build_prompt(question["question"], rr.context)
-    gr = generator.generate(user, system=system)
 
+    Robust by construction: a retrieve/generate failure (chiefly a transient generator
+    API error) is caught and recorded as an `error` row with `judged: false, passed: null`,
+    so it is excluded from every pass/fail denominator — a network blip is never scored as
+    a wrong answer — and it never aborts the surrounding run.
+    """
     row = {
         "question_id": question["question_id"],
         "type_id": question["type_id"],
@@ -112,8 +113,27 @@ def run_question(
         "question": question["question"],
         "ground_truth": question["ground_truth"],
         "retriever": retriever.name,
-        "generator_provider": gr.provider,
-        "generator_model": gr.model,
+        "generator_provider": generator.provider,
+        "generator_model": generator.model,
+    }
+
+    try:
+        rr = retriever.retrieve(question["question"])
+        system, user = build_prompt(question["question"], rr.context)
+        gr = generator.generate(user, system=system)
+    except Exception as e:  # transient API error, GraphDB hiccup, etc. — isolate, don't abort
+        row |= {
+            "predicted": None,
+            "input_tokens": 0, "output_tokens": 0,
+            "context_tokens_proxy": None, "num_sources": 0,
+            "retrieval_latency_ms": None, "generation_latency_ms": None,
+            "error": f"{type(e).__name__}: {e}"[:300],
+            "judged": False, "passed": None, "score": None,
+            "verdict": f"ERROR (not scored): {type(e).__name__}", "judge_details": {},
+        }
+        return row
+
+    row |= {
         "predicted": gr.text,
         "input_tokens": gr.input_tokens,
         "output_tokens": gr.output_tokens,
@@ -140,14 +160,27 @@ def run_question(
     return row
 
 
+def iter_rows(
+    retriever: Retriever,
+    generator: Generator,
+    judges: Mapping[str, Judge],
+    questions: list[dict],
+) -> Iterator[dict]:
+    """Yield one result row per question, in input order. Streaming so the caller can
+    persist each row as it lands (durability against a mid-run crash); per-question errors
+    are isolated in `run_question`, so the generator runs to completion regardless."""
+    for q in questions:
+        yield run_question(retriever, generator, judges, q)
+
+
 def run(
     retriever: Retriever,
     generator: Generator,
     judges: Mapping[str, Judge],
     questions: list[dict],
 ) -> list[dict]:
-    """Run the loop over `questions`, returning one result row each (in input order)."""
-    return [run_question(retriever, generator, judges, q) for q in questions]
+    """Eager convenience wrapper over `iter_rows` — one result row each, in input order."""
+    return list(iter_rows(retriever, generator, judges, questions))
 
 
 # TODO (future): record a code-version factor in the manifest — git SHA + a

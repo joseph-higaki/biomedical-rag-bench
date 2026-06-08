@@ -115,17 +115,24 @@ def _print_verdicts(rows: list[dict], manifest: harness.RunManifest, rows_path: 
     per_type: dict[str, list[bool]] = {}
     in_tok = out_tok = 0
     for r in rows:
-        mark = "PASS" if r["passed"] else "FAIL"
-        per_type.setdefault(r["type_id"], []).append(bool(r["passed"]))
         in_tok += r["input_tokens"]
         out_tok += r["output_tokens"]
-        pred = r["predicted"].replace("\n", " / ")
+        if not r.get("judged"):  # error / unjudged row — shown, but not a verdict
+            mark = "ERR " if "error" in r else "—   "
+            print(f"  [{mark}] {r['type_id']:<26} {r['verdict']}")
+            continue
+        mark = "PASS" if r["passed"] else "FAIL"
+        per_type.setdefault(r["type_id"], []).append(bool(r["passed"]))
+        pred = (r["predicted"] or "").replace("\n", " / ")
         pred = pred[:64] + "…" if len(pred) > 64 else pred
         print(f"  [{mark}] {r['type_id']:<26} {r['verdict']}")
         print(f"         predicted: {pred!r}")
 
-    npass = sum(1 for r in rows if r["passed"])
-    print(f"\n  {npass}/{len(rows)} passed   ·   billed tokens: {in_tok} in / {out_tok} out")
+    judged = [r for r in rows if r.get("judged")]
+    errors = [r for r in rows if "error" in r]
+    npass = sum(1 for r in judged if r["passed"])
+    err_note = f"   ·   {len(errors)} errored (excluded)" if errors else ""
+    print(f"\n  {npass}/{len(judged)} passed   ·   billed tokens: {in_tok} in / {out_tok} out{err_note}")
     print("  by type:")
     for t in sorted(per_type):
         p = per_type[t]
@@ -196,15 +203,23 @@ def main() -> int:
             raise SystemExit(f"no deterministic-judge questions in {args.questions}")
         retriever = build_retriever(args.retriever)
         generator = build_generator(args.generator)
-        rows = harness.run(retriever, generator, DETERMINISTIC_JUDGES, selected)
 
+        # Stream rows to disk as they land: the run_id (hence the file path) is fixed
+        # before the loop, and each row is written + flushed on arrival, so a mid-run
+        # crash leaves every completed row on disk rather than discarding the batch.
         run_id = f"{time.strftime('%Y%m%dT%H%M%S')}-{retriever.name}-{generator.provider}"
+        args.out.mkdir(parents=True, exist_ok=True)
+        rows_path = args.out / f"{run_id}.jsonl"
+        rows: list[dict] = []
+        with rows_path.open("w") as fh:
+            for row in harness.iter_rows(retriever, generator, DETERMINISTIC_JUDGES, selected):
+                fh.write(json.dumps(row) + "\n")
+                fh.flush()
+                rows.append(row)
+
         manifest = harness.make_manifest(
             retriever, generator, selected, run_id=run_id, questions_path=str(args.questions)
         )
-        args.out.mkdir(parents=True, exist_ok=True)
-        rows_path = args.out / f"{run_id}.jsonl"
-        rows_path.write_text("".join(json.dumps(r) + "\n" for r in rows))
         (args.out / f"{run_id}.manifest.json").write_text(
             json.dumps(manifest.to_dict(), indent=2)
         )

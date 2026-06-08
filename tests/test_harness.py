@@ -113,6 +113,45 @@ def test_run_question_unjudged_when_no_judge_for_scoring():
     assert row["predicted"] == "Warfarin"  # still ran the generator
 
 
+class RaisingGenerator:
+    """Simulates a transient generator API error (e.g. a 529 that survives retries)."""
+    provider, model = "fake", "fake-1"
+
+    def generate(self, prompt, *, system=None, tools=None):
+        raise RuntimeError("overloaded_error: 529")
+
+
+def test_run_question_isolates_a_generator_error_as_an_unscored_row():
+    # A failed call must not be scored as a wrong answer: judged false, passed null, the
+    # error captured, and the question's factors still recorded for provenance.
+    row = harness.run_question(FakeRetriever(), RaisingGenerator(), DETERMINISTIC_JUDGES, _q())
+    assert row["judged"] is False and row["passed"] is None
+    assert "529" in row["error"] and row["predicted"] is None
+    assert row["type_id"] == "01_0hop_attribute" and row["retriever"] == "fake"
+    assert row["input_tokens"] == 0  # nothing billed
+
+
+def test_iter_rows_continues_past_a_failing_question():
+    # One bad call in the middle must not abort the run — all rows are produced, in order.
+    qs = [_q(question_id="a"), _q(question_id="b"), _q(question_id="c")]
+
+    class FlakyGen:
+        provider, model = "fake", "fake-1"
+        def __init__(self): self.n = 0
+        def generate(self, prompt, *, system=None, tools=None):
+            self.n += 1
+            if self.n == 2:
+                raise RuntimeError("overloaded_error: 529")
+            return GenerationResult(text="It is on chromosome 11.", model=self.model,
+                                    provider=self.provider, input_tokens=12, output_tokens=3,
+                                    latency_ms=2.0)
+
+    rows = list(harness.iter_rows(FakeRetriever(), FlakyGen(), DETERMINISTIC_JUDGES, qs))
+    assert [r["question_id"] for r in rows] == ["a", "b", "c"]  # none dropped
+    assert rows[0]["passed"] and rows[2]["passed"]              # good ones scored
+    assert rows[1]["judged"] is False and "error" in rows[1]    # bad one isolated
+
+
 def test_make_manifest_carries_run_constant_factors():
     m = harness.make_manifest(FakeRetriever(), FakeGenerator("x"), [_q(), _q()],
                               run_id="testrun", questions_path="eval/questions.jsonl")

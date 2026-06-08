@@ -56,9 +56,10 @@ class AnthropicGenerator:
 
     provider = PROVIDER
 
-    def __init__(self, model: str, *, max_tokens: int = 1024, client=None) -> None:
+    def __init__(self, model: str, *, max_tokens: int = 1024, max_retries: int = 5, client=None) -> None:
         self.model = model
         self.max_tokens = max_tokens
+        self.max_retries = max_retries
         self._client = client
 
     def _ensure_client(self):
@@ -67,7 +68,11 @@ class AnthropicGenerator:
             from dotenv import load_dotenv
 
             load_dotenv(_SECRETS_ENV, override=False)  # real env vars win
-            self._client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+            # The SDK retries transient failures (429 / 5xx / overloaded) with exponential
+            # backoff; the default of 2 is too few for a long batch under sustained load —
+            # one un-recovered blip would otherwise surface as an isolated error row. Any
+            # error that survives all retries is still caught per-question in the harness.
+            self._client = anthropic.Anthropic(max_retries=self.max_retries)  # reads ANTHROPIC_API_KEY
         return self._client
 
     def generate(self, prompt, *, system=None, tools=None) -> GenerationResult:
