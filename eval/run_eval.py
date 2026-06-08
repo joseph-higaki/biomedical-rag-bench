@@ -170,8 +170,9 @@ def main() -> int:
         help="Directory for --run JSONL rows + manifest (gitignored, machine-readable).",
     )
     ap.add_argument(
-        "--report", type=Path, default=REPO_ROOT / "eval" / "FINDINGS.md",
-        help="Tracked markdown report for --run (human-reviewable; default eval/FINDINGS.md).",
+        "--report", type=Path, default=REPO_ROOT / "eval" / "LATEST_RUN.md",
+        help="Generated markdown snapshot for --run (overwritten every run; default "
+        "eval/LATEST_RUN.md). Curated cross-run observations live in eval/FINDINGS.md.",
     )
     args = ap.parse_args()
 
@@ -196,7 +197,7 @@ def main() -> int:
         (args.out / f"{run_id}.manifest.json").write_text(
             json.dumps(manifest.to_dict(), indent=2)
         )
-        # Tracked markdown report (the artifact pushed for offline review).
+        # Generated markdown snapshot (overwritten each run; curated notes live in FINDINGS.md).
         args.report.write_text(harness.to_markdown(rows, manifest))
         _print_verdicts(rows, manifest, rows_path)
         print(f"  report:   {args.report}\n")
