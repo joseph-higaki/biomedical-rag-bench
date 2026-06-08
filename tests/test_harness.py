@@ -83,6 +83,25 @@ def test_select_respects_limit():
     assert len(harness.select_deterministic(rows, 2)) == 2
 
 
+def test_include_semantic_admits_type_ten():
+    rows = [{"type_id": "01", "scoring": "string_match"},
+            {"type_id": "10_fuzzy_semantic", "scoring": "semantic"}]
+    assert len(harness.select_questions(rows, 8, include_semantic=True)) == 2
+    assert len(harness.select_questions(rows, 8, include_semantic=False)) == 1
+
+
+def test_types_filter_selects_named_types_and_overrides_semantic_skip():
+    rows = [{"type_id": "01_0hop_attribute", "scoring": "string_match"},
+            {"type_id": "03_2hop_traversal", "scoring": "set_match"},
+            {"type_id": "10_fuzzy_semantic", "scoring": "semantic"}]
+    # a named semantic type is selected without needing include_semantic
+    sem = harness.select_questions(rows, 8, types=["10"])
+    assert [q["type_id"] for q in sem] == ["10_fuzzy_semantic"]
+    # prefix match selects the right subset, excludes the rest
+    two = harness.select_questions(rows, 8, types=["01", "03"])
+    assert {q["type_id"] for q in two} == {"01_0hop_attribute", "03_2hop_traversal"}
+
+
 # --- run_question -----------------------------------------------------------
 
 def test_run_question_passes_on_correct_answer_and_records_factors():

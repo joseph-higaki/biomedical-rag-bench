@@ -56,10 +56,22 @@ class AnthropicGenerator:
 
     provider = PROVIDER
 
-    def __init__(self, model: str, *, max_tokens: int = 1024, max_retries: int = 5, client=None) -> None:
+    def __init__(
+        self,
+        model: str,
+        *,
+        max_tokens: int = 1024,
+        max_retries: int = 5,
+        temperature: float | None = None,
+        client=None,
+    ) -> None:
         self.model = model
         self.max_tokens = max_tokens
         self.max_retries = max_retries
+        # Left unset by default → the SDK's default sampling (the generator-under-test keeps
+        # its current behavior). Pinned to 0 by callers that need reproducibility, chiefly the
+        # LLM judge — an additive, opt-in knob, so existing runs are unchanged.
+        self.temperature = temperature
         self._client = client
 
     def _ensure_client(self):
@@ -86,6 +98,8 @@ class AnthropicGenerator:
             kwargs["system"] = system
         if tools:
             kwargs["tools"] = _to_anthropic_tools(tools)
+        if self.temperature is not None:
+            kwargs["temperature"] = self.temperature
 
         start = time.perf_counter()
         resp = client.messages.create(**kwargs)

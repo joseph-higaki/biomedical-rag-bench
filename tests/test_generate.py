@@ -107,3 +107,13 @@ def test_tools_kwarg_only_present_when_tools_offered():
     assert client.messages.received["tools"][0]["input_schema"] == {"type": "object"}
     g.generate("q2")  # no tools this time
     assert "tools" not in client.messages.received
+
+
+def test_temperature_sent_only_when_set():
+    # Default: temperature is left out → the SDK's default sampling (generator-under-test
+    # behavior is unchanged). The LLM judge opts in to 0 for reproducibility.
+    client = _FakeClient(_resp([_text("ok")]))
+    AnthropicGenerator("m", client=client).generate("q")
+    assert "temperature" not in client.messages.received
+    AnthropicGenerator("m", temperature=0.0, client=client).generate("q")
+    assert client.messages.received["temperature"] == 0.0

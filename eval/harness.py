@@ -62,15 +62,30 @@ def build_prompt(question: str, context: str) -> tuple[str, str]:
     return SYSTEM_PROMPT, user
 
 
-def select_deterministic(rows: list[dict], limit: int) -> list[dict]:
-    """Pick up to `limit` questions, excluding `semantic` (no LLM judge yet).
+def select_questions(
+    rows: list[dict],
+    limit: int,
+    *,
+    include_semantic: bool = False,
+    types: list[str] | None = None,
+) -> list[dict]:
+    """Pick up to `limit` questions, round-robin across `type_id` for type coverage.
 
-    Round-robin across `type_id` so a small sample still spans question types (a flat
-    head-of-file slice would cluster by type). Deterministic given the input order.
+    `semantic` (type 10) is excluded by default — it needs the LLM judge, which costs spend
+    and an API key — and included only when `include_semantic` is set or it is named in
+    `types`. `types` is an optional list of `type_id` prefixes (e.g. ["10"] or
+    ["03", "06"]); naming a type selects it explicitly, bypassing the semantic default-skip
+    for that type. Round-robin across the surviving types means a small sample still spans
+    them rather than clustering on a flat head-of-file slice. Deterministic given input order.
     """
+    def keep(q: dict) -> bool:
+        if types is not None:  # an explicit type request overrides the semantic default-skip
+            return any(q["type_id"].startswith(t) for t in types)
+        return include_semantic or q.get("scoring") != "semantic"
+
     by_type: dict[str, list[dict]] = {}
     for q in rows:
-        if q.get("scoring") != "semantic":
+        if keep(q):
             by_type.setdefault(q["type_id"], []).append(q)
 
     selected: list[dict] = []
@@ -86,6 +101,12 @@ def select_deterministic(rows: list[dict], limit: int) -> list[dict]:
         if not progressed:  # all type buckets drained
             break
     return selected
+
+
+def select_deterministic(rows: list[dict], limit: int) -> list[dict]:
+    """Deterministic-only selection (excludes `semantic`). Thin wrapper kept as the named
+    entry point for the deterministic eval path; `select_questions` is the general form."""
+    return select_questions(rows, limit, include_semantic=False)
 
 
 def run_question(

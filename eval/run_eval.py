@@ -21,9 +21,13 @@ Until then the CLI exercises each registry in isolation (the per-increment smoke
     uv run --extra vector python eval/run_eval.py --retriever vector --retrieve "..."
     uv run --extra graph  python eval/run_eval.py --retriever graph_neighborhood_1hop --retrieve "..."
     uv run --extra generate python eval/run_eval.py --ask "..." --generator anthropic:claude-haiku-4-5
+    uv run --extra generate python eval/run_eval.py --run --retriever closed_book \
+        --generator anthropic:claude-haiku-4-5 --types 10   # type-10, LLM-judged
 
 (closed_book needs no extra; vector → `--extra vector`; graph → `--extra graph`;
---ask → `--extra generate` + a provider key in secrets/.env.)
+--ask/--run → `--extra generate` + a provider key in secrets/.env. `graph_sparqlgen` and a
+semantic `--run` each call an LLM, so they need `--extra generate` too — combine extras,
+e.g. `--extra generate --extra graph` for graph_sparqlgen.)
 
 Run path-based from the repo root (see README); the sys.path insert below puts the
 repo root on the path so `retrievers.*` imports resolve, mirroring produce.py.
@@ -43,7 +47,9 @@ sys.path.insert(0, str(REPO_ROOT))
 from eval import harness  # noqa: E402
 from eval.generate.anthropic_generator import AnthropicGenerator  # noqa: E402
 from eval.generate.base import Generator  # noqa: E402
+from eval.judge.base import Judge  # noqa: E402
 from eval.judge.deterministic import DETERMINISTIC_JUDGES  # noqa: E402
+from eval.judge.semantic import SemanticJudge  # noqa: E402
 from retrievers.base import Retriever  # noqa: E402
 from retrievers.graph import NeighborhoodGraphRetriever  # noqa: E402
 from retrievers.null import NullRetriever  # noqa: E402
@@ -93,6 +99,14 @@ def build_retriever(name: str) -> Retriever:
 GENERATORS: dict[str, Callable[..., Generator]] = {
     AnthropicGenerator.provider: AnthropicGenerator,
 }
+
+
+# The judge map: `scoring` value -> judge. The five deterministic judges are hermetic
+# (no LLM); `semantic` (type 10) is the one LLM judge, included only on an opt-in run because
+# it costs spend + an API key. Its writer LLM is lazy, so constructing it here needs no key —
+# the entry is harmless on deterministic-only runs (the harness only invokes a judge for a
+# question whose `scoring` matches, and `semantic` questions are selected only with the flag).
+ALL_JUDGES: dict[str, Judge] = {**DETERMINISTIC_JUDGES, SemanticJudge.scoring: SemanticJudge()}
 
 
 def build_generator(spec: str) -> Generator:
@@ -183,6 +197,16 @@ def main() -> int:
         help="Max questions for --run, round-robin across types (default 8).",
     )
     ap.add_argument(
+        "--include-semantic", action="store_true",
+        help="Include type-10 semantic questions, scored by the LLM SemanticJudge "
+        "(costs spend + needs an API key; excluded by default).",
+    )
+    ap.add_argument(
+        "--types", metavar="PREFIXES",
+        help="Comma-separated type_id prefixes to run in isolation, e.g. '10' or '03,06'. "
+        "Naming a type selects it explicitly (a named semantic type is included).",
+    )
+    ap.add_argument(
         "--questions", type=Path, default=REPO_ROOT / "eval" / "questions.jsonl",
         help="Question set for --run.",
     )
@@ -201,11 +225,19 @@ def main() -> int:
         if not args.generator:
             raise SystemExit("--run requires --generator PROVIDER:MODEL")
         rows_in = [json.loads(ln) for ln in args.questions.read_text().splitlines() if ln.strip()]
-        selected = harness.select_deterministic(rows_in, args.limit)
+        type_prefixes = [t.strip() for t in args.types.split(",")] if args.types else None
+        selected = harness.select_questions(
+            rows_in, args.limit, include_semantic=args.include_semantic, types=type_prefixes
+        )
         if not selected:
-            raise SystemExit(f"no deterministic-judge questions in {args.questions}")
+            raise SystemExit(f"no questions selected from {args.questions}")
         retriever = build_retriever(args.retriever)
         generator = build_generator(args.generator)
+        # Carry the LLM judge iff a semantic question is actually in the batch (robust to both
+        # --include-semantic and an explicit --types 10); deterministic-only stays hermetic-judged.
+        needs_semantic = any(q.get("scoring") == "semantic" for q in selected)
+        judges = ALL_JUDGES if needs_semantic else DETERMINISTIC_JUDGES
+        judge_label = "deterministic-v1+semantic-v1" if needs_semantic else "deterministic-v1"
 
         # Stream rows to disk as they land: the run_id (hence the file path) is fixed
         # before the loop, and each row is written + flushed on arrival, so a mid-run
@@ -215,13 +247,14 @@ def main() -> int:
         rows_path = args.out / f"{run_id}.jsonl"
         rows: list[dict] = []
         with rows_path.open("w") as fh:
-            for row in harness.iter_rows(retriever, generator, DETERMINISTIC_JUDGES, selected):
+            for row in harness.iter_rows(retriever, generator, judges, selected):
                 fh.write(json.dumps(row) + "\n")
                 fh.flush()
                 rows.append(row)
 
         manifest = harness.make_manifest(
-            retriever, generator, selected, run_id=run_id, questions_path=str(args.questions)
+            retriever, generator, selected, run_id=run_id,
+            questions_path=str(args.questions), judge=judge_label,
         )
         (args.out / f"{run_id}.manifest.json").write_text(
             json.dumps(manifest.to_dict(), indent=2)
