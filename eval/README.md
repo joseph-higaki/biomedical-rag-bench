@@ -194,3 +194,43 @@ cell; the deterministic `binary` judge supplies the refusal/answer outcome per q
 | Sensitivity/specificity on type 08 | benchmark | H2 (vector hallucinates on negatives) |
 | Accuracy on type 10 (LLM-judged) | benchmark | H4 (fuzzy/semantic: vector wins) |
 | `context_tokens` / billed input (closed-book baseline) | per-retrieval | H7 (retrieval necessity / token cost) |
+
+## Result row schema
+
+The harness (`eval/harness.py`) writes one **JSONL row per question × retriever × generator
+trial** to `eval/results/<run_id>.jsonl`, plus a per-run `<run_id>.manifest.json` of the
+run-constant factors. The row is **the grain** of all analysis — the atomic verdict every
+chart aggregates over. The analysis layer reads these (deduped to canonical rows; see
+[`eval/analysis/load.py`](analysis/load.py)). Fields, grouped by role:
+
+**Question identity** (from `questions.jsonl`): `question_id`, `type_id`, `scoring`,
+`question`, `ground_truth`.
+
+**Condition factors** (the dimensions a result is attributed to): `retriever`,
+`generator_provider`, `generator_model` (the *configured* id — may be an alias),
+`generator_model_resolved` (the *resolved* snapshot the provider ran; see
+[Generation → configured vs. resolved id](generate/README.md#the-model-under-test--configured-vs-resolved-id)).
+
+**Generated answer + billed cost** (the generator's tokenizer): `predicted`,
+`input_tokens`, `output_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens`.
+
+**Retrieval telemetry**: `context_tokens_proxy` (offline proxy — *not* billed; see
+[the token-units rule](../retrievers/README.md#the-token-units-rule-read-before-doing-any-token-math)),
+`num_sources`, `retrieval_latency_ms`, `generation_latency_ms`, and `traversal_info` — the
+retriever's full per-retrieval telemetry, stored verbatim (additive-only): vector's
+`top_k`/cosine distances, graph's `hops`/`num_linked`, `graph_sparqlgen`'s writer-LLM cost
+and `sparql_valid`. A retriever's own internal LLM cost is logged here, **never** summed
+with the generator's billed tokens above.
+
+**Verdict**: `judged` (false when no judge exists for the `scoring`, or on error),
+`passed` (the accuracy numerator), `score` (0–1 quality), `verdict` (human-readable), and
+`judge_details` (per-judge telemetry — set-level precision/recall/F1, the `semantic` judge's
+own model + cost; see [the judge contract](judge/README.md#the-contract--basepy)).
+
+**Error isolation**: a retrieve/generate failure (chiefly a transient API error) is caught
+and recorded with `error` set and `judged=false, passed=null`, so a blip is excluded from
+every denominator rather than scored as wrong — never aborting the run.
+
+The canonical analysis grain is one row per **`(retriever, generator_model_family,
+question_id)`**; the loader keeps the latest run's row at that grain, superseding truncated
+and smoke runs while preserving the union of question coverage.
