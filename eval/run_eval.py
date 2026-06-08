@@ -47,6 +47,7 @@ from eval.judge.deterministic import DETERMINISTIC_JUDGES  # noqa: E402
 from retrievers.base import Retriever  # noqa: E402
 from retrievers.graph import NeighborhoodGraphRetriever  # noqa: E402
 from retrievers.null import NullRetriever  # noqa: E402
+from retrievers.sparqlgen import SparqlGenRetriever  # noqa: E402
 from retrievers.vector import VectorRetriever  # noqa: E402
 
 # The registry: retriever `name` -> zero-arg constructor. The key must equal the
@@ -58,7 +59,8 @@ from retrievers.vector import VectorRetriever  # noqa: E402
 # value is also in traversal_info, so this is a grouping label, not the source of truth.
 # Importing the modules is cheap — heavy deps (httpx, chromadb, sentence-transformers) are
 # lazy inside `retrieve`, so the registry loads with no extra installed and `--list` runs
-# anywhere. `graph_sparqlgen` joins once the LLM-in-retriever layer exists (step 5+).
+# anywhere. `graph_sparqlgen` is the LLM-in-retriever text-to-SPARQL condition; its writer
+# LLM is lazy too, so it also constructs with no key (the registry no-drift test relies on that).
 def _graph(hops: int) -> Callable[[], Retriever]:
     """Bind a hop budget into a zero-arg constructor; the instance names itself
     graph_neighborhood_<hops>hop, so the registry key and reported name stay in lockstep."""
@@ -70,6 +72,7 @@ REGISTRY: dict[str, Callable[[], Retriever]] = {
     VectorRetriever.name: VectorRetriever,
     "graph_neighborhood_1hop": _graph(1),
     "graph_neighborhood_2hop": _graph(2),
+    SparqlGenRetriever.name: SparqlGenRetriever,
 }
 
 

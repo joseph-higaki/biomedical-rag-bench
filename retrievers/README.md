@@ -10,9 +10,9 @@ token-units rule, the per-retriever mechanisms, and the telemetry each contribut
 The root `README.md` owns the hypotheses and build order; `eval/README.md` owns the
 eval/scoring design and the per-run experiment manifest.
 
-> **Status (build step 4).** `closed_book`, `vector`, and `graph_neighborhood` built,
-> smoke-validated, and registered in [`eval/run_eval.py`](../eval/run_eval.py).
-> `graph_sparqlgen` deferred to step 5+.
+> **Status (build step 5).** All five conditions built, smoke-validated, and registered in
+> [`eval/run_eval.py`](../eval/run_eval.py): `closed_book`, `vector`, `graph_neighborhood_1hop`,
+> `graph_neighborhood_2hop`, and `graph_sparqlgen` (the LLM-in-retriever text-to-SPARQL arm).
 
 ## The contract
 
@@ -92,7 +92,7 @@ in `eval/README.md`. Retrievers own only their per-retrieval slice.
 | `vector` | [`vector.py`](vector.py) | embed question → top-k Chroma chunks | ✅ built |
 | `graph_neighborhood_1hop` | [`graph.py`](graph.py) | entity-link → 1-hop subgraph | ✅ built |
 | `graph_neighborhood_2hop` | [`graph.py`](graph.py) | entity-link → 2-hop subgraph | ✅ built |
-| `graph_sparqlgen` | `sparqlgen.py` | LLM writes SPARQL from schema vocab | 🔜 step 5+ |
+| `graph_sparqlgen` | [`sparqlgen.py`](sparqlgen.py) | LLM writes SPARQL from schema vocab | ✅ built |
 
 The hop budget is **embedded in the registered name** (`graph_neighborhood_<n>hop`) rather
 than passed as a separate factor: the budget defines what the condition can answer, so it
@@ -155,18 +155,33 @@ Parallels vector deliberately: where vector embeds-and-searches, this links-and-
 `traversal_info`: `mechanism`, `hops`, `max_per_predicate`, `max_triples`,
 `linked_entities`, `num_linked`, `num_triples`, `sparql`, `endpoint`, `context_tokenizer`.
 
-### `graph_sparqlgen` — text-to-SPARQL 🔜 (step 5+)
+### `graph_sparqlgen` — text-to-SPARQL ✅
 
-The de-facto real-world graph-RAG method: an LLM writes SPARQL from the question plus a
-**schema-vocabulary summary** (node types + predicates, derivable now from two
-`SELECT DISTINCT` queries — **not** OWL reasoning, so the Project 1 "reasoning stays
-empty" constraint holds), runs it, serializes results. Deferred because it needs an LLM
-*inside* the retriever, and the generator/provider-adapter layer is build step 5 — it
-reuses that infrastructure. Note: "graph hallucinates less" is a **hypothesis to
-measure**, not an assumption — text-to-SPARQL relocates answer-hallucination into
-query-hallucination (valid-but-wrong predicates/directions, or malformed SPARQL → empty
-context). Likely graduates to its own `retrievers/sparqlgen/` folder + README if it
-grows past one file (schema-summary builder + prompt + SPARQL validator).
+The de-facto real-world graph-RAG method: an LLM writes one SPARQL `SELECT` from the
+question plus a **schema-vocabulary summary** (the `SCHEMA_PROMPT` constant — node types +
+*directed* edge signatures + literal attributes, **not** OWL reasoning, so the Project 1
+"reasoning stays empty" constraint holds), the retriever runs it and serializes the result
+rows. Entities are anchored by `rdfs:label "Name"` lifted verbatim from the question — the
+LLM is told never to invent a URI, so it stays honest (no `seeds`, no ground-truth query),
+exactly like `graph_neighborhood`'s gazetteer.
+
+The LLM is **part of the retrieval mechanism**, distinct from the fixed generator under
+test: its writer model and *own* token cost are logged separately in `traversal_info`
+(`writer_model`, `writer_input_tokens`, `writer_output_tokens`), never confounded with the
+generator's billed tokens. The writer model defaults via `SPARQLGEN_MODEL` and is injectable
+(`llm=`) for hermetic tests.
+
+Failure is measured, not hidden: a non-SELECT reply or a GraphDB-rejected (4xx) query is an
+honest retrieval **miss** — empty context, `sparql_valid=false` — while transient (5xx /
+timeout / connection) failures propagate to the harness's per-question isolation, the same
+split `graph.py` uses. A SELECT-only guard + auto-`LIMIT` bound the query before execution.
+
+What the first full run showed (→ `eval/FINDINGS.md`): query *execution* cracks the
+structural types neighborhood-dumping can't (aggregation **8/8**, the only arm ever to score
+there), and **recall is excellent** — the complete answer set lands in context on the large
+majority of content questions. The binary exact-set score understates it: the dominant
+failure is **precision** (underconstrained queries returning supersets), not missing rows —
+text-to-SPARQL relocates answer-hallucination into *query*-imprecision, as predicted.
 
 ## When a retriever gets its own folder/README
 
