@@ -65,18 +65,28 @@ so each variant is registered as an additional retriever condition — prior
 results stay on the table, comparable. Which variants ship, and in what order, is
 tracked in the README release strategy and the build order, not pinned here.
 
-## PubMed rate limits
+## PubMed rate limits and concurrency
 
-`pubmed_fetch.py` uses the NCBI E-utilities API. Without an API key the rate limit
-is 3 requests/second; with a free API key (set via `NCBI_API_KEY`) it's 10/second.
+`pubmed_fetch.py` uses the NCBI E-utilities API. The cap is **on the whole client**:
+3 requests/second anonymously, 10/second with a free API key (`NCBI_API_KEY`).
 
-For the full Hetionet entity set, expect:
+The fetcher is **concurrent** — a thread pool (`--workers`, default 8) behind a single
+global rate limiter (`--rate`, default 9/s keyed, 2.7/s anon, just under the caps). This
+matters because the work is *latency-bound, not CPU-bound*: a serial loop keeps one request
+in flight at a time and idles on network round-trips, so it never approaches the rate cap.
+Concurrency overlaps the latency and fills the pipe up to the cap — two requests per entity
+(esearch + efetch) at ~9/s ≈ 4.5 entities/s.
 
-- ~30–60 minutes without a key
-- ~10–20 minutes with a key
+For the full literature-kind entity set (~29k genes/diseases/compounds/symptoms/side-effects/
+pharmacologic-classes):
 
-Get a key at https://www.ncbi.nlm.nih.gov/account/. The key is read from the
-environment; it is never committed to the repo.
+- **~1.5–2 hours with a key** (was ~11 h serial)
+- proportionally slower anonymously (2.7/s)
+
+The run is **resumable and idempotent** (see Caching) — a crash or Ctrl-C loses nothing, and
+re-running picks up only the entities not yet cached. Each network call is retried with
+backoff, so a transient NCBI blip doesn't drop an entity. Get a key at
+https://www.ncbi.nlm.nih.gov/account/; it is read from the environment, never committed.
 
 ## Caching
 

@@ -131,3 +131,27 @@ def test_render_entity_file_roundtrips_through_parse():
     meta, parsed = bv.parse_entity_file(text)
     assert meta == {"term": "ncbigene:5345", "label": "SERPINF2", "kind": "Gene"}
     assert parsed == records
+
+
+# --- RateLimiter(): the global cap that makes concurrency NCBI-compliant ----
+
+def test_rate_limiter_caps_concurrent_request_starts():
+    # The limiter is what keeps the thread pool under NCBI's per-second cap. Under
+    # concurrency, N acquires must still take at least (N-1) intervals — sleeps can only
+    # make it slower, never faster, so this lower bound is a robust (non-flaky) check that
+    # the global rate is actually enforced across threads.
+    import threading
+    import time
+
+    rate = 200.0  # interval = 5 ms
+    n = 40
+    limiter = pf.RateLimiter(rate)
+    start = time.monotonic()
+    threads = [threading.Thread(target=limiter.acquire) for _ in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    elapsed = time.monotonic() - start
+    floor = (n - 1) / rate  # 39 * 5 ms = 195 ms
+    assert elapsed >= floor * 0.8, f"{elapsed:.3f}s < floor {floor:.3f}s — rate not enforced"

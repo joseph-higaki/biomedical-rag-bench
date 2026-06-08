@@ -21,8 +21,10 @@ import argparse
 import os
 import re
 import sys
+import threading
 import time
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
@@ -137,6 +139,64 @@ def efetch(client, pmids: list[str], api_key: str | None) -> bytes:
     return r.content
 
 
+class RateLimiter:
+    """Global token bucket spacing request *starts* to stay under NCBI's per-second cap.
+
+    The cap is on the whole client, not per thread, so concurrency alone would burst past
+    it. Each `acquire()` claims the next time-slot — slots are handed out `interval` apart and
+    monotonically — then sleeps until its slot *outside* the lock, so N worker threads don't
+    serialize on the lock while waiting. Result: at most `rate` request-starts per second
+    across all workers, which is exactly NCBI's constraint, while in-flight latency overlaps.
+    This is the whole point of the parallel fetcher: the serial loop was latency-bound (one
+    request in flight at a time), not rate-bound — concurrency fills the pipe up to the cap.
+    """
+
+    def __init__(self, rate_per_sec: float) -> None:
+        self._interval = 1.0 / rate_per_sec
+        self._lock = threading.Lock()
+        self._next_slot = time.monotonic()
+
+    def acquire(self) -> None:
+        with self._lock:
+            slot = max(time.monotonic(), self._next_slot)
+            self._next_slot = slot + self._interval
+        delay = slot - time.monotonic()
+        if delay > 0:
+            time.sleep(delay)
+
+
+def fetch_one(client, limiter, term, kind, label, out, per_entity, api_key, retries=2):
+    """Fetch + cache one entity's abstracts. Returns a (status, term[, detail]) tuple.
+
+    Resume-safe: an already-cached file is a no-op (`skipped`). Each network call is
+    rate-limited and retried with backoff, so a transient blip over a 29k-entity run doesn't
+    silently drop an entity — and any entity that still fails is simply re-attempted on the
+    next run (the cache makes the whole job idempotent). Mirrors the serial version's
+    per-entity outcomes so the tally is unchanged."""
+    import httpx
+
+    dest = out / entity_filename(term)
+    if dest.exists():
+        return ("skipped", term)
+    for attempt in range(retries + 1):
+        try:
+            limiter.acquire()
+            pmids = esearch(client, label, per_entity, api_key)
+            if not pmids:
+                return ("no_hits", term)
+            limiter.acquire()
+            records = parse_abstracts_xml(efetch(client, pmids, api_key))
+            break
+        except (httpx.HTTPError, ET.ParseError) as e:
+            if attempt == retries:
+                return ("error", term, str(e))
+            time.sleep(0.5 * (attempt + 1))  # linear backoff; NCBI 429s clear quickly
+    if not records:
+        return ("no_abstracts", term)
+    dest.write_text(render_entity_file(term, kind, label, records), encoding="utf-8")
+    return ("fetched", term)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--entities", type=Path, default=Path("ontology/hetionet-smoke.ttl"),
@@ -147,6 +207,12 @@ def main() -> int:
     ap.add_argument("--per-entity", type=int, default=3, help="Top abstracts to fetch per entity (default 3).")
     ap.add_argument("--kinds", default=None,
                     help="Comma-separated hetio class names to include. Default: literature-friendly kinds.")
+    ap.add_argument("--workers", type=int, default=8,
+                    help="Concurrent fetch threads (default 8). The global rate cap, not this, "
+                    "bounds throughput; this just keeps enough requests in flight to reach it.")
+    ap.add_argument("--rate", type=float, default=None,
+                    help="Max request starts/sec across all workers. Default: 9 with an NCBI "
+                    "API key, 2.7 without (just under NCBI's 10/s and 3/s caps).")
     args = ap.parse_args()
 
     if not args.entities.exists():
@@ -166,41 +232,39 @@ def main() -> int:
         pass
 
     api_key = os.environ.get("NCBI_API_KEY")
-    delay = 0.11 if api_key else 0.34  # stay under 10/s (keyed) or 3/s (anonymous)
+    rate = args.rate if args.rate else (9.0 if api_key else 2.7)  # under 10/s keyed, 3/s anon
     kinds = set(args.kinds.split(",")) if args.kinds else LITERATURE_KINDS
     args.out.mkdir(parents=True, exist_ok=True)
 
-    considered = fetched = skipped = 0
-    with httpx.Client(headers={"User-Agent": "biomedical-rag-bench/0.1"}) as client:
-        for term, kind, label in parse_entities(args.entities):
-            if kind not in kinds:
-                continue
-            if args.limit is not None and considered >= args.limit:
-                break
-            considered += 1
-            dest = args.out / entity_filename(term)
-            if dest.exists():
-                skipped += 1
-                continue
-            try:
-                pmids = esearch(client, label, args.per_entity, api_key)
-                time.sleep(delay)
-                if not pmids:
-                    print(f"  no PubMed hits: {term} ({label})", file=sys.stderr)
-                    continue
-                records = parse_abstracts_xml(efetch(client, pmids, api_key))
-                time.sleep(delay)
-            except httpx.HTTPError as e:
-                print(f"  fetch failed: {term} ({label}): {e}", file=sys.stderr)
-                continue
-            if not records:
-                print(f"  no abstracts: {term} ({label})", file=sys.stderr)
-                continue
-            dest.write_text(render_entity_file(term, kind, label, records), encoding="utf-8")
-            fetched += 1
-            print(f"  {term} ({label}) -> {len(records)} abstract(s)", file=sys.stderr)
+    # Materialize the target entity list (streams the ~470 MB ttl once; ~29k small tuples).
+    targets = [(t, k, lbl) for t, k, lbl in parse_entities(args.entities) if k in kinds]
+    if args.limit is not None:
+        targets = targets[: args.limit]
+    limiter = RateLimiter(rate)
+    counts: dict[str, int] = {}
+    t0 = time.monotonic()
+    print(f"fetching {len(targets)} entities @ ≤{rate}/s, {args.workers} workers "
+          f"({'keyed' if api_key else 'anonymous'})", file=sys.stderr)
 
-    print(f"done: {fetched} fetched, {skipped} cached, {considered} considered -> {args.out}", file=sys.stderr)
+    # httpx.Client is thread-safe; one shared client pools connections across workers.
+    with httpx.Client(headers={"User-Agent": "biomedical-rag-bench/0.1"}) as client:
+        with ThreadPoolExecutor(max_workers=args.workers) as pool:
+            futures = [
+                pool.submit(fetch_one, client, limiter, t, k, lbl, args.out, args.per_entity, api_key)
+                for t, k, lbl in targets
+            ]
+            for i, fut in enumerate(as_completed(futures), 1):
+                status, term, *detail = fut.result()
+                counts[status] = counts.get(status, 0) + 1
+                if status in ("error", "no_hits", "no_abstracts"):
+                    print(f"  {status}: {term} {detail[0] if detail else ''}", file=sys.stderr)
+                if i % 250 == 0 or i == len(futures):  # heartbeat for a multi-hour run
+                    el = time.monotonic() - t0
+                    print(f"  …{i}/{len(futures)}  ({i/el:.1f} entity/s, {el/60:.1f} min)  "
+                          f"{counts}", file=sys.stderr)
+
+    summary = ", ".join(f"{n} {s}" for s, n in sorted(counts.items()))
+    print(f"done: {summary} -> {args.out}", file=sys.stderr)
     return 0
 
 
