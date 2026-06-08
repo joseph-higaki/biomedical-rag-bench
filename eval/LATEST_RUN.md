@@ -1,4 +1,4 @@
-# Eval run — vector → anthropic:claude-haiku-4-5
+# Eval run — graph_sparqlgen → anthropic:claude-haiku-4-5
 
 > **Generated file — do not edit.** `eval/run_eval.py --run` overwrites this on every run. Curated cross-run observations and validity caveats live in `eval/FINDINGS.md`.
 
@@ -8,9 +8,9 @@
 
 | factor | value |
 |---|---|
-| `run_id` | 20260608T161819-vector-anthropic |
-| `timestamp` | 2026-06-08T16:20:28+0200 |
-| `retriever` | vector |
+| `run_id` | 20260608T203128-graph_sparqlgen-anthropic |
+| `timestamp` | 2026-06-08T20:34:32+0200 |
+| `retriever` | graph_sparqlgen |
 | `generator_provider` | anthropic |
 | `generator_model` | claude-haiku-4-5 |
 | `judge` | deterministic-v1 |
@@ -19,75 +19,75 @@
 | `system_prompt_sha256` | 96109672bcba1e4c |
 | `harness_version` | harness-v1 |
 
-## Verdicts — 8/52 passed
+## Verdicts — 15/52 passed
 
 | result | type | scoring | predicted | ground truth | verdict |
 |---|---|---|---|---|---|
-| ✅ | `01_0hop_attribute` | string_match | I cannot find information about the chromosome location of HTR3B in the provide… | 11 | value '11' found in answer |
-| ❌ | `02_1hop_factoid` | set_match | Based on the provided context, the genes mentioned as being expressed in semici… | [11] BMP4, CHD7, COCH, CRLF1, HMX3… | set F1=0.00 (recall 0/11, 7 extra) |
-| ❌ | `03_2hop_traversal` | set_match | Based on the context provided, the only disease mentioned in relation to allopu… | [18] ABCG2, ALDH16A1, BCKDHA, CASP1, HPRT1… | set F1=0.00 (recall 0/18, 8 extra) |
-| ❌ | `04_3plus_hop_traversal` | set_match | Based on the Context provided for Norepinephrine Uptake Inhibitors, the documen… | [17] Body Weight, Bulimia, Hyperphagia, Hypoventilation, Ideal Body Weight… | set F1=0.00 (recall 0/17, 9 extra) |
-| ❌ | `05_aggregative` | numerical | The provided context does not specify a total number of side effects caused by … | 184 | expected 184; not among no numbers |
-| ❌ | `06_set_intersection` | set_match | I cannot answer this question based on the provided Context. The Context does n… | [3] Carbohydrate metabolism, Disease, Metabolism | prose answer: recall 0/3 (precision not measurable) |
-| ❌ | `07_set_difference` | set_match | None | [2] Antagonism of Activin by Follistatin, Signaling by Activin | prose answer: recall 0/2 (precision not measurable) |
-| ✅ | `08_negative_unanswerable` | binary | I cannot find information about Testolactone or diseases it treats in the provi… | [0]  | correctly refused / asserted none |
-| ❌ | `09_path_existence` | boolean | No /  / The provided context contains information about salivary gland cancer a… | true | answer false vs expected True |
-| ❌ | `01_0hop_attribute` | string_match | I cannot answer this question based on the provided context. The context does n… | 12 | value '12' not found in answer |
+| ✅ | `01_0hop_attribute` | string_match | 11 | 11 | value '11' found in answer |
+| ❌ | `02_1hop_factoid` | set_match | CHD7 / OTOS / UBIAD1 / OC90 / COCH / BMP4 / CRLF1 / OTOP1 / HMX3 | [11] BMP4, CHD7, COCH, CRLF1, HMX3… | set F1=0.90 (recall 9/11, 0 extra) |
+| ❌ | `03_2hop_traversal` | set_match | I need to identify which genes in the context are associated with diseases that… | [18] ABCG2, ALDH16A1, BCKDHA, CASP1, HPRT1… | set F1=0.67 (recall 10/18, 2 extra) |
+| ❌ | `04_3plus_hop_traversal` | set_match | I cannot answer this question based on the provided Context. The Context lists … | [17] Body Weight, Bulimia, Hyperphagia, Hypoventilation, Ideal Body Weight… | set F1=0.00 (recall 0/17, 4 extra) |
+| ✅ | `05_aggregative` | numerical | I cannot determine the number of side effects from the provided context, as it … | 184 | expected 184; matched [184, 20] |
+| ❌ | `06_set_intersection` | set_match | I don't have information in the provided context about which pathways HMMR and … | [3] Carbohydrate metabolism, Disease, Metabolism | set F1=0.67 (recall 3/3, 3 extra) |
+| ❌ | `07_set_difference` | set_match | I need to determine which pathways FSTL3 participates in that DUSP3 does not, b… | [2] Antagonism of Activin by Follistatin, Signaling by Activin | set F1=0.46 (recall 2/2, 7 extra) |
+| ❌ | `08_negative_unanswerable` | binary | Testolactone is used to treat: /  / Breast cancer / Gynecomastia | [0]  | did not refuse — likely hallucinated an answer |
+| ✅ | `09_path_existence` | boolean | Yes | true | answer true vs expected True |
+| ✅ | `01_0hop_attribute` | string_match | 12 | 12 | value '12' found in answer |
 | ❌ | `02_1hop_factoid` | set_match | None | [2] CFL1, SMU1 | prose answer: recall 0/2 (precision not measurable) |
-| ❌ | `03_2hop_traversal` | set_match | I cannot answer this question based on the provided context. The context discus… | [19] AKT1, BAP1, CD4, CD5, CD8A… | set F1=0.00 (recall 0/19, 10 extra) |
-| ❌ | `04_3plus_hop_traversal` | set_match | I cannot answer this question based on the provided context. The context docume… | [14] Acute Coronary Syndrome, Albuminuria, Birth Weight, Body Weight, Flushing… | prose answer: recall 0/14 (precision not measurable) |
-| ❌ | `05_aggregative` | numerical | The provided context does not contain information about Aminocaproic Acid or it… | 55 | expected 55; not among [450] |
-| ❌ | `06_set_intersection` | set_match | None | [3] GPCR downstream signaling, Signaling Pathways, Signaling by GPCR | prose answer: recall 0/3 (precision not measurable) |
-| ❌ | `07_set_difference` | set_match | None /  / The provided context contains information about YWHAZ's participation… | [3] GPCR downstream signaling, Olfactory Signaling Pathway, Signaling by GPCR | set F1=0.00 (recall 0/3, 4 extra) |
-| ❌ | `08_negative_unanswerable` | binary | Based on the provided context, Digoxin treats: /  / Heart failure with reduced … | [0]  | did not refuse — likely hallucinated an answer |
-| ❌ | `09_path_existence` | boolean | No. /  / The context shows that bortezomib resistance is associated with GALNT1… | true | answer false vs expected True |
-| ✅ | `01_0hop_attribute` | string_match | I cannot answer this question based on the provided context. The context discus… | 8 | value '8' found in answer |
-| ❌ | `02_1hop_factoid` | set_match | None | [12] AQP2, BSND, CLCNKB, CLDN16, DDX4… | prose answer: recall 0/12 (precision not measurable) |
-| ❌ | `03_2hop_traversal` | set_match | I cannot answer this question based on the provided Context. The Context discus… | [18] ABCG2, ALDH16A1, BCKDHA, CASP1, HPRT1… | set F1=0.00 (recall 0/18, 9 extra) |
-| ❌ | `04_3plus_hop_traversal` | set_match | Based on the context provided, I cannot find information about compounds in the… | [20] Acute Coronary Syndrome, Acute Pain, Albuminuria, Amaurosis Fugax, Angina … | set F1=0.00 (recall 0/20, 6 extra) |
-| ❌ | `05_aggregative` | numerical | None. | 46 | expected 46; not among no numbers |
-| ❌ | `06_set_intersection` | set_match | Based on the provided context, CDH4 is not mentioned in any of the documents. T… | [2] Cell junction organization, Cell-Cell communication | set F1=0.00 (recall 0/2, 8 extra) |
-| ❌ | `07_set_difference` | set_match | I cannot answer this question based on the provided context. The context contai… | [8] ABC-family proteins mediated transport, ABCA transporters in lipid homeosta… | prose answer: recall 0/8 (precision not measurable) |
-| ✅ | `08_negative_unanswerable` | binary | I cannot answer this question based on the provided Context. The Context contai… | [0]  | correctly refused / asserted none |
-| ✅ | `09_path_existence` | boolean | I cannot determine a path from Pyridoxal to brain cancer through the provided c… | false | answer false vs expected False |
-| ❌ | `02_1hop_factoid` | set_match | None /  / The context provided discusses genes expressed in cardiac tissue (car… | [14] APEX1, CCK, EOMES, FOS, HTR3A… | set F1=0.00 (recall 0/14, 6 extra) |
-| ❌ | `03_2hop_traversal` | set_match | Based on the provided context, there is no information about which diseases Ind… | [18] ABCG2, ALDH16A1, BCKDHA, CASP1, HPRT1… | set F1=0.00 (recall 0/18, 4 extra) |
-| ❌ | `04_3plus_hop_traversal` | set_match | Based on the context provided, the only Cholinergic Muscarinic Agonist-related … | [25] Amaurosis Fugax, Amblyopia, Anisocoria, Blindness, Choroid Hemorrhage… | set F1=0.00 (recall 0/25, 9 extra) |
-| ❌ | `05_aggregative` | numerical | The context provided does not contain information about the total number or com… | 263 | expected 263; not among no numbers |
+| ❌ | `03_2hop_traversal` | set_match | I cannot answer this question based on the provided context. The context lists … | [19] AKT1, BAP1, CD4, CD5, CD8A… | prose answer: recall 0/19 (precision not measurable) |
+| ❌ | `04_3plus_hop_traversal` | set_match | Overweight / Weight Loss / Obesity, Abdominal / Flushing / Urinary Bladder, Ove… | [14] Acute Coronary Syndrome, Albuminuria, Birth Weight, Body Weight, Flushing… | set F1=0.90 (recall 14/14, 3 extra) |
+| ✅ | `05_aggregative` | numerical | I cannot determine the number of side effects from the context provided, which … | 55 | expected 55; matched [55, 20, 30] |
+| ❌ | `06_set_intersection` | set_match | I don't have information in the provided Context about which pathways OR56A4 an… | [3] GPCR downstream signaling, Signaling Pathways, Signaling by GPCR | set F1=0.00 (recall 0/3, 2 extra) |
+| ❌ | `07_set_difference` | set_match | I cannot determine the answer from the provided context because the context onl… | [3] GPCR downstream signaling, Olfactory Signaling Pathway, Signaling by GPCR | prose answer: recall 0/3 (precision not measurable) |
+| ❌ | `08_negative_unanswerable` | binary | Atrial fibrillation / Heart failure / Atrial flutter / Supraventricular tachyca… | [0]  | did not refuse — likely hallucinated an answer |
+| ✅ | `09_path_existence` | boolean | Yes | true | answer true vs expected True |
+| ✅ | `01_0hop_attribute` | string_match | 8 | 8 | value '8' found in answer |
+| ❌ | `02_1hop_factoid` | set_match | SLC12A1 / KCNJ1 / CLDN16 / UMOD / SLC12A3 / BSND / CLCNKB | [12] AQP2, BSND, CLCNKB, CLDN16, DDX4… | set F1=0.74 (recall 7/12, 0 extra) |
+| ❌ | `03_2hop_traversal` | set_match | I need to determine which diseases Probenecid treats, then identify genes assoc… | [18] ABCG2, ALDH16A1, BCKDHA, CASP1, HPRT1… | set F1=0.92 (recall 18/18, 3 extra) |
+| ❌ | `04_3plus_hop_traversal` | set_match | Chest Pain / Acute Pain / Sleep Apnea, Obstructive / Angina Pectoris, Variant /… | [20] Acute Coronary Syndrome, Acute Pain, Albuminuria, Amaurosis Fugax, Angina … | set F1=0.68 (recall 20/20, 13 extra) |
+| ✅ | `05_aggregative` | numerical | I cannot determine the number of side effects from the context provided, which … | 46 | expected 46; matched [46] |
+| ❌ | `06_set_intersection` | set_match | I cannot determine from the provided context which pathways both LIMS2 and CDH4… | [2] Cell junction organization, Cell-Cell communication | set F1=0.50 (recall 2/2, 2 extra) |
+| ❌ | `07_set_difference` | set_match | I can see the pathways listed in the context, but the context does not contain … | [8] ABC-family proteins mediated transport, ABCA transporters in lipid homeosta… | set F1=0.45 (recall 4/8, 7 extra) |
+| ❌ | `08_negative_unanswerable` | binary | Cystinosis / Homocystinuria / Wilson's disease / Disulfide bond formation disor… | [0]  | did not refuse — likely hallucinated an answer |
+| ❌ | `09_path_existence` | boolean | Yes | false | answer true vs expected False |
+| ❌ | `02_1hop_factoid` | set_match | I cannot determine which of these genes are specifically expressed in the fourt… | [14] APEX1, CCK, EOMES, FOS, HTR3A… | prose answer: recall 0/14 (precision not measurable) |
+| ✅ | `03_2hop_traversal` | set_match | ABCG2 / PRPS2 / CASP1 / SLC22A11 / SLC17A1 / SLC2A9 / NLRP3 / IL15 / POMC / ALD… | [18] ABCG2, ALDH16A1, BCKDHA, CASP1, HPRT1… | set F1=1.00 (recall 18/18, 0 extra) |
+| ❌ | `04_3plus_hop_traversal` | set_match | Vision, Low / Scotoma / Vitreous Hemorrhage / Edema / Pallor / Eye Hemorrhage /… | [25] Amaurosis Fugax, Amblyopia, Anisocoria, Blindness, Choroid Hemorrhage… | set F1=0.94 (recall 24/25, 2 extra) |
+| ✅ | `05_aggregative` | numerical | I cannot determine a specific number of side effects from the provided context,… | 263 | expected 263; matched [263] |
 | ❌ | `06_set_intersection` | set_match | None | [3] Degradation of the extracellular matrix, Extracellular matrix organization,… | prose answer: recall 0/3 (precision not measurable) |
-| ❌ | `07_set_difference` | set_match | I cannot answer this question based on the provided context. The context does n… | [10] Alzheimers Disease, Binding and Uptake of Ligands by Scavenger Receptors, … | prose answer: recall 0/10 (precision not measurable) |
-| ❌ | `08_negative_unanswerable` | binary | Based on the provided context, Methadone is used to treat: /  / Opioid use diso… | [0]  | did not refuse — likely hallucinated an answer |
-| ✅ | `09_path_existence` | boolean | No. /  / While the context mentions several genes associated with osteoporosis … | false | answer false vs expected False |
-| ❌ | `02_1hop_factoid` | set_match | None | [2] SACS, SIX3 | prose answer: recall 0/2 (precision not measurable) |
-| ❌ | `03_2hop_traversal` | set_match | I cannot answer this question based on the provided context. The context contai… | [24] APC, ATP4A, BARX1, BMP4, CDH13… | set F1=0.00 (recall 0/24, 14 extra) |
-| ❌ | `04_3plus_hop_traversal` | set_match | I cannot answer this question based on the provided context. The context docume… | [13] Acute Coronary Syndrome, Acute Pain, Angina Pectoris, Angina Pectoris, Var… | set F1=0.00 (recall 0/13, 7 extra) |
-| ❌ | `05_aggregative` | numerical | None. /  / The provided context does not contain any information about Pirbuter… | 59 | expected 59; not among no numbers |
-| ❌ | `06_set_intersection` | set_match | None | [2] Gene Expression, Generic Transcription Pathway | prose answer: recall 0/2 (precision not measurable) |
-| ❌ | `07_set_difference` | set_match | Based on the provided context, I can only identify information about MAGOH's pa… | [6] Cleavage of Growing Transcript in the Termination Region, Nonsense Mediated… | set F1=0.00 (recall 0/6, 7 extra) |
-| ✅ | `08_negative_unanswerable` | binary | I cannot find information about Apixaban in the provided context. The context c… | [0]  | correctly refused / asserted none |
-| ❌ | `03_2hop_traversal` | set_match | I cannot answer this question based on the provided context. The context discus… | [18] ABCG2, ALDH16A1, BCKDHA, CASP1, HPRT1… | prose answer: recall 0/18 (precision not measurable) |
-| ❌ | `04_3plus_hop_traversal` | set_match | Based on the provided context, there is no information about Phosphodiesterase … | [13] Anorexia, Diarrhea, Fatigue, Fever, Fever of Unknown Origin… | set F1=0.00 (recall 0/13, 7 extra) |
-| ❌ | `05_aggregative` | numerical | I cannot determine a specific number of side effects that caffeine causes based… | 58 | expected 58; not among [42247558] |
-| ❌ | `08_negative_unanswerable` | binary | Based on the provided context, zolmitriptan is used to treat: /  / Migraine | [0]  | did not refuse — likely hallucinated an answer |
-| ❌ | `03_2hop_traversal` | set_match | Based on the context provided, I cannot identify which genes are associated wit… | [23] CD4, CD40LG, CD8A, CYLD, HLA-DRB1… | set F1=0.00 (recall 0/23, 11 extra) |
-| ❌ | `04_3plus_hop_traversal` | set_match | Based on the context provided, the symptoms presented by diseases treated by th… | [22] Blindness, Chorea, Diplopia, Down Syndrome, Edema… | set F1=0.00 (recall 0/22, 4 extra) |
-| ❌ | `05_aggregative` | numerical | Based on the provided context, the study on ziprasidone focused specifically on… | 387 | expected 387; not among [3, 59, 95, 2, 3, 6, 35] |
-| ✅ | `08_negative_unanswerable` | binary | None | [0]  | correctly refused / asserted none |
-| ❌ | `04_3plus_hop_traversal` | set_match | None. /  / The context provided does not contain information about Histamine H2… | [17] Body Weight, Bulimia, Hyperphagia, Hypoventilation, Ideal Body Weight… | set F1=0.00 (recall 0/17, 2 extra) |
-| ❌ | `05_aggregative` | numerical | None | 269 | expected 269; not among no numbers |
+| ❌ | `07_set_difference` | set_match | Urokinase-type plasminogen activator (uPA) and uPAR-mediated signaling / PDGFR-… | [10] Alzheimers Disease, Binding and Uptake of Ligands by Scavenger Receptors, … | set F1=0.82 (recall 7/10, 0 extra) |
+| ❌ | `08_negative_unanswerable` | binary | Opioid use disorder / Chronic pain / Opioid addiction / Withdrawal syndrome | [0]  | did not refuse — likely hallucinated an answer |
+| ❌ | `09_path_existence` | boolean | Yes | false | answer true vs expected False |
+| ❌ | `02_1hop_factoid` | set_match | Based on the provided context, I cannot determine which of these genes (SACS or… | [2] SACS, SIX3 | set F1=0.25 (recall 2/2, 6 extra) |
+| ❌ | `03_2hop_traversal` | set_match | I need to identify diseases that Omeprazole treats, then find genes associated … | [24] APC, ATP4A, BARX1, BMP4, CDH13… | set F1=0.87 (recall 24/24, 7 extra) |
+| ❌ | `04_3plus_hop_traversal` | set_match | Chest Pain / Acute Pain / Sleep Apnea, Obstructive / Angina Pectoris, Variant /… | [13] Acute Coronary Syndrome, Acute Pain, Angina Pectoris, Angina Pectoris, Var… | set F1=0.59 (recall 13/13, 11 extra) |
+| ✅ | `05_aggregative` | numerical | The context provided only indicates "n=59" but does not contain information abo… | 59 | expected 59; matched [59, 2] |
+| ❌ | `06_set_intersection` | set_match | I cannot determine which pathways both ZNF257 and ZNF682 participate in based o… | [2] Gene Expression, Generic Transcription Pathway | set F1=0.40 (recall 2/2, 3 extra) |
+| ❌ | `07_set_difference` | set_match | I cannot answer this question based on the provided context. The context lists … | [6] Cleavage of Growing Transcript in the Termination Region, Nonsense Mediated… | prose answer: recall 0/6 (precision not measurable) |
+| ❌ | `08_negative_unanswerable` | binary | Atrial fibrillation / Venous thromboembolism / Deep vein thrombosis / Pulmonary… | [0]  | did not refuse — likely hallucinated an answer |
+| ❌ | `03_2hop_traversal` | set_match | I need to determine which diseases Naproxen treats, then identify genes associa… | [18] ABCG2, ALDH16A1, BCKDHA, CASP1, HPRT1… | set F1=0.88 (recall 18/18, 5 extra) |
+| ❌ | `04_3plus_hop_traversal` | set_match | I cannot answer this question based on the provided context. The context lists … | [13] Anorexia, Diarrhea, Fatigue, Fever, Fever of Unknown Origin… | set F1=0.00 (recall 0/13, 6 extra) |
+| ✅ | `05_aggregative` | numerical | I cannot determine the number of side effects caffeine causes from the provided… | 58 | expected 58; matched [58] |
+| ❌ | `08_negative_unanswerable` | binary | Migraine with or without aura / Cluster headaches | [0]  | did not refuse — likely hallucinated an answer |
+| ✅ | `03_2hop_traversal` | set_match | LTA / SLC11A1 / CD4 / RIPK2 / MLLT1 / HLA-DRB1 / LACC1 / IL2 / TLR2 / NOD2 / CD… | [23] CD4, CD40LG, CD8A, CYLD, HLA-DRB1… | set F1=1.00 (recall 23/23, 0 extra) |
+| ❌ | `04_3plus_hop_traversal` | set_match | Vocal Cord Paralysis / Diplopia / Scotoma / Hypergammaglobulinemia / Neurologic… | [22] Blindness, Chorea, Diplopia, Down Syndrome, Edema… | set F1=0.87 (recall 22/22, 6 extra) |
+| ✅ | `05_aggregative` | numerical | I cannot determine a specific number of side effects from the context provided,… | 387 | expected 387; matched [387, 20, 30] |
+| ❌ | `08_negative_unanswerable` | binary | Pulmonary arterial hypertension / Pulmonary hypertension associated with congen… | [0]  | did not refuse — likely hallucinated an answer |
+| ❌ | `04_3plus_hop_traversal` | set_match | I cannot answer this question based solely on the provided context. The context… | [17] Body Weight, Bulimia, Hyperphagia, Hypoventilation, Ideal Body Weight… | set F1=0.00 (recall 0/17, 4 extra) |
+| ✅ | `05_aggregative` | numerical | I cannot determine the specific number of side effects from the provided contex… | 269 | expected 269; matched [269] |
 
 ## By type
 
 | type | passed |
 |---|---|
-| `01_0hop_attribute` | 2/3 |
+| `01_0hop_attribute` | 3/3 |
 | `02_1hop_factoid` | 0/5 |
-| `03_2hop_traversal` | 0/7 |
+| `03_2hop_traversal` | 2/7 |
 | `04_3plus_hop_traversal` | 0/8 |
-| `05_aggregative` | 0/8 |
+| `05_aggregative` | 8/8 |
 | `06_set_intersection` | 0/5 |
 | `07_set_difference` | 0/5 |
-| `08_negative_unanswerable` | 4/7 |
+| `08_negative_unanswerable` | 0/7 |
 | `09_path_existence` | 2/4 |
 
-Billed tokens: **69308** in / **4264** out (generator's tokenizer; closed-book input is the no-retrieval baseline).
+Billed tokens: **23371** in / **4529** out (generator's tokenizer; closed-book input is the no-retrieval baseline).

@@ -51,9 +51,91 @@ behaves," promote it to `eval/README.md` (the methodology reference). Findings g
   (query execution, `graph_sparqlgen`). `graph_neighborhood_1hop` is the honest neighborhood
   baseline.
 
+- **Binary exact-set pass *understates* `graph_sparqlgen` — read recall, not just pass.**
+  The set/aggregate judges pass only on an exact set (F1=1.0). For a *neighborhood* dump that
+  is fine — it rarely retrieves the precise set anyway. For *query execution* it is the wrong
+  top-line: text-to-SPARQL routinely returns the **complete** answer set (recall 1.0) and
+  fails the binary only on a few extra rows (precision < 1.0). On the first full run, **14 of
+  30 content questions had recall 1.0 while only 2 passed exact-set**. Reporting `graph_sparqlgen`
+  at its binary pass rate alone would call a retriever that fetched the whole answer a failure.
+  The analysis layer must report **recall and F1 distributions** for this condition, not just
+  exact-set accuracy. (The precision leak is itself the finding — see the run entry below — not
+  a judge to loosen: an exact-set judge is correct for "did you return *exactly* the set".)
+
+- **A retriever's own LLM is a mechanism cost, not a generator cost — keep them separate.**
+  `graph_sparqlgen` calls an LLM *inside* retrieval to write the SPARQL. That writer's tokens
+  are logged under `traversal_info` (`writer_model`, `writer_input_tokens/_output_tokens`) and
+  are **not** part of the generator's billed `input_tokens/output_tokens` the harness records.
+  The two must never be summed as one "cost" — they are different roles (retrieval skill vs.
+  the model under test) and may be different models (`SPARQLGEN_MODEL` ≠ `GENERATOR_MODEL`). A
+  fair cost comparison against the neighborhood arms must add the writer cost back in explicitly;
+  it is recorded precisely so that addition is possible, not so it is silently folded in.
+
 ---
 
 ## Run log (newest first)
+
+### 2026-06-08 (latest) — `graph_sparqlgen` first full run (52 q, run `20260608T203128`)
+
+The new condition: an LLM writes one SPARQL `SELECT` from the question + a schema-vocabulary
+prompt, the retriever runs it and serializes the rows (see retrievers/README.md). Writer model
+= generator model here (`claude-haiku-4-5`), logged separately. **The new high — 15/52** — and
+the first arm to score on the deep-structural types every prior condition left at zero.
+
+| type | closed | vec(real) | 1hop | **sparqlgen** |
+|---|---|---|---|---|
+| 01_0hop_attribute | 2/3 | 2/3 | 3/3 | **3/3** |
+| 02_1hop_factoid | 0/5 | 0/5 | 5/5 | **0/5** |
+| 03_2hop_traversal | 0/7 | 0/7 | 0/7 | **2/7** |
+| 04_3plus_hop_traversal | 0/8 | 0/8 | 0/8 | **0/8** |
+| 05_aggregative | 0/8 | 0/8 | 0/8 | **8/8** |
+| 06_set_intersection | 0/5 | 0/5 | 0/5 | **0/5** |
+| 07_set_difference | 0/5 | 0/5 | 0/5 | **0/5** |
+| 08_negative_unanswerable | 0/7 | 4/7 | 4/7 | **0/7** |
+| 09_path_existence | 2/4 | 2/4 | 1/4 | **2/4** |
+| **passed** | **4/52** | **8/52** | **13/52** | **15/52** |
+
+1. **Query execution cracks the structural types neighborhood-dumping can't — aggregation
+   8/8.** Type 05 (COUNT) was **0/52 across every other condition**; `graph_sparqlgen` is
+   **8/8**. This is a *mechanism* result, not tuning: a count is one `COUNT(DISTINCT)` query,
+   and no amount of context-dumping makes the model reliably enumerate-and-count a 27- or
+   184-member set from triples. The all-zero structural types in the prior full run were the
+   concrete argument for building this; the argument held.
+
+2. **Binary 15/52 badly understates it — recall is excellent, precision leaks (→ caveat
+   above).** Of the **30 content questions (02/03/04/06/07), only 2 passed exact-set but 14
+   retrieved the *complete* answer set (recall 1.0)**; most "failures" are F1 0.6–0.95 — the
+   right rows plus a few extras. The dominant failure mode is **precision**: underconstrained
+   queries return a superset. Worst offenders are exactly the queries SPARQL makes easy to get
+   *almost* right — **07 set-difference** (the LLM returns A's set without subtracting B's, so
+   recall 1.0 but 7 extra) and **04 3+hop** (a hop pulls in a broader set, up to 13 extra).
+   Type **02** is the cruel case: recall 9/11 with **0 extra** → F1=0.90 → FAIL. Text-to-SPARQL
+   relocated answer-hallucination into *query*-imprecision, exactly as the README predicted.
+
+3. **Six content failures are the *generator* hedging, not retrieval.** Rows tagged "prose
+   answer: recall 0/N" had 14–20 result rows in context, but the generator emitted "I cannot
+   answer based on the provided context" instead of listing them (recall 0). The answer was
+   *present and correct*; the generator refused to format it. This is a generator/prompt
+   interaction on long structured contexts — a confound to watch, not a retrieval miss.
+
+4. **Type 08 flips negative: empty query → empty context → hallucination (0/7).** A correct
+   unanswerable returns the empty set, so `graph_sparqlgen` serves **empty context**, which (per
+   the type-08 caveat) drops the model into closed-book and it *hallucinates* a treated disease.
+   The neighborhood arm scores 4/7 here precisely because it serves the compound's *other* edges
+   (non-empty context without a `treats` edge → the model says "None"). A targeted query has no
+   such cushion. This is the type-08 caveat sharpened: a retriever that answers the *exact*
+   question can score worse on 08 than one that dumps a neighborhood — read 08 conditionally.
+
+5. **Cost: 23,371 generator in / 4,529 out for 52 q**, *plus* a separate writer-LLM cost logged
+   per row (not summed — see caveat). Writer queries are short (~40–90 output tokens each).
+   `errs=0` under the crash-safe streaming path.
+
+**The takeaway:** `graph_sparqlgen` is the mechanism the structural types needed — it executes
+the question instead of approximating it, and its *recall* is the project's strongest evidence
+yet for the graph thesis (H2/H4). Closing the gap to a high binary score is now a **precision**
+problem (tighter query constraints / a SPARQL-shape prompt) and a **generator-formatting**
+problem, not a retrieval-capability one. Next: a recall/precision-aware view in the analysis
+notebook, and the type-10 semantic judge.
 
 ### 2026-06-08 (later) — `vector` on the real targeted corpus (run `20260608T161819`)
 
