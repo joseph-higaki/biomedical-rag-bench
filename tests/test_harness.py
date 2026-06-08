@@ -17,13 +17,14 @@ from retrievers.base import RetrievalResult
 class FakeRetriever:
     name = "fake"
 
-    def __init__(self, context="", sources=None, context_tokens=0):
+    def __init__(self, context="", sources=None, context_tokens=0, traversal_info=None):
         self._ctx, self._sources, self._ct = context, sources or [], context_tokens
+        self._info = traversal_info or {}
 
     def retrieve(self, query):
         return RetrievalResult(
             context=self._ctx, context_tokens=self._ct, latency_ms=1.0,
-            sources=self._sources, traversal_info={},
+            sources=self._sources, traversal_info=self._info,
         )
 
 
@@ -116,6 +117,22 @@ def test_run_question_passes_on_correct_answer_and_records_factors():
     assert (row["generator_provider"], row["generator_model"]) == ("fake", "fake-1")
     assert (row["input_tokens"], row["output_tokens"]) == (12, 3)
     assert row["scoring"] == "string_match" and row["type_id"] == "01_0hop_attribute"
+
+
+def test_run_question_persists_retriever_telemetry_for_analysis():
+    # The analysis layer reads retriever telemetry (writer cost, hops, sparql_valid, …) off
+    # the row, so it must survive verbatim — stored whole, not whitelisted.
+    info = {"mechanism": "sparqlgen", "writer_input_tokens": 40, "sparql_valid": True}
+    row = harness.run_question(
+        FakeRetriever(context="ctx", traversal_info=info),
+        FakeGenerator("chromosome 11"), DETERMINISTIC_JUDGES, _q(),
+    )
+    assert row["traversal_info"] == info
+
+
+def test_error_row_carries_empty_telemetry_for_schema_consistency():
+    row = harness.run_question(FakeRetriever(), RaisingGenerator(), DETERMINISTIC_JUDGES, _q())
+    assert row["traversal_info"] == {} and row["cache_read_input_tokens"] is None
 
 
 def test_run_question_fails_on_wrong_answer():

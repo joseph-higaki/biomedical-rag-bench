@@ -146,8 +146,10 @@ def run_question(
         row |= {
             "predicted": None,
             "input_tokens": 0, "output_tokens": 0,
+            "cache_read_input_tokens": None, "cache_creation_input_tokens": None,
             "context_tokens_proxy": None, "num_sources": 0,
             "retrieval_latency_ms": None, "generation_latency_ms": None,
+            "traversal_info": {},
             "error": f"{type(e).__name__}: {e}"[:300],
             "judged": False, "passed": None, "score": None,
             "verdict": f"ERROR (not scored): {type(e).__name__}", "judge_details": {},
@@ -158,10 +160,21 @@ def run_question(
         "predicted": gr.text,
         "input_tokens": gr.input_tokens,
         "output_tokens": gr.output_tokens,
+        # Generator's billed cache tokens (when the provider reports them) — the cost panel
+        # needs them: a cache *read* is far cheaper than a fresh input token, so raw
+        # input_tokens overstates cost without these. Optional/additive, like the source field.
+        "cache_read_input_tokens": gr.cache_read_input_tokens,
+        "cache_creation_input_tokens": gr.cache_creation_input_tokens,
         "context_tokens_proxy": rr.context_tokens,
         "num_sources": len(rr.sources),
         "retrieval_latency_ms": round(rr.latency_ms, 1),
         "generation_latency_ms": round(gr.latency_ms, 1),
+        # The retriever's full per-retrieval telemetry, persisted verbatim for the analysis
+        # layer (writer-LLM cost for sparqlgen, hops/caps/num_linked for graph, top_k/cosine
+        # distances for vector, sparql_valid, …). Stored whole rather than whitelisted so a new
+        # retriever's additive keys are captured with no harness edit — the same "additive only,
+        # never enumerate the roster" rule the traversal_info contract carries (retrievers/base.py).
+        "traversal_info": rr.traversal_info,
     }
 
     judge = judges.get(question["scoring"])
