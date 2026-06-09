@@ -127,7 +127,7 @@ def _explode(df: pd.DataFrame, col: str, keys: list[str]) -> pd.DataFrame:
     """Lift selected keys out of a dict-valued column into flat columns (NaN when absent)."""
     src = df[col] if col in df.columns else pd.Series([{}] * len(df))
     for k in keys:
-        df[k] = src.apply(lambda d, k=k: (d or {}).get(k))
+        df[k] = src.apply(lambda d, k=k: d.get(k) if isinstance(d, dict) else None)
     return df
 
 
