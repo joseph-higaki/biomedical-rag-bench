@@ -120,7 +120,6 @@ def main() -> int:
 
     print(f"embedding {len(ids)} chunks with {args.model} ...", file=sys.stderr)
     model = SentenceTransformer(args.model)
-    embeddings = model.encode(docs, show_progress_bar=False, normalize_embeddings=True).tolist()
 
     args.out.mkdir(parents=True, exist_ok=True)
     client = chromadb.PersistentClient(path=str(args.out))
@@ -130,11 +129,17 @@ def main() -> int:
     except Exception:
         pass
     coll = client.create_collection(COLLECTION, metadata={"hnsw:space": "cosine"})
-    # Chroma caps a single add() (~5.4k); a real corpus exceeds it, so add in batches.
-    BATCH = 5000
+    # Embed AND add in batches. Encoding everything then `.tolist()` materializes all
+    # N×384 floats as one Python list (~GBs at full-corpus scale) and OOM-kills the process
+    # — fine at the 10.7k targeted corpus, fatal at 152k. Batching caps peak memory to one
+    # batch of vectors, and stays under Chroma's per-add cap (~5.4k) as a bonus.
+    BATCH = 2000
     for i in range(0, len(ids), BATCH):
         sl = slice(i, i + BATCH)
-        coll.add(ids=ids[sl], documents=docs[sl], metadatas=metas[sl], embeddings=embeddings[sl])
+        emb = model.encode(docs[sl], show_progress_bar=False, normalize_embeddings=True).tolist()
+        coll.add(ids=ids[sl], documents=docs[sl], metadatas=metas[sl], embeddings=emb)
+        if (i // BATCH) % 20 == 0:  # coarse heartbeat for the multi-hour full-corpus run
+            print(f"  embedded {min(i + BATCH, len(ids))}/{len(ids)} chunks", file=sys.stderr)
     print(f"wrote {coll.count()} chunks to collection '{COLLECTION}' at {args.out}", file=sys.stderr)
 
     if args.query:
