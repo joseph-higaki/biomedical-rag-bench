@@ -43,13 +43,20 @@ behaves," promote it to `eval/README.md` (the methodology reference). Findings g
 
 - **More hops is not more capability — `hops` and the fan caps are coupled.** At the default
   caps (`max_per_predicate=25`, `max_triples=200`, tuned for 1 hop), raising `hops` 1→2 is a
-  **net loss**: `graph_neighborhood_2hop` scored 12/52 vs `1hop`'s 13/52 at **2.6× the input
-  tokens and 2.7× tokens-per-correct**. The 200-triple budget fills with 2-hop fan-out,
-  *burying* the 1-hop answer (type 02 collapses 5/5 → 1/5) while barely unlocking 2-hop (03:
-  0 → 1/7). Read `2hop` as a cautionary negative result, not "the deeper graph condition." A
-  hop bump needs a proportional cap bump (a joint hops×caps sweep) — or the structural answer
-  (query execution, `graph_sparqlgen`). `graph_neighborhood_1hop` is the honest neighborhood
-  baseline.
+  loss **on efficiency and profile** — though *not* on raw count, once sampling noise is
+  removed. At temperature 0 `graph_neighborhood_2hop` **ties** `1hop` at 13/52, but pays
+  **2.6× the input tokens** for it and has a worse *shape*: the 200-triple budget fills with
+  2-hop fan-out, *burying* the 1-hop answer (type 02 collapses 5/5 → 1/5) while barely
+  unlocking 2-hop (03: 0 → 1/7) — it trades robust wins for marginal ones at far higher cost.
+  Read `2hop` as a cautionary "no free lunch", not "the deeper graph condition." A hop bump
+  needs a proportional cap bump (a joint hops×caps sweep) — or the structural answer (query
+  execution, `graph_sparqlgen`). `graph_neighborhood_1hop` is the honest neighborhood baseline.
+
+  > **History/correction.** The temp-1.0 sweeps reported 2hop **12/52** (then 11/52) vs 1hop 13
+  > and this caveat once read "strictly dominated — fewer correct." That gap was sampling noise
+  > on type 01 (the buried 0-hop attribute, found 3/3 at temp 0 but 1/3 on one hot run); the
+  > temp-0 reproducible sweep ties them at 13/13. The efficiency/profile argument is the durable
+  > one — "fewer correct" was an artifact. See the 2026-06-09 (temp 0) run entry.
 
 - **Binary exact-set pass *understates* `graph_sparqlgen` — read recall, not just pass.**
   The set/aggregate judges pass only on an exact set (F1=1.0). For a *neighborhood* dump that
@@ -74,6 +81,62 @@ behaves," promote it to `eval/README.md` (the methodology reference). Findings g
 ---
 
 ## Run log (newest first)
+
+### 2026-06-09 (temp 0) — reproducible baseline: all sampling pinned to temperature 0 (5 conditions, 52 q)
+
+The first sweep with **every LLM call pinned to temperature 0** — the generator under test
+(`GENERATOR_TEMPERATURE=0`), the `graph_sparqlgen` SPARQL-writer (`SPARQLGEN_TEMPERATURE=0`),
+and the already-pinned semantic judge. Same full corpus + new-telemetry harness as the temp-1.0
+sweep directly below; the *only* change is sampling policy, so this isolates temperature.
+Every row logs `generator_temperature=0.0`. Runs: `closed_book` `20260609T153917`, `vector`
+`20260609T154127`, `graph_neighborhood_1hop` `20260609T154316`, `graph_neighborhood_2hop`
+`20260609T154527`, `graph_sparqlgen` `20260609T154741`.
+
+| type | closed | vector | 1hop | 2hop | sparqlgen |
+|---|---|---|---|---|---|
+| 01_0hop_attribute | 2/3 | 2/3 | 3/3 | **3/3** | 3/3 |
+| 02_1hop_factoid | 0/5 | 0/5 | 5/5 | 1/5 | 0/5 |
+| 03_2hop_traversal | 0/7 | 0/7 | 0/7 | 1/7 | 2/7 |
+| 04_3plus_hop_traversal | 0/8 | 0/8 | 0/8 | 0/8 | 0/8 |
+| 05_aggregative | 0/8 | 0/8 | 0/8 | 0/8 | 8/8 |
+| 06_set_intersection | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 |
+| 07_set_difference | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 |
+| 08_negative_unanswerable | 0/7 | 5/7 | 4/7 | 6/7 | 0/7 |
+| 09_path_existence | 2/4 | 2/4 | 1/4 | 2/4 | 3/4 |
+| **passed** | **4/52** | **9/52** | **13/52** | **13/52** | **16/52** |
+
+vs. the temp-1.0 sweep below: `4 / 9 / 13 / 11 / 15` → `4 / 9 / 13 / 13 / 16`.
+
+1. **The graph_2hop instability was generator variance, now pinned out — confirming the
+   buried-needle diagnosis.** Type 01 (0-hop attribute) went **1/3 → 3/3 and held**. The
+   chromosome triple is present-but-buried in the 200-triple 2-hop dump (→ the temp-1.0
+   entry's diagnosis); at temperature 1.0 whether the generator located that single line was
+   a coin-flip (1/3 unlucky), and at temperature 0 greedy decoding finds it **reliably** (3/3).
+   The 12↔11 flip across runs is fully explained and eliminated.
+
+2. **This overturns a previously-recorded claim: 2hop is NOT "strictly dominated" on count.**
+   The temp-1.0 sweeps showed 2hop 11–12 vs 1hop 13 and the caveat read "strictly dominated —
+   fewer correct." That gap was *itself* temp-1.0 sampling noise on type 01; **at temp 0 they
+   tie, 13/13.** The honest claim survives in weaker form — 2hop is dominated on **efficiency
+   and profile**, not count: it costs ~2.6× the input tokens for the same total and trades
+   1hop's robust `02` wins (5/5 → 1/5) for marginal `03` (0 → 1). The coupled-knobs / hop-bump
+   argument stands; "fewer correct" does not. The caveat above has been corrected accordingly.
+
+3. **sparqlgen reaches a reproducible 16/52** (vs 15), gaining `03` (1→2) and `09` (2→3) and
+   losing `07` (1→0) relative to the sampled run — modal SPARQL writing differs slightly from
+   the temp-1.0 average, but is now stable rather than a per-run draw. `05` aggregation holds
+   8/8. Recall-not-pass still applies (→ the binary-understates-sparqlgen caveat).
+
+4. **closed_book / vector / 1hop are unchanged (4 / 9 / 13)** — their single generator call was
+   already near-deterministic on these answer shapes, so pinning moved nothing. The thesis is
+   intact and now *stable*: structured (13/13/16) > dense (9) > parametric (4), no run-to-run
+   wobble.
+
+**Status of this baseline.** This is the canonical reproducible baseline; the temp-1.0 numbers
+below are retained as the provenance for *why* it was pinned (the variance they exposed), not as
+a competing leaderboard. Caveat: temperature 0 is **low-variance, not bit-identical** — FP/batch
+nondeterminism on a hosted model can still flip an occasional token; a double-run to quantify
+residual variance is not yet done.
 
 ### 2026-06-09 — canonical re-run: full-corpus `vector` + new-telemetry harness (5 conditions, 52 q)
 
