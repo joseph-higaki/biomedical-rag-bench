@@ -122,6 +122,7 @@ class AnthropicGenerator:
             cache_read_input_tokens=getattr(u, "cache_read_input_tokens", None),
             cache_creation_input_tokens=getattr(u, "cache_creation_input_tokens", None),
             finish_reason=resp.stop_reason,
+            temperature=self.temperature,  # what we requested (None ⇒ provider default applied)
             tool_calls=tool_calls,
             raw_usage=u.model_dump() if hasattr(u, "model_dump") else {},
         )

@@ -147,6 +147,7 @@ def run_question(
             "predicted": None,
             # generate() never returned, so there is no resolved snapshot to attribute to.
             "generator_model_resolved": None,
+            "generator_temperature": None,  # no generate() call happened
             "input_tokens": 0, "output_tokens": 0,
             "cache_read_input_tokens": None, "cache_creation_input_tokens": None,
             "context_tokens_proxy": None, "num_sources": 0,
@@ -164,6 +165,11 @@ def run_question(
         # the requested/configured `generator_model` above (which may be a moving alias). Logged
         # per result so a verdict is always attributable to the exact model — base.py's contract.
         "generator_model_resolved": gr.model,
+        # Sampling temperature actually requested for this generation (None = provider default /
+        # unpinned). Logged beside the model so each row is self-describing about whether the
+        # answer was modal (temp 0) or distribution-sampled — a reproducibility factor, not a
+        # cost one. NB: deterministic-*judge* says nothing about this; they are orthogonal.
+        "generator_temperature": gr.temperature,
         "input_tokens": gr.input_tokens,
         "output_tokens": gr.output_tokens,
         # Generator's billed cache tokens (when the provider reports them) — the cost panel
@@ -246,6 +252,10 @@ class RunManifest:
     # provider resolved it to (from the rows, post-run). Optional/additive — None for an
     # all-errored run, or a run made before the row carried it.
     generator_model_resolved: str | None = None
+    # The generator's requested sampling temperature — the run-level reproducibility setting
+    # (None = unpinned / provider default). A run-constant factor, recorded beside
+    # generator_model; renders into the manifest table automatically (to_dict iterates fields).
+    generator_temperature: float | None = None
     harness_version: str = "harness-v1"
 
     def to_dict(self) -> dict:
@@ -273,6 +283,9 @@ def make_manifest(
         num_questions=len(questions),
         system_prompt_sha256=hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest()[:16],
         generator_model_resolved=generator_model_resolved,
+        # Duck-typed: the configured request temperature lives on the generator object (the
+        # Generator protocol doesn't mandate it), None when the adapter leaves it unset.
+        generator_temperature=getattr(generator, "temperature", None),
     )
 
 

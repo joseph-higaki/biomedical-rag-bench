@@ -203,6 +203,10 @@ class SparqlGenRetriever:
             info: dict = {
                 "mechanism": "sparqlgen",
                 "writer_model": getattr(gen, "model", self.writer_model),
+                # Sampling temperature the writer LLM used (None = provider default / unpinned),
+                # logged beside its model — the same temperature-beside-model rule the generator
+                # and judge follow. This is the writer's query-generation reproducibility setting.
+                "writer_temperature": getattr(gen, "temperature", None),
                 # The retriever's OWN LLM cost — kept separate from the generator's billed
                 # tokens so the two are never confounded (see module docstring).
                 "writer_input_tokens": getattr(gen, "input_tokens", None),

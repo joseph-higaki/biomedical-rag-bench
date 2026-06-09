@@ -209,7 +209,14 @@ chart aggregates over. The analysis layer reads these (deduped to canonical rows
 **Condition factors** (the dimensions a result is attributed to): `retriever`,
 `generator_provider`, `generator_model` (the *configured* id — may be an alias),
 `generator_model_resolved` (the *resolved* snapshot the provider ran; see
-[Generation → configured vs. resolved id](generate/README.md#the-model-under-test--configured-vs-resolved-id)).
+[Generation → configured vs. resolved id](generate/README.md#the-model-under-test--configured-vs-resolved-id)),
+and `generator_temperature` — the sampling temperature actually requested (`null` = unpinned,
+the provider default applied). It is a **reproducibility** factor, orthogonal to the judge:
+a *deterministic-judged* row says nothing about the *generator's* temperature, so near-boundary
+verdicts at an unpinned temperature can flip run-to-run (logged so that drift is attributable,
+not mysterious). The same temperature-beside-model factoid rides every LLM interaction —
+`writer_temperature` in a `graph_sparqlgen` `traversal_info`, `judge_temperature` in a
+`semantic` `judge_details` — and the run-constant `generator_temperature` is also in the manifest.
 
 **Generated answer + billed cost** (the generator's tokenizer): `predicted`,
 `input_tokens`, `output_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens`.

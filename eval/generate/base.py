@@ -60,6 +60,11 @@ class GenerationResult:
     cache_read_input_tokens: int | None = None
     cache_creation_input_tokens: int | None = None
     finish_reason: str | None = None
+    # The sampling temperature the adapter *requested* for this call: a float when pinned,
+    # or None when left unset (the provider's default sampling applied — Anthropic's is 1.0).
+    # None is the honest record of "not pinned", distinct from an explicit 0.0; logged beside
+    # the model at every interaction so a row says whether the answer was modal or sampled.
+    temperature: float | None = None
     # Normalized tool invocations the model requested, provider-agnostic: each is
     # {"name": str, "arguments": dict, "id": str | None}. Empty when no tools were used
     # or offered. The adapter maps its SDK's tool-use blocks onto this shape, so the

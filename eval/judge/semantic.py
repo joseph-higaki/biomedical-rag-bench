@@ -70,17 +70,20 @@ class SemanticJudge:
 
     scoring = "semantic"
 
-    def __init__(self, *, model: str | None = None, llm=None) -> None:
+    def __init__(self, *, model: str | None = None, temperature: float = 0.0, llm=None) -> None:
         self.model = model or DEFAULT_JUDGE_MODEL
+        # Pinned to 0 for a reproducible instrument; an explicit, logged attribute (not buried
+        # in the lazy build) so every verdict records the temperature beside the judge model.
+        self.temperature = temperature
         self._llm = llm
 
     def _ensure_llm(self):
         if self._llm is None:
             from eval.generate.anthropic_generator import AnthropicGenerator
 
-            # temperature 0 + a short cap: the verdict is one word plus a brief reason, and a
-            # judge must be as reproducible as the provider allows.
-            self._llm = AnthropicGenerator(self.model, max_tokens=128, temperature=0.0)
+            # self.temperature (0 by default) + a short cap: the verdict is one word plus a
+            # brief reason, and a judge must be as reproducible as the provider allows.
+            self._llm = AnthropicGenerator(self.model, max_tokens=128, temperature=self.temperature)
         return self._llm
 
     @staticmethod
@@ -107,8 +110,8 @@ class SemanticJudge:
             return JudgeResult(
                 scoring=self.scoring, score=0.0, passed=False,
                 verdict="empty answer — not equivalent",
-                details={"judge_model": self.model, "reference": reference,
-                         "candidate": "", "llm_called": False},
+                details={"judge_model": self.model, "judge_temperature": self.temperature,
+                         "reference": reference, "candidate": "", "llm_called": False},
             )
 
         llm = self._ensure_llm()
@@ -124,6 +127,7 @@ class SemanticJudge:
                     else ("equivalent" if is_equiv else "different"),
             details={
                 "judge_model": getattr(gr, "model", self.model),
+                "judge_temperature": getattr(gr, "temperature", self.temperature),
                 "reference": reference,
                 "candidate": candidate[:200],
                 "reason": reason,
