@@ -156,11 +156,24 @@ class SparqlGenRetriever:
 
     def _bounded(self, query: str) -> str:
         """Append a LIMIT to a non-aggregate query that lacks one, so a hub entity can't
-        return an unbounded result set. COUNT queries are already single-row."""
+        return an unbounded result set. COUNT queries are already single-row.
+
+        When we add the LIMIT we also add an ORDER BY over the projected variables if the
+        query has none: a bare LIMIT without ORDER BY truncates to an ARBITRARY subset, so a
+        query returning more than max_rows rows would be non-reproducible (the same class of
+        bug as graph.py's hop fetch). If the projection can't be parsed (e.g. SELECT *), we
+        leave it — accepting the residual risk rather than emitting an invalid ORDER BY."""
         low = query.lower()
         if "limit" in low or "count(" in low:
             return query
-        return f"{query.rstrip()}\nLIMIT {self.max_rows}"
+        ordered = query.rstrip()
+        if "order by" not in low:
+            sel = re.match(r"\s*SELECT\s+(?:DISTINCT\s+)?(.*?)\s+WHERE",
+                           query, re.IGNORECASE | re.DOTALL)
+            proj = re.findall(r"\?(\w+)", sel.group(1)) if sel else []
+            if proj:
+                ordered += "\nORDER BY " + " ".join(f"?{v}" for v in proj)
+        return f"{ordered}\nLIMIT {self.max_rows}"
 
     # --- GraphDB access ----------------------------------------------------
     # Own minimal SELECT client (httpx lazy), same as graph.py: the retriever is the

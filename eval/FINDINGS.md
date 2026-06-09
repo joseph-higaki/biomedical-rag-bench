@@ -52,11 +52,16 @@ behaves," promote it to `eval/README.md` (the methodology reference). Findings g
   needs a proportional cap bump (a joint hops×caps sweep) — or the structural answer (query
   execution, `graph_sparqlgen`). `graph_neighborhood_1hop` is the honest neighborhood baseline.
 
-  > **History/correction.** The temp-1.0 sweeps reported 2hop **12/52** (then 11/52) vs 1hop 13
-  > and this caveat once read "strictly dominated — fewer correct." That gap was sampling noise
-  > on type 01 (the buried 0-hop attribute, found 3/3 at temp 0 but 1/3 on one hot run); the
-  > temp-0 reproducible sweep ties them at 13/13. The efficiency/profile argument is the durable
-  > one — "fewer correct" was an artifact. See the 2026-06-09 (temp 0) run entry.
+  > **History/correction.** This caveat once read "strictly dominated — fewer correct (12 vs
+  > 13)." That run-to-run gap was **not** a property of 2hop — it was a *retriever
+  > non-determinism bug*: an unordered SPARQL `LIMIT` in the hop fetch (now fixed with `ORDER
+  > BY`) returned a different capped neighborhood each call, so the buried type-01 attribute was
+  > present-or-absent at random. Deterministically, 2hop **ties 1hop at 13/13 — but hollowly**:
+  > 2hop's type-01 2/3 is *parametric fallback* (the attribute is buried, so the model answers
+  > from its own knowledge, = closed_book) and its edge comes from the type-08 refuse-on-noise
+  > artifact, while 1hop's 13 is real retrieval (01 read from context 3/3, 02 5/5). Same count,
+  > opposite substance — "dominated on efficiency and profile" is the durable claim; "fewer
+  > correct" was a bug artifact. See the 2026-06-09 (retrieval fixed) run entry.
 
 - **Binary exact-set pass *understates* `graph_sparqlgen` — read recall, not just pass.**
   The set/aggregate judges pass only on an exact set (F1=1.0). For a *neighborhood* dump that
@@ -82,7 +87,62 @@ behaves," promote it to `eval/README.md` (the methodology reference). Findings g
 
 ## Run log (newest first)
 
+### 2026-06-09 (retrieval fixed) — reproducibility audit exposes a retriever non-determinism bug
+
+Running the temp-0 sweep **twice and diffing every verdict** (the audit the temp-0 entry below
+left open) found **2 of 260 cells flipped** — both the `graph_2hop` buried-needle type-01 cells —
+and **0 flips in the other four conditions**. The flips falsify the temp-0 entry's root-cause
+claim. Re-run arms: `graph_neighborhood_1hop` `20260609T173424`, `graph_neighborhood_2hop`
+`20260609T173551`, `graph_sparqlgen` `20260609T173859` (closed_book/vector unchanged, code-unaffected).
+
+1. **The instability was a *retriever* bug, not generator variance — temperature 0 never fixed
+   it.** `graph.py._hop_queries` fetched with `LIMIT 5000` and **no `ORDER BY`**; a bare SPARQL
+   `LIMIT` returns an *arbitrary* subset, so when a hub node's 2-hop expansion exceeds the
+   ceiling (the `chromosome` GO hub does) GraphDB handed back a different subset each call →
+   different capped neighborhood → the anchor's buried `chromosome` attribute present-or-absent.
+   **Proven:** two identical retrievals with *no LLM in the path* produced different context
+   hashes. This corrects the temp-0 entry below, whose findings #1–#2 attributed the 12↔11 flip
+   to generator sampling "pinned out at temp 0" — wrong: the cells still flipped at temp 0
+   because the variance is upstream of the generator.
+
+2. **Fix: `ORDER BY` before `LIMIT`** in both hop queries (`graph.py`) and the same latent
+   `LIMIT`-without-`ORDER BY` in `sparqlgen._bounded`. Retrieval is now a stable prefix —
+   verified deterministic (identical context hash across repeated retrievals). With retrieval
+   deterministic and the generator at temp 0, the baseline is reproducible by construction.
+
+3. **Corrected deterministic baseline: `4 / 9 / 13 / 13 / 16`** (closed / vector / 1hop / 2hop /
+   sparqlgen). 2hop totals **13**, not the temp-0 entry's lucky-draw framing — but **its 13 is
+   hollow, and the fix is what revealed that.** Deterministically the 2-hop fan-out *buries* the
+   0-hop attribute: all three type-01 answers are "I cannot find <gene> in the provided context",
+   so 2hop type-01 = **2/3 is pure parametric fallback** (HTR3B→11, PTDSS1→8 from the model's own
+   knowledge; obscure R3HDM2→12 fails) — **identical to closed_book's 2/3, zero retrieval
+   contribution.** Contrast 1hop type-01 = 3/3, which reads the value straight from its under-cap
+   neighborhood (`11`, `12`, `chromosome 8`). 2hop's remaining points are the type-08
+   refuse-on-noisy-context artifact (**7/7** vs 1hop 4/7). So **1hop earns 13 through retrieval**
+   (02: 5/5), **2hop earns 13 through artifacts** (parametric 01 + noisy 08) while its real
+   retrieval collapses (02: 5/5 → 1/5) at 2.6× the cost. Same count, opposite substance — the
+   "dominated on efficiency and profile" caveat holds and is sharpened, not overturned.
+
+4. **The audit was worth exactly one repeat.** A 2nd run found the bug; a 3rd would only have
+   re-rolled the dice. The lesson generalizes: *nondeterminism anywhere upstream of the judge
+   makes a score a draw* — the judge was pinned, the generator was pinned, but an unordered
+   `LIMIT` in retrieval slipped the net. The 35%-of-answers-reworded / 0.8%-verdict-flip split
+   (from the temp-0 repeat) also stands: the deterministic judges absorb wording noise; the only
+   flips were missing-data, now fixed.
+
+> The temp-0 entry below is retained as the record of what that run *appeared* to show; its
+> findings #1–#2 (generator-variance attribution) are **superseded by this entry** — read them
+> together. The `4 / 9 / 13 / 13 / 16` totals are unchanged; only the *why* and the hollowness of
+> 2hop's 13 are corrected.
+
 ### 2026-06-09 (temp 0) — reproducible baseline: all sampling pinned to temperature 0 (5 conditions, 52 q)
+
+> **Correction (see the entry above).** This entry's findings #1–#2 attribute the graph_2hop
+> 12↔11 flip to *generator* sampling variance "eliminated by temperature 0". That is wrong: a
+> two-run audit showed the cells still flip at temp 0, because the variance was an **unordered
+> SPARQL `LIMIT` in the retriever**, not the generator. Fixed with `ORDER BY`; 2hop's 13 is
+> reproducible but hollow (parametric type-01 + type-08 artifact). The totals below stand; the
+> mechanism does not.
 
 The first sweep with **every LLM call pinned to temperature 0** — the generator under test
 (`GENERATOR_TEMPERATURE=0`), the `graph_sparqlgen` SPARQL-writer (`SPARQLGEN_TEMPERATURE=0`),

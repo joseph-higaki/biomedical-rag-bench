@@ -35,7 +35,11 @@ DEFAULT_ENDPOINT = os.environ.get(
     "GRAPHDB_ENDPOINT", "http://localhost:7200/repositories/hetionet"
 )
 # Over-fetch ceiling per hop query; the real bound is the per-predicate / total caps
-# applied in Python (SPARQL can't easily cap per-predicate without subquery noise).
+# applied in Python (SPARQL can't easily cap per-predicate without subquery noise). The hop
+# queries pair this LIMIT with an ORDER BY: a bare LIMIT without ORDER BY returns an ARBITRARY
+# subset (SPARQL guarantees no order otherwise), so when a hub node's expansion exceeds the
+# ceiling the fetched subset — and thus the capped neighborhood — varied run to run. The
+# ORDER BY makes the truncation a stable prefix, so retrieval is reproducible.
 _FETCH_LIMIT = 5000
 
 
@@ -151,14 +155,14 @@ class NeighborhoodGraphRetriever:
   ?anchor <{RDFS_LABEL}> ?aLabel ; ?p ?o .
   FILTER(STRSTARTS(STR(?p), "{SCHEMA}"))
   OPTIONAL {{ ?o <{RDFS_LABEL}> ?oLabel }}
-}} LIMIT {_FETCH_LIMIT}"""
+}} ORDER BY ?aLabel ?p ?o LIMIT {_FETCH_LIMIT}"""
         incoming = f"""SELECT ?s ?sLabel ?p ?aLabel WHERE {{
   VALUES ?anchor {{ {values} }}
   ?anchor <{RDFS_LABEL}> ?aLabel .
   ?s ?p ?anchor .
   FILTER(STRSTARTS(STR(?p), "{SCHEMA}"))
   ?s <{RDFS_LABEL}> ?sLabel .
-}} LIMIT {_FETCH_LIMIT}"""
+}} ORDER BY ?s ?p ?aLabel LIMIT {_FETCH_LIMIT}"""
         return outgoing, incoming
 
     def _neighborhood(
