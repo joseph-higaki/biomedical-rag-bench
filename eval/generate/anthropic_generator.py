@@ -68,9 +68,11 @@ class AnthropicGenerator:
         self.model = model
         self.max_tokens = max_tokens
         self.max_retries = max_retries
-        # Left unset by default → the SDK's default sampling (the generator-under-test keeps
-        # its current behavior). Pinned to 0 by callers that need reproducibility, chiefly the
-        # LLM judge — an additive, opt-in knob, so existing runs are unchanged.
+        # None at the adapter level → temperature is not sent → the SDK's default sampling.
+        # Every *caller* in this project now pins it for reproducibility: the generator under
+        # test (run_eval.build_generator, GENERATOR_TEMPERATURE=0), the sparqlgen writer
+        # (SPARQLGEN_TEMPERATURE=0), and the LLM judge (0). The None default keeps the adapter
+        # provider-neutral and lets a caller deliberately opt back into sampling.
         self.temperature = temperature
         self._client = client
 

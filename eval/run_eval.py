@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from collections.abc import Callable
@@ -109,15 +110,25 @@ GENERATORS: dict[str, Callable[..., Generator]] = {
 ALL_JUDGES: dict[str, Judge] = {**DETERMINISTIC_JUDGES, SemanticJudge.scoring: SemanticJudge()}
 
 
+# Reproducible by default: the model under test runs at temperature 0 (greedy/modal) so a
+# re-run reproduces a run rather than re-sampling it — the determinism rule (eval/README.md)
+# and the cure for the run-to-run jitter the temperature factoid exposed. Override via env to
+# study temperature as a factor (it is logged per result). NB: temp 0 is low-variance, not
+# bit-identical — floating-point/batching on hosted models can still flip an occasional token.
+GENERATOR_TEMPERATURE = float(os.environ.get("GENERATOR_TEMPERATURE", "0.0"))
+
+
 def build_generator(spec: str) -> Generator:
-    """Build a generator from a 'provider:model' spec, e.g. 'anthropic:claude-haiku-4-5'."""
+    """Build a generator from a 'provider:model' spec, e.g. 'anthropic:claude-haiku-4-5'.
+    Temperature is pinned to GENERATOR_TEMPERATURE (0.0 default) — the run-constant sampling
+    setting, logged with every result and in the manifest."""
     provider, _, model = spec.partition(":")
     if not model:
         raise SystemExit(
             f"--generator must be 'provider:model' (e.g. anthropic:claude-haiku-4-5); got {spec!r}"
         )
     try:
-        return GENERATORS[provider](model)
+        return GENERATORS[provider](model, temperature=GENERATOR_TEMPERATURE)
     except KeyError:
         raise SystemExit(
             f"unknown provider {provider!r}; registered: {', '.join(GENERATORS)}"

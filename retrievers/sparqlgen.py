@@ -49,6 +49,11 @@ DEFAULT_ENDPOINT = os.environ.get(
 # result. Defaults to the cheap model for cost parity with the Haiku generator; override
 # via env. Mixing writer/generator models is a factor to record, not to hide.
 DEFAULT_WRITER_MODEL = os.environ.get("SPARQLGEN_MODEL", "claude-haiku-4-5")
+# Pinned to 0 by default, same reason as the generator: a hot writer samples a *different
+# SPARQL query* each run → a different result set → a different context → a non-reproducible
+# retrieval. Reproducibility here must be set independently of the generator's temperature
+# because the writer is a separate LLM call inside the mechanism (see module docstring).
+DEFAULT_WRITER_TEMPERATURE = float(os.environ.get("SPARQLGEN_TEMPERATURE", "0.0"))
 
 # The schema-vocabulary prompt — the entire knowledge the LLM gets about the graph. Node
 # types and *directed* edge signatures are the load-bearing part: `expresses` runs
@@ -119,11 +124,17 @@ class SparqlGenRetriever:
         endpoint: str | None = None,
         *,
         writer_model: str | None = None,
+        writer_temperature: float | None = None,
         max_rows: int = 200,
         llm=None,
     ) -> None:
         self.endpoint = endpoint or DEFAULT_ENDPOINT
         self.writer_model = writer_model or DEFAULT_WRITER_MODEL
+        # None ⇒ the env-backed default (0.0), so the zero-arg registry construction stays
+        # reproducible; an explicit value (incl. a deliberate >0) is honored and logged.
+        self.writer_temperature = (
+            DEFAULT_WRITER_TEMPERATURE if writer_temperature is None else writer_temperature
+        )
         self.max_rows = max_rows
         self._llm = llm  # duck-typed Generator: .generate(prompt, system=) -> .text/.*_tokens/.model
 
@@ -134,7 +145,7 @@ class SparqlGenRetriever:
             # infra (not the ground-truth tooling graph.py deliberately avoids importing).
             from eval.generate.anthropic_generator import AnthropicGenerator
 
-            self._llm = AnthropicGenerator(self.writer_model)
+            self._llm = AnthropicGenerator(self.writer_model, temperature=self.writer_temperature)
         return self._llm
 
     @staticmethod
