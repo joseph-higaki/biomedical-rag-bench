@@ -75,6 +75,66 @@ behaves," promote it to `eval/README.md` (the methodology reference). Findings g
 
 ## Run log (newest first)
 
+### 2026-06-09 — canonical re-run: full-corpus `vector` + new-telemetry harness (5 conditions, 52 q)
+
+The first sweep on the rebuilt telemetry harness (resolved-model id + `traversal_info` + cache
+tokens persisted per row) and the **full PubMed corpus** (152,943 chunks, 27,070 entity files —
+the prior `vector` arm was the 1,893-entity targeted store). All five registered conditions,
+same `claude-haiku-4-5` generator, deterministic judges only (the 6 type-10 questions excluded).
+Runs: `closed_book` `20260609T134244`, `vector` `20260609T134442`, `graph_neighborhood_1hop`
+`20260609T134623`, `graph_neighborhood_2hop` `20260609T134758`, `graph_sparqlgen` `20260609T135010`.
+
+| type | closed | **vec(full)** | 1hop | 2hop | sparqlgen |
+|---|---|---|---|---|---|
+| 01_0hop_attribute | 2/3 | 2/3 | 3/3 | **1/3** | 3/3 |
+| 02_1hop_factoid | 0/5 | 0/5 | 5/5 | 1/5 | 0/5 |
+| 03_2hop_traversal | 0/7 | 0/7 | 0/7 | 1/7 | 1/7 |
+| 04_3plus_hop_traversal | 0/8 | 0/8 | 0/8 | 0/8 | 0/8 |
+| 05_aggregative | 0/8 | 0/8 | 0/8 | 0/8 | 8/8 |
+| 06_set_intersection | 0/5 | 0/5 | 0/5 | 0/5 | 0/5 |
+| 07_set_difference | 0/5 | 0/5 | 0/5 | 0/5 | 1/5 |
+| 08_negative_unanswerable | 0/7 | 5/7 | 4/7 | 6/7 | 0/7 |
+| 09_path_existence | 2/4 | 2/4 | 1/4 | 2/4 | 2/4 |
+| **passed** | **4/52** | **9/52** | **13/52** | **11/52** | **15/52** |
+
+1. **The headline: a full corpus does not rescue dense retrieval — `vector` 8 → 9/52.** Feeding
+   the model the *entire* corpus (152,943 chunks vs. the targeted 10,735) instead of the
+   question-seed store moved the binary by **one question** and left **02–07 at 0/5..0/8** —
+   still zero on every content type. This closes the strongest form of the "vector only lost
+   because it was under-fed" objection: with full entity coverage *and* 14× the chunks, dense
+   literature retrieval still cannot answer structured graph questions, because the answers are
+   graph *relationships*, not sentences in any abstract (→ the 2026-06-08 `vec(real)` worked
+   example). The graph thesis (H2/H4/H7) now holds against a maximal vector baseline. The +1
+   is noise on type 07's edge, not a capability shift.
+
+2. **`graph_2hop` 12 → 11 is generator variance on a *deterministic* pathology, not a
+   regression.** The entire delta is type 01 (0-hop attribute) **3/3 → 1/3**, with type 09
+   +1 the other way. Diagnosed directly: for R3HDM2 (truth: chr 12) and PTDSS1 (chr 8) the
+   model returned *"the context does not contain information…"* — yet the attribute triple
+   **is in the 200-triple dump** (`R3HDM2 chromosome 12` is present). It is *buried*: at
+   `hops=2` the neighborhood explodes through the **`chromosome` GO hub (GO_0005694)** — every
+   gene that "participates chromosome" becomes a 2-hop neighbor — so the `max_triples=200` cap
+   fills with chromosome-hub fan-out and drowns the gene's own 0-hop attribute. The `1hop`
+   dump (82 triples, R3HDM2-centric) keeps the same triple findable. Because the retriever is
+   deterministic, the 200-triple context is byte-identical to the old run; only the generator's
+   needle-in-haystack success changed (old 3/3 lucky, this 1/3). **The true `2hop` type-01
+   score is unstable, not 3/3.** This *extends* the coupled-knobs caveat: 2-hop fan-out doesn't
+   just fail to unlock deep types — it corrupts the *trivial* 0-hop lookups by burying them,
+   and the binary is run-to-run unstable because it depends on the generator spotting one line
+   in 200. Another count against bumping `hops` without a proportional cap bump.
+
+3. **New telemetry verified end-to-end.** Every row carries `generator_model_resolved`
+   (`claude-haiku-4-5-20251001`), `traversal_info`, and cache-token fields; `graph_sparqlgen`
+   rows persist the executed `sparql`, `sparql_valid`, `num_rows`, and the **writer-LLM cost
+   logged apart** (`writer_input_tokens/_output_tokens/_model`) — the mechanism-vs-generator
+   cost separation is now in the data, not just the design. The 1hop/sparqlgen/closed_book
+   totals reproduce the prior baseline exactly (13/15/4), so the harness rebuild changed the
+   schema, not the measurements.
+
+> `vec(full)` 9/52 is now the canonical `vector` arm, superseding `vec(real)` 8/52 and the
+> older 11/52 smoke. The graph/closed_book conditions are unchanged in capability (`2hop`'s
+> −1 is the variance above, not a real shift).
+
 ### 2026-06-08 (latest) — `semantic` LLM judge online; first type-10 verdicts
 
 Built the LLM judge for type-10 (`eval/judge/semantic.py`): given the question, the
