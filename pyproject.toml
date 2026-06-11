@@ -41,6 +41,14 @@ generate = [
     "anthropic>=0.40",
     "python-dotenv>=1.0",
 ]
+# Corpus-profile measurement (ingest/corpus_profile.py): reads the Chroma store
+# (chromadb — no sentence-transformers, since counting never embeds) and counts
+# triples/nodes over SPARQL (httpx) when an endpoint serving the corpus is given.
+# Emits the committed corpus-build profile that run_eval references by corpus_build_id.
+profile = [
+    "chromadb>=0.5",
+    "httpx>=0.27",
+]
 # Eval-set production (stage 1 in eval/README.md): reads YAML templates + their
 # ground-truth .rq files. PyYAML parses templates; httpx runs the ground-truth
 # queries against GraphDB (the registry generator's --verify path; the step-3
