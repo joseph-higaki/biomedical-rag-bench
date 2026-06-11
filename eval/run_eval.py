@@ -46,7 +46,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 from eval import harness  # noqa: E402
-from eval.generate.anthropic_generator import AnthropicGenerator  # noqa: E402
+from eval.generate.registry import GENERATORS, from_spec  # noqa: E402,F401  (GENERATORS re-exported)
 from eval.generate.base import Generator  # noqa: E402
 from eval.judge.base import Judge  # noqa: E402
 from eval.judge.deterministic import DETERMINISTIC_JUDGES  # noqa: E402
@@ -93,13 +93,10 @@ def build_retriever(name: str) -> Retriever:
         )
 
 
-# The generator registry: provider name -> adapter constructor (the Strategy pattern;
-# see eval/generate/base.py). The harness names a generator as "provider:model" so the
-# benchmark stays provider-agnostic — nothing here imports a provider SDK (the adapter
-# does, lazily). New providers (ollama, openai) are one entry each.
-GENERATORS: dict[str, Callable[..., Generator]] = {
-    AnthropicGenerator.provider: AnthropicGenerator,
-}
+# The generator registry + factory now live in eval/generate/registry.py — the single
+# construction point shared by the generator-under-test (here), the graph_sparqlgen writer,
+# and the semantic judge, so any of them can name a non-Anthropic provider. Re-exported for
+# back-compat (callers that did `from eval.run_eval import GENERATORS`).
 
 
 # The judge map: `scoring` value -> judge. The five deterministic judges are hermetic
@@ -119,20 +116,11 @@ GENERATOR_TEMPERATURE = float(os.environ.get("GENERATOR_TEMPERATURE", "0.0"))
 
 
 def build_generator(spec: str) -> Generator:
-    """Build a generator from a 'provider:model' spec, e.g. 'anthropic:claude-haiku-4-5'.
-    Temperature is pinned to GENERATOR_TEMPERATURE (0.0 default) — the run-constant sampling
-    setting, logged with every result and in the manifest."""
-    provider, _, model = spec.partition(":")
-    if not model:
-        raise SystemExit(
-            f"--generator must be 'provider:model' (e.g. anthropic:claude-haiku-4-5); got {spec!r}"
-        )
-    try:
-        return GENERATORS[provider](model, temperature=GENERATOR_TEMPERATURE)
-    except KeyError:
-        raise SystemExit(
-            f"unknown provider {provider!r}; registered: {', '.join(GENERATORS)}"
-        )
+    """Build the generator-under-test from a 'provider:model' spec, e.g.
+    'anthropic:claude-haiku-4-5'. Temperature is pinned to GENERATOR_TEMPERATURE (0.0 default)
+    — the run-constant sampling setting, logged with every result and in the manifest. No
+    default provider: the model under test must be named explicitly so a run is attributable."""
+    return from_spec(spec, temperature=GENERATOR_TEMPERATURE)
 
 
 def _print_verdicts(rows: list[dict], manifest: harness.RunManifest, rows_path: Path) -> None:

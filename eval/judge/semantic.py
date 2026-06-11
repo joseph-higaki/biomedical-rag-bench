@@ -79,11 +79,16 @@ class SemanticJudge:
 
     def _ensure_llm(self):
         if self._llm is None:
-            from eval.generate.anthropic_generator import AnthropicGenerator
+            # Through the shared factory so JUDGE_MODEL may name a provider
+            # (`ollama:…`); a bare model stays Anthropic (the historical default). A local
+            # judge needs its own kappa calibration before it is trusted (eval/README.md).
+            from eval.generate.registry import from_spec
 
             # self.temperature (0 by default) + a short cap: the verdict is one word plus a
             # brief reason, and a judge must be as reproducible as the provider allows.
-            self._llm = AnthropicGenerator(self.model, max_tokens=128, temperature=self.temperature)
+            self._llm = from_spec(
+                self.model, default_provider="anthropic", max_tokens=128, temperature=self.temperature
+            )
         return self._llm
 
     @staticmethod

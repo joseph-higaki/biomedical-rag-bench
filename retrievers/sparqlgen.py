@@ -143,9 +143,13 @@ class SparqlGenRetriever:
         if self._llm is None:
             # Lazy so module import stays dependency-free; the generator adapter is neutral
             # infra (not the ground-truth tooling graph.py deliberately avoids importing).
-            from eval.generate.anthropic_generator import AnthropicGenerator
+            # Through the shared factory so writer_model may name a provider
+            # (`ollama:qwen2.5-coder`); a bare model stays Anthropic (the historical default).
+            from eval.generate.registry import from_spec
 
-            self._llm = AnthropicGenerator(self.writer_model, temperature=self.writer_temperature)
+            self._llm = from_spec(
+                self.writer_model, default_provider="anthropic", temperature=self.writer_temperature
+            )
         return self._llm
 
     @staticmethod
