@@ -61,6 +61,14 @@ def test_extract_query_falls_back_to_raw_when_unfenced():
     assert SparqlGenRetriever._extract_query("  SELECT ?x WHERE {}  ") == "SELECT ?x WHERE {}"
 
 
+def test_extract_query_strips_unterminated_fence():
+    # Smaller local instruct models open a ```sparql fence and forget the closing ```; the
+    # marker must not survive onto the query (it would fail the SELECT gate as a non-query).
+    reply = "```sparql\nSELECT ?x WHERE {}"
+    q = SparqlGenRetriever._extract_query(reply)
+    assert q == "SELECT ?x WHERE {}" and "```" not in q
+
+
 def test_bounded_appends_limit_only_when_absent():
     r = _retriever("", max_rows=50)
     assert r._bounded("SELECT ?x WHERE {}").endswith("LIMIT 50")

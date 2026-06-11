@@ -105,6 +105,11 @@ Rules:
 # top of querying the read-only /repositories endpoint.
 _SELECT_RE = re.compile(r"^\s*(?:PREFIX\b[^\n]*\n\s*)*(?:SELECT|ASK)\b", re.IGNORECASE)
 _FENCE_RE = re.compile(r"```(?:sparql)?\s*(.*?)```", re.IGNORECASE | re.DOTALL)
+# A line that is ONLY a fence marker (```sparql, ```, with optional whitespace). Used to
+# salvage an UNTERMINATED fence: local instruct models routinely open a ```sparql fence and
+# forget the closing ```, which _FENCE_RE (requires a pair) can't match — leaving the marker
+# on the query so it fails the SELECT gate. Stripping these lines recovers the query.
+_FENCE_LINE_RE = re.compile(r"^\s*```(?:sparql)?\s*$", re.IGNORECASE)
 
 
 class SparqlGenRetriever:
@@ -154,9 +159,19 @@ class SparqlGenRetriever:
 
     @staticmethod
     def _extract_query(text: str) -> str:
-        """Pull the SPARQL out of the LLM reply: the fenced block if present, else raw."""
+        """Pull the SPARQL out of the LLM reply.
+
+        Prefer a complete ```sparql ... ``` block (picks the query out of any surrounding
+        prose). If there's no closing fence — common with smaller local instruct models that
+        open a fence and never close it — fall back to stripping any line that is only a
+        fence marker, which recovers the query rather than leaving the marker on it (where it
+        would fail the SELECT/ASK gate as a non-query). With no fences at all this is a no-op,
+        so a bare query still passes through unchanged."""
         m = _FENCE_RE.search(text)
-        return (m.group(1) if m else text).strip()
+        if m:
+            return m.group(1).strip()
+        lines = [ln for ln in text.splitlines() if not _FENCE_LINE_RE.match(ln)]
+        return "\n".join(lines).strip()
 
     def _bounded(self, query: str) -> str:
         """Append a LIMIT to a non-aggregate query that lacks one, so a hub entity can't
