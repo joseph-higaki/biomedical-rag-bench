@@ -42,6 +42,7 @@ import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RESULTS = REPO_ROOT / "eval" / "results"
+DEFAULT_CORPUS = REPO_ROOT / "eval" / "corpus"  # committed corpus-build profiles (eval/corpus/README.md)
 
 # judge_details / traversal_info keys lifted into top-level columns. Read with .get, so a key
 # absent from a given row (old schema, or a different retriever/scoring) lands as NaN rather
@@ -99,12 +100,39 @@ def load_raw(results_dir: Path = DEFAULT_RESULTS) -> pd.DataFrame:
         df["generator_model"] = run["generator_model"]
         df["judge"] = run.get("judge")
         df["harness_version"] = run.get("harness_version")
+        # The corpus factor: a reference to a committed profile (eval/corpus/<id>.json). None on
+        # legacy runs made before provenance — joined to scale metrics in load() below.
+        df["corpus_build_id"] = run.get("corpus_build_id")
         frames.append(df)
     if not frames:
         return pd.DataFrame()
     out = pd.concat(frames, ignore_index=True)
     out["generator_model_family"] = out["generator_model"].str.replace(_MODEL_DATE_RE, "", regex=True)
     return out
+
+
+def corpus_profiles(corpus_dir: Path = DEFAULT_CORPUS) -> pd.DataFrame:
+    """One row per corpus_build_id from eval/corpus/<id>.json: scale metrics, prefixed `corpus_`.
+
+    These join onto results by corpus_build_id so the analysis can read "how big was the corpus"
+    beside each verdict and diff smoke vs full. The `corpus_` prefix avoids collision with run/
+    judge columns; the explicit `columns=` keeps the schema stable even with no profiles on disk.
+    ACTIVE (a bare id, not JSON) isn't matched by the glob, so it's skipped."""
+    recs = []
+    for path in sorted(corpus_dir.glob("*.json")):
+        prof = json.loads(path.read_text())
+        g, v = prof.get("graph", {}), prof.get("vector", {})
+        recs.append({
+            "corpus_build_id": prof["corpus_build_id"],
+            "corpus_scale": prof.get("scale"),
+            "corpus_triples": g.get("triples"), "corpus_nodes": g.get("nodes"),
+            "corpus_edges": g.get("edges"),
+            "corpus_abstracts": v.get("n_abstracts"), "corpus_words": v.get("n_words"),
+            "corpus_chunks": v.get("n_chunks"),
+        })
+    return pd.DataFrame(recs, columns=[
+        "corpus_build_id", "corpus_scale", "corpus_triples", "corpus_nodes", "corpus_edges",
+        "corpus_abstracts", "corpus_words", "corpus_chunks"])
 
 
 def canonical(df: pd.DataFrame) -> pd.DataFrame:
@@ -162,8 +190,11 @@ def tidy(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def load(results_dir: Path = DEFAULT_RESULTS) -> pd.DataFrame:
-    """The one-call pipeline: discover → load → canonical → tidy. The analysis layer's entry."""
-    return tidy(canonical(load_raw(results_dir)))
+    """The pipeline: discover → load → canonical → tidy, then left-join corpus profiles."""
+    df = tidy(canonical(load_raw(results_dir)))
+    if df.empty:
+        return df
+    return df.merge(corpus_profiles(), on="corpus_build_id", how="left")
 
 
 def _audit(df: pd.DataFrame) -> str:
