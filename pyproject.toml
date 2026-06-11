@@ -33,12 +33,15 @@ fetch = [
     "httpx>=0.27",
     "python-dotenv>=1.0",
 ]
-# Generator-under-test adapters (the Generator protocol's concrete strategies).
+# Generator/judge/writer adapters (the Generator protocol's concrete strategies).
 # anthropic is the first provider adapter; python-dotenv loads ANTHROPIC_API_KEY from
-# secrets/.env. Both are imported lazily inside the adapter, so the protocol/base and the
-# generator registry import with no extra installed. Ollama/OpenAI adapters extend this.
+# secrets/.env. ollama drives a local model for the SPARQL writer / semantic judge (not the
+# generator-under-test, by policy) against a localhost daemon — no key. All three are imported
+# lazily inside their adapter, so the protocol/base and the registry import with nothing
+# installed. OpenAI etc. extend this list + one registry entry.
 generate = [
     "anthropic>=0.40",
+    "ollama>=0.3",
     "python-dotenv>=1.0",
 ]
 # Eval-set production (stage 1 in eval/README.md): reads YAML templates + their

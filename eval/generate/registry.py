@@ -20,12 +20,15 @@ from collections.abc import Callable
 
 from eval.generate.anthropic_generator import AnthropicGenerator
 from eval.generate.base import Generator
+from eval.generate.ollama_generator import OllamaGenerator
 
 # provider name -> adapter constructor (the Strategy pattern; see base.py). The constructor's
 # first positional arg is the model id; the rest are keyword options (temperature, max_tokens,
-# …) each adapter maps onto its SDK. New providers (ollama, openai) are one entry each.
+# …) each adapter maps onto its SDK. Each adapter lazy-imports its own SDK, so listing it here
+# pulls in no provider package. New providers (openai, …) are one entry each.
 GENERATORS: dict[str, Callable[..., Generator]] = {
     AnthropicGenerator.provider: AnthropicGenerator,
+    OllamaGenerator.provider: OllamaGenerator,
 }
 
 
