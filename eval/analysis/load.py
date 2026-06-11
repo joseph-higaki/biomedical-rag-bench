@@ -48,8 +48,9 @@ DEFAULT_RESULTS = REPO_ROOT / "eval" / "results"
 # than raising — additive-only telemetry means we never assume a key is present.
 _JUDGE_COLS = ["recall", "precision", "f1", "expected_count", "found_count",
                "judge_input_tokens", "judge_output_tokens", "judge_model", "judge_temperature"]
-_TRAVERSAL_COLS = ["mechanism", "writer_input_tokens", "writer_output_tokens", "sparql_valid",
-                   "num_rows", "num_linked", "num_triples", "top_k", "hops", "writer_temperature"]
+_TRAVERSAL_COLS = ["mechanism", "writer_model", "writer_input_tokens", "writer_output_tokens",
+                   "sparql_valid", "num_rows", "num_linked", "num_triples", "top_k", "hops",
+                   "writer_temperature"]
 _HOPS_RE = re.compile(r"_(\d+)hop")
 # Top-level row fields that only newer runs carry (additive harness changes). pandas creates a
 # column only if some row has the key, so on an all-old corpus these would be *absent* — not
