@@ -75,19 +75,26 @@ Always include these prefixes:
 PREFIX hetio: <https://het.io/schema/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 
-Anchor every named entity by its label, copied character-for-character from the question,
-preserving its EXACT capitalization — labels are case-sensitive; do NOT title-case or normalize.
-If the question says "asthma", write "asthma", not "Asthma".
+Anchor every named entity by its label, copied EXACTLY as written in the question:
+  ?gene rdfs:label "HTR3B" .
 Never invent or guess a URI.
 ````
 
 The full node-type list, the directed edge table (e.g. `Disease localizes Anatomy`), and the
 SELECT/COUNT/ORDER rules are the rest of `SCHEMA_PROMPT` — read the source for the authoritative,
-complete vocabulary. Two robustness notes about *local* writers, both handled in `_extract_query`:
-small instruct models open a ```` ```sparql ```` fence and forget to close it (salvaged by
-stripping fence-only lines), and they reflexively title-case proper nouns (countered by the
-case-preservation rule above — verified to flip a 0-row miss into a 40-row hit on
-`ollama:qwen2.5:3b-instruct`).
+complete vocabulary. One robustness behavior is handled in `_extract_query`: small instruct
+models open a ```` ```sparql ```` fence and forget to close it, so an unterminated fence is
+salvaged by stripping fence-only lines (verified on `ollama:qwen2.5:3b-instruct`).
+
+> **Known unhandled failure mode — local writers and label case.** Hetionet `rdfs:label`s
+> are case-sensitive and mostly lowercase (`"asthma"`), but small instruct models reflexively
+> title-case proper nouns, anchoring on `"Asthma"` and silently returning 0 rows on an
+> otherwise-correct query. A prompt-level "preserve the exact case" instruction was tried and
+> **reverted**: it fixed the 3B local writer but *deterministically* degraded the default haiku
+> writer (it reshuffled an `associates` edge direction on one question at temperature 0). The
+> proper fix — case-insensitive label anchoring at the query level, robust for every writer —
+> is deferred to when the local-writer experiment is actually run. Until then, a local SPARQL
+> writer's case errors are an honest measured miss.
 
 ### Semantic judge — `eval/judge/semantic.py:_SYSTEM`
 
