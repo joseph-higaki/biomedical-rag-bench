@@ -67,8 +67,11 @@ Always include these prefixes:
 PREFIX hetio: <https://het.io/schema/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 
-Anchor every named entity by its label, copied EXACTLY as written in the question:
-  ?gene rdfs:label "HTR3B" .
+Anchor every named entity by its label, copied character-for-character from the question,
+preserving its EXACT capitalization — labels are case-sensitive; do NOT title-case or
+normalize. If the question says "asthma", write "asthma", not "Asthma":
+  question "...asthma..."  ->  ?disease rdfs:label "asthma" .
+  question "...HTR3B..."   ->  ?gene rdfs:label "HTR3B" .
 Never invent or guess a URI.
 
 Node types (objects of `a hetio:<Type>`): Gene, Compound, Disease, Anatomy, Pathway,
