@@ -47,16 +47,16 @@ DEFAULT_RESULTS = REPO_ROOT / "eval" / "results"
 # absent from a given row (old schema, or a different retriever/scoring) lands as NaN rather
 # than raising — additive-only telemetry means we never assume a key is present.
 _JUDGE_COLS = ["recall", "precision", "f1", "expected_count", "found_count",
-               "judge_input_tokens", "judge_output_tokens", "judge_model"]
+               "judge_input_tokens", "judge_output_tokens", "judge_model", "judge_temperature"]
 _TRAVERSAL_COLS = ["mechanism", "writer_input_tokens", "writer_output_tokens", "sparql_valid",
-                   "num_rows", "num_linked", "num_triples", "top_k", "hops"]
+                   "num_rows", "num_linked", "num_triples", "top_k", "hops", "writer_temperature"]
 _HOPS_RE = re.compile(r"_(\d+)hop")
 # Top-level row fields that only newer runs carry (additive harness changes). pandas creates a
 # column only if some row has the key, so on an all-old corpus these would be *absent* — not
 # just NaN — and break consumers that select them. The loader guarantees them as NaN columns so
 # its output schema is stable; whether they're populated is the telemetry-coverage question.
 _GUARANTEED_COLS = ["generator_model_resolved", "cache_read_input_tokens",
-                    "cache_creation_input_tokens", "error"]
+                    "cache_creation_input_tokens", "error", "generator_temperature"]
 # Manifests carry the generator id inconsistently — some runs logged the alias
 # (`claude-haiku-4-5`), some the resolved snapshot it expands to (`claude-haiku-4-5-20251001`).
 # Stripping the trailing -YYYYMMDD yields a `generator_model_family` that treats them as one
@@ -185,7 +185,8 @@ def _audit(df: pd.DataFrame) -> str:
     lines += ["", "Telemetry coverage (non-null canonical rows / total):"]
     total = len(df)
     for c in ["writer_input_tokens", "sparql_valid", "top_k", "hops",
-              "recall", "retrieval_token_premium", "cache_read_input_tokens"]:
+              "recall", "retrieval_token_premium", "cache_read_input_tokens",
+              "generator_temperature", "writer_temperature", "judge_temperature"]:
         nn = int(df[c].notna().sum()) if c in df.columns else 0
         lines.append(f"  {c:<28} {nn}/{total}")
     return "\n".join(lines)
