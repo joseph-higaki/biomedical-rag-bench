@@ -256,6 +256,11 @@ class RunManifest:
     # (None = unpinned / provider default). A run-constant factor, recorded beside
     # generator_model; renders into the manifest table automatically (to_dict iterates fields).
     generator_temperature: float | None = None
+    # The corpus the run retrieved against — a content-addressed *reference* to a committed
+    # eval/corpus/<id>.json profile (see eval/corpus/README.md), not a re-measurement. Lets the
+    # analysis layer group results by corpus and diff scales (smoke vs full). None = a run made
+    # before corpus provenance, or with no corpus declared — additive/optional like the above.
+    corpus_build_id: str | None = None
     harness_version: str = "harness-v1"
 
     def to_dict(self) -> dict:
@@ -271,6 +276,7 @@ def make_manifest(
     questions_path: str,
     judge: str = "deterministic-v1",
     generator_model_resolved: str | None = None,
+    corpus_build_id: str | None = None,
 ) -> RunManifest:
     return RunManifest(
         run_id=run_id,
@@ -286,6 +292,7 @@ def make_manifest(
         # Duck-typed: the configured request temperature lives on the generator object (the
         # Generator protocol doesn't mandate it), None when the adapter leaves it unset.
         generator_temperature=getattr(generator, "temperature", None),
+        corpus_build_id=corpus_build_id,
     )
 
 

@@ -57,6 +57,32 @@ from retrievers.null import NullRetriever  # noqa: E402
 from retrievers.sparqlgen import SparqlGenRetriever  # noqa: E402
 from retrievers.vector import VectorRetriever  # noqa: E402
 
+CORPUS_DIR = REPO_ROOT / "eval" / "corpus"  # committed corpus-build profiles (eval/corpus/README.md)
+
+
+def _active_corpus_build_id() -> str | None:
+    """The corpus_build_id to stamp into the run manifest — the run-constant *corpus* factor.
+
+    Resolution: $CORPUS_BUILD_ID, else the committed eval/corpus/ACTIVE pointer. A declared id
+    must name an existing eval/corpus/<id>.json, so a typo or an unbuilt corpus fails fast rather
+    than recording an unverifiable reference. Undeclared resolves to None with a warning: the run
+    still proceeds (legacy-compatible, additive) but isn't corpus-attributable. The pointer is a
+    *declaration* — keep it consistent with the GraphDB repo / CHROMA_STORE the run actually
+    queries (the same operator contract as GENERATOR_MODEL); it is not auto-detected."""
+    active = os.environ.get("CORPUS_BUILD_ID") or None
+    if active is None:
+        pointer = CORPUS_DIR / "ACTIVE"
+        active = pointer.read_text().strip() if pointer.exists() else None
+    if active is None:
+        print("  warning: no corpus declared (set CORPUS_BUILD_ID or write eval/corpus/ACTIVE); "
+              "manifest corpus_build_id will be null", file=sys.stderr)
+        return None
+    if not (CORPUS_DIR / f"{active}.json").exists():
+        raise SystemExit(f"corpus_build_id '{active}' has no profile at eval/corpus/{active}.json "
+                         f"— run ingest/corpus_profile.py or fix CORPUS_BUILD_ID / eval/corpus/ACTIVE")
+    return active
+
+
 # The registry: retriever `name` -> zero-arg constructor. The key must equal the
 # constructed retriever's reported `name` so the registry key and the RetrievalResult's
 # reported name cannot drift (pinned by tests/test_registry.py). For the parameter-free
@@ -232,6 +258,8 @@ def main() -> int:
             raise SystemExit(f"no questions selected from {args.questions}")
         retriever = build_retriever(args.retriever)
         generator = build_generator(args.generator)
+        # Resolve the corpus factor up front: a bad pointer fails before the (billed) run loop.
+        corpus_build_id = _active_corpus_build_id()
         # Carry the LLM judge iff a semantic question is actually in the batch (robust to both
         # --include-semantic and an explicit --types 10); deterministic-only stays hermetic-judged.
         needs_semantic = any(q.get("scoring") == "semantic" for q in selected)
@@ -258,7 +286,7 @@ def main() -> int:
         manifest = harness.make_manifest(
             retriever, generator, selected, run_id=run_id,
             questions_path=str(args.questions), judge=judge_label,
-            generator_model_resolved=resolved,
+            generator_model_resolved=resolved, corpus_build_id=corpus_build_id,
         )
         (args.out / f"{run_id}.manifest.json").write_text(
             json.dumps(manifest.to_dict(), indent=2)
