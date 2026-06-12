@@ -51,6 +51,26 @@ def test_canonical_keeps_newest_run_and_unions_coverage(tmp_path):
     assert df.loc[df.question_id == "q1", "run_id"].item() == "r2"
 
 
+def test_canonical_separates_writers_but_collapses_writer_alias_and_resolved(tmp_path):
+    # graph_sparqlgen runs a second model (the SPARQL writer) inside retrieval. Two runs that
+    # differ ONLY in writer — same retriever, generator, question — are distinct conditions, not
+    # supersessions: both must survive. Regression guard for the writer-blind dedup grain.
+    _write_run(tmp_path, "w_haiku", "graph_sparqlgen", "gen", "2026-06-01T00:00:00+0000",
+               [_row("q1", "graph_sparqlgen", traversal_info={"writer_model": "claude-haiku-4-5"})])
+    _write_run(tmp_path, "w_sonnet", "graph_sparqlgen", "gen", "2026-06-02T00:00:00+0000",
+               [_row("q1", "graph_sparqlgen", traversal_info={"writer_model": "claude-sonnet-4-6"})])
+    # A newer haiku-writer run logging the RESOLVED snapshot must collapse onto the haiku family
+    # (writer_model_family mirrors generator's date strip) — not spawn a third condition.
+    _write_run(tmp_path, "w_haiku2", "graph_sparqlgen", "gen", "2026-06-03T00:00:00+0000",
+               [_row("q1", "graph_sparqlgen",
+                     traversal_info={"writer_model": "claude-haiku-4-5-20251001"})])
+    df = L.canonical(L.load_raw(tmp_path))
+    assert len(df) == 2  # {haiku, sonnet} families — not 3 (alias≠resolved split), not 1 (writer-blind)
+    assert set(df["writer_model_family"]) == {"claude-haiku-4-5", "claude-sonnet-4-6"}
+    # within the haiku family, the newest run (resolved-snapshot) won
+    assert df.loc[df.writer_model_family == "claude-haiku-4-5", "run_id"].item() == "w_haiku2"
+
+
 def test_generator_id_family_merges_alias_and_resolved_snapshot(tmp_path):
     # Same retriever, different question, one run logging the alias and one the resolved id.
     # They must collapse to one condition (family), not split into two.

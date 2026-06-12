@@ -10,6 +10,11 @@ recent `--run`, overwritten every time. The machine-readable rows live in
 the analysis notebook + dashboard that read those rows. This file is the connective tissue
 — what a run *meant*, not its raw tables.
 
+**Pass counts are not maintained here.** Numbers in the dated entries below are *records* of what a
+specific run showed, never a live baseline to keep in sync. The notebook's trust check reconciles
+against pinned `run_id`s in `eval/results/`, not against any number transcribed from this file — so
+a number going stale here is expected (temp-0 re-runs drift it) and is never a thing to chase.
+
 When an observation hardens from "this run showed X" into "this is how the benchmark
 behaves," promote it to `eval/README.md` (the methodology reference). Findings graduate.
 
@@ -86,6 +91,49 @@ behaves," promote it to `eval/README.md` (the methodology reference). Findings g
 ---
 
 ## Run log (newest first)
+
+### 2026-06-12 — SPARQL-writer capability ablation: haiku vs. sonnet writer (generator fixed, 8 runs)
+
+Isolates the **writer** factor inside `graph_sparqlgen`: the text-to-SPARQL writer is varied
+(`SPARQLGEN_MODEL` = `claude-haiku-4-5` vs `claude-sonnet-4-6`), while the generator-under-test
+is **held fixed at `claude-haiku-4-5`**, the judge is deterministic, the corpus is full, and all
+sampling (writer + generator) is temperature 0. One factor moves. Repeated runs give each writer a
+spread rather than a single point — `passed` out of 52, generator = haiku throughout:
+
+| writer | runs (passed/52) | mean | range | sparql_valid |
+|---|---|---|---|---|
+| `claude-haiku-4-5` | 15, 16, 16, 14, 17 (n=5) | **15.6** | 14–17 | 52/52 every run |
+| `claude-sonnet-4-6` | 14, 14, 13 (n=3) | **13.7** | 13–14 | 51, 52, 51 |
+
+haiku-writer runs: `20260609T135010` (15), `20260609T154741` (16), `20260609T173859` (16),
+`20260612T004311` (14), `20260612T010416` (17). sonnet-writer runs: `20260612T195926` (14,
+valid 51), `20260612T201321` (14, valid 52), `20260612T201801` (13, valid 51).
+
+1. **Upgrading the writer haiku→sonnet did not improve end-to-end accuracy — it trended
+   *slightly worse*.** The two bands barely overlap: every sonnet run (13–14) sits at or below the
+   **bottom** of the haiku band (14–17), touching only at 14. The naive hypothesis ("a stronger
+   writer writes better SPARQL → better retrieval → better answers") is **refuted on this question
+   set.** Caveat: small n (5 vs 3) and temp-0 is low-variance-not-bit-identical, so this is a
+   consistent *direction* across all 8 runs, not a significance-tested effect.
+
+2. **Validity was never the bottleneck — and the bigger model is marginally *worse* at it.**
+   haiku wrote syntactically valid, executable SPARQL on **52/52 every run**; sonnet slipped to
+   **51/52 on two of three** runs. So the writer-capability axis buys nothing on the one thing a
+   writer must do (emit valid SPARQL), and costs more tokens for slightly less reliability — sonnet
+   occasionally writes a query elaborate enough to fail the validator. Contrast the *local* writer
+   arm (qwen2.5:3b, generator-comparison entry): there the writer genuinely fails the validity bar.
+   Between two capable hosted writers, validity is saturated and stops discriminating.
+
+3. **The ceiling is query↔ground-truth alignment, not writer capability.** Both writers clear
+   validity with ~all-valid SPARQL, yet ~37/52 still fail: the valid query returns a *result set*
+   that diverges from the hand-authored ground-truth set. A more capable writer just writes
+   *different* valid queries — and they diverge about as often, slightly more. The likely mechanism
+   is sonnet's stricter typing / case-sensitive label handling / more literal predicate paths
+   moving it *away* from the looser ground-truth queries rather than toward them. **The fix is
+   query-level (case-insensitive label anchoring — still deferred), not a smarter writer.** This is
+   the durable result: once a writer is good enough to emit valid SPARQL, `graph_sparqlgen`'s
+   accuracy is set by ground-truth alignment, which writer capability does not address. Read
+   alongside the binary-understates-sparqlgen caveat (recall, not just exact-set pass).
 
 ### 2026-06-09 (retrieval fixed) — reproducibility audit exposes a retriever non-determinism bug
 

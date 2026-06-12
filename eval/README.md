@@ -239,5 +239,12 @@ and recorded with `error` set and `judged=false, passed=null`, so a blip is excl
 every denominator rather than scored as wrong — never aborting the run.
 
 The canonical analysis grain is one row per **`(retriever, generator_model_family,
-question_id)`**; the loader keeps the latest run's row at that grain, superseding truncated
-and smoke runs while preserving the union of question coverage.
+writer_model_family, question_id)`**; the loader keeps the latest run's row at that grain,
+superseding truncated and smoke runs while preserving the union of question coverage.
+`writer_model_family` is the date-normalized SPARQL-writer id the loader lifts from
+`graph_sparqlgen`'s `traversal_info` (`NaN` for retrievers with no writer). It is in the grain
+because the writer is a real factor — two runs differing *only* in writer are distinct
+conditions, not supersessions, so omitting it would let a newer writer silently overwrite an
+older one. Both `*_model_family` keys are date-stripped normalizations (a model's alias and its
+resolved `-YYYYMMDD` snapshot collapse to one id); the exact `generator_model` / `writer_model`
+are retained for provenance.
