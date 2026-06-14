@@ -1,7 +1,9 @@
 # Vector ingestion
 
-Fetches PubMed abstracts for the Hetionet entities and embeds them into a Chroma
-collection. The vector retriever queries this collection by similarity.
+**Purpose.** Fetch PubMed abstracts for the Hetionet entities and embed them into a Chroma
+collection; the `vector` retriever queries it by similarity.
+
+**Inputs → Outputs.**
 
 ```
 pubmed_fetch.py    ontology/hetionet.ttl  → data/abstracts/   (one .txt per entity)
@@ -9,13 +11,18 @@ pubmed_fetch.py    ontology/hetionet.ttl  → data/abstracts/   (one .txt per en
 build_vectors.py   data/abstracts/        → data/chroma/      (embedded collection)
 ```
 
-`pubmed_fetch.py` reads the entity set from the RDF Turtle file (not from a live
-GraphDB), so the vector side only depends on `make ingest-rdf` having produced
-`ontology/hetionet.ttl` — not on GraphDB being up.
+**Key files.** `pubmed_fetch.py` (NCBI E-utilities → abstract cache), `build_vectors.py`
+(abstracts → Chroma), `select_corpus_entities.py` (entity selection).
+**How to run.** `make ingest-vectors`, or each script with `--help` (`--extra fetch` /
+`--extra vector`).
+**Where it sits.** The Vector half of Knowledge Ingestion (root README → Architecture). A hard
+prerequisite is `make ingest-rdf`: `pubmed_fetch.py` reads the entity set from the shared
+`ontology/hetionet.ttl` — not from a live GraphDB — so the vector side never needs GraphDB up.
 
-> **Status: smoke test complete (build order step 1).** Scripts written and
-> executed. Five abstracts fetched, embedded into Chroma, similarity query
-> returning results. See "Smoke test observation" below.
+> **Status: full corpus built.** Scripts written, executed, and scaled to the full
+> literature-kind entity set (`full-*` corpus profile in `eval/corpus/`: 77,424 abstracts →
+> 152,943 chunks). The original five-abstract smoke test (build order step 1) is preserved
+> below as the "Smoke test observation".
 
 ## Smoke test observation
 

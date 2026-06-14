@@ -9,13 +9,12 @@ enumerates a condition iterates the registry; nothing else hard-codes the roster
 stay provider-agnostic: a retriever or generator names itself, and the generator's
 provider SDK lives only in its adapter (see eval/generate/base.py).
 
-The **remaining step-5 work** grows around these registries: load `questions.jsonl`, run
-each registered retriever + the fixed generator against each question, score with the
-pluggable judges (eval/judge/), and write per-row telemetry plus a per-run manifest (the
-factorial-provenance record). That loop is the next increment — left as the explicit
-TODO in `main()` rather than a stub that fabricates numbers.
-
-Until then the CLI exercises each registry in isolation (the per-increment smoke):
+The eval loop that consumes these registries lives in `eval/harness.py`: it loads
+`questions.jsonl`, runs each registered retriever + the fixed generator against each
+question, scores with the pluggable judges (eval/judge/), and writes per-row telemetry
+plus a per-run manifest (the factorial-provenance record). This module wires the
+registries and drives that loop from the CLI — `--run` for the full loop, the other
+flags to exercise a single registry in isolation:
 
     uv run python eval/run_eval.py --list
     uv run --extra vector python eval/run_eval.py --retriever vector --retrieve "..."

@@ -1,19 +1,25 @@
-# Ingestion pipeline
+# Knowledge Ingestion
 
-Two ingestion paths, one per representation. Both start from the same Hetionet
-source and the same biomedical entities; they differ only in the artifact they
-produce. The split mirrors the project's core comparison — graph vs. vector — and
-keeps each side's operational detail (and its growing documentation) self-contained.
+**Purpose.** The build-once, offline phase: two ingestion paths, one per representation, that
+turn the same Hetionet source into the artifacts retrieval queries. The split mirrors the
+project's core comparison — graph vs. vector — and keeps each side's operational detail
+self-contained.
+
+**Inputs → Outputs.**
 
 | Side | Folder | Produces | Consumed by |
 |---|---|---|---|
-| Graph (RDF) | [`rdf/`](rdf/README.md) | `ontology/hetionet.ttl` → GraphDB | `retrievers/graph.py` |
+| Graph (RDF) | [`rdf/`](rdf/README.md) | `ontology/hetionet.ttl` → GraphDB | `retrievers/graph.py`, `retrievers/sparqlgen.py` |
 | Vector | [`vector/`](vector/README.md) | `data/chroma/` (embedded PubMed abstracts) | `retrievers/vector.py` |
 
-`rdf/` covers Projects 1–2 (RDF representation; Project 2 adds reasoning over the
-same triples). A future `lpg/` will hold Project 3's Neo4j path. `vector/` evolves
-across minor releases as the vector baseline strengthens (naive → hybrid → domain
-embedder) — see [`vector/README.md`](vector/README.md).
+**How to run.** `make ingest` (= `ingest-rdf` then `ingest-vectors`); see Make targets below.
+**Where it sits.** The Knowledge Ingestion phase (root README → Architecture).
+
+`rdf/` covers Projects 1–2 (RDF representation; Project 2 adds reasoning over the same triples).
+A future `lpg/` will hold Project 3's Neo4j path — hence `rdf/`, not `graph/`. `vector/` evolves
+across minor releases as the vector baseline strengthens (naive → hybrid → domain embedder).
+The two sides are **not** independent: `hetionet.ttl` is the shared artifact — `pubmed_fetch.py`
+reads its entity set from that file — so graph ingestion is a hard prerequisite of vector ingestion.
 
 ## Pipeline
 

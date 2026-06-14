@@ -133,6 +133,15 @@ The `traversal_info` field is free-form by design — vector retrievers log top-
 
 A third condition registers alongside vector and graph: a `NullRetriever` (name `closed_book`) that returns empty context — `context=""`, `context_tokens=0`, `sources=[]`, `traversal_info={"retriever": "none"}`, ~20 lines in `retrievers/null.py`. It is not a retrieval mechanism under test; it is a **baseline** that measures how much retrieval contributes to answer quality, independent of which retriever is used. Without a closed-book baseline the benchmark cannot distinguish "graph beats vector" from "both retrievers add nothing beyond what the generator LLM already knows from training data" — a critical distinction for biomedical knowledge well-represented in frontier-model training data (most of Hetionet's famous entities). The baseline lets findings make the sharper claim: on question class X retrieval is necessary and graph outperforms vector; on question class Y retrieval is unnecessary because the LLM already knows.
 
+The "graph" side is in fact **two** distinct mechanisms, carried as separate registered
+conditions: `graph_neighborhood` (deterministic entity-link + k-hop traversal, **no LLM**)
+isolates the *representation*, while `graph_sparqlgen` (an LLM writes the SPARQL) measures the
+realistic deployed *system* — its writer-LLM token cost is logged separately from the generator's,
+never confounded. So the benchmark runs **four conditions** — `closed_book`, `vector`,
+`graph_neighborhood`, `graph_sparqlgen` — all returning the same `RetrievalResult` shape. The
+authoritative roster and each mechanism's telemetry live in
+[`retrievers/README.md`](retrievers/README.md).
+
 ### Hetionet plus PubMed — shared underlying knowledge
 
 The vector and graph retrievers operate over the same biomedical knowledge in different representations:
@@ -159,48 +168,90 @@ The Hetionet JSON → Turtle transform streams both sides (`ijson` in, statement
 
 ```
 biomedical-rag-bench/
-├── CLAUDE.md                   # Directional context for Claude Code sessions
 ├── README.md                   # This file — canonical project documentation
 ├── LICENSE                     # MIT
+├── Makefile                    # Top-level orchestration (ingest, registry, test…)
 ├── docker-compose.yml          # Local GraphDB
-├── Makefile                    # Top-level orchestration (ingest, test, etc.)
+├── pyproject.toml, uv.lock     # Dependencies (capability-scoped extras) + lockfile
+├── .claude/CLAUDE.md           # Directional context for Claude Code sessions
 ├── .github/
-│   ├── workflows/
-│   │   └── release.yml         # Tag push → GitHub Release automation
-│   └── release-notes/
-│       └── v1.0.0.md           # Per-release findings, written before tagging
-├── .claude/                    # Claude Code workspace (gitignored skills excluded)
-├── data/                       # Gitignored bulk: Hetionet JSON, PubMed cache
-├── ingest/
+│   ├── workflows/release.yml   # Tag push → GitHub Release automation
+│   └── release-notes/          # Per-release findings — v<version>.md, written before tagging (empty until v1.0.0)
+├── data/                       # Gitignored bulk: Hetionet JSON, PubMed abstract cache, Chroma store
+├── secrets/                    # Per-user GraphDB license + .env (gitignored; README + *.example tracked)
+├── ontology/
+│   ├── hetionet.ttl            # ABox / instance data — full graph, loaded into GraphDB
+│   └── hetionet-smoke.ttl      # 100-edge smoke slice  (Project 2 adds hetionet-schema.ttl, the TBox)
+├── ingest/                     # Knowledge Ingestion (build-once, offline, human-operated)
 │   ├── README.md               # Pipeline overview + Make targets; links into rdf/ and vector/
-│   ├── rdf/                    # Graph-side ingestion (RDF; Projects 1–2)
-│   │   ├── README.md           # GraphDB license, repository setup, full-graph load
-│   │   ├── hetionet_to_rdf.py  # JSON → Turtle (uses RDF-star)
-│   │   ├── hetionet-data-notes.md  # Source structure, URI mapping, triple-count note
-│   │   └── graphdb-repo-config.ttl # Reproducible repo config (ruleset=empty)
-│   └── vector/                 # Vector-side ingestion (planned; build order step 1)
+│   ├── corpus_profile.py       # Measure a built corpus → eval/corpus/<id>.json (the corpus dimension)
+│   ├── rdf/                    # Graph ingestion (RDF; Projects 1–2; a future lpg/ holds Project 3's Neo4j)
+│   │   ├── README.md           # Streaming rationale, repo setup, full-graph load
+│   │   ├── hetionet_to_rdf.py  # Hetionet JSON → RDF-star Turtle (streaming)
+│   │   ├── hetionet-data-notes.md   # Source structure, URI mapping, triple-count note
+│   │   └── graphdb-repo-config.ttl  # Reproducible repo config (ruleset=empty)
+│   └── vector/                 # Vector ingestion (PubMed → Chroma); reads hetionet.ttl, not a live GraphDB
 │       ├── README.md           # PubMed rate limits, caching, embedding build
 │       ├── pubmed_fetch.py     # NCBI E-utilities → abstracts cache
-│       └── build_vectors.py    # Abstracts → Chroma collection
-├── retrievers/
-│   ├── base.py                 # Retriever protocol — the swap point
-│   ├── vector.py               # Top-k similarity
-│   ├── graph.py                # SPARQL templates + entity linking
-│   └── null.py                 # Closed-book baseline (empty context)
-├── eval/
-│   ├── README.md               # Question taxonomy, scoring strategy, eval architecture
+│       ├── build_vectors.py    # Abstracts → Chroma collection
+│       └── select_corpus_entities.py  # Entity selection for the corpus
+├── retrievers/                 # The swap point — one Retriever protocol, four conditions
+│   ├── README.md               # Contract, token-units rule, per-retriever mechanisms
+│   ├── base.py                 # Retriever protocol + shared measured-identically seams
+│   ├── null.py                 # closed_book baseline (empty context)
+│   ├── vector.py               # vector — top-k Chroma similarity
+│   ├── graph.py                # graph_neighborhood_<n>hop — link + k-hop traversal (no LLM)
+│   └── sparqlgen.py            # graph_sparqlgen — an LLM writes SPARQL (writer cost logged apart)
+├── eval/                       # Evaluation: producer + harness + generator + judge + analysis
+│   ├── README.md               # Question taxonomy, distribution, scoring, result-row schema
+│   ├── llm-roles.md            # The three LLM roles (generator-under-test / SPARQL writer / semantic judge)
 │   ├── templates/              # Hand-authored question templates (build step 2)
-│   │   ├── *.yaml              # One declarative template per file (shape, type, sampling)
-│   │   └── ground_truth/       # Separate .rq SPARQL files, runnable standalone
-│   ├── questions.jsonl         # GENERATED by the producer (step 3) from templates; ground truth from graph traversal
-│   ├── run_eval.py             # Runs all registered retrievers
-│   └── analyze.ipynb           # Charts and findings
-├── ontology/
-│   ├── hetionet.ttl            # ABox (instance data)
-│   └── hetionet-schema.ttl     # TBox (near-empty in Project 1)
-└── deployment/
-    └── ec2-userdata.sh         # EC2 bootstrap (post-Project 1 milestone)
+│   │   ├── <name>.yaml         # One declarative template per type (shape, scoring, sampling)
+│   │   ├── ground_truth/<name>.rq   # Standalone SPARQL ground-truth query per template
+│   │   ├── build_registry.py   # Regenerates templates/README.md + the distribution table
+│   │   ├── run_ground_truth.py # Shared GraphDB execution seam
+│   │   └── README.md           # GENERATED template registry (do not hand-edit)
+│   ├── produce/                # Producer — templates + graph → questions.jsonl (ground truth from SPARQL, never an LLM)
+│   │   ├── produce.py          # Seeded sampler + ground-truth runner
+│   │   ├── validate.py         # Quality gate on the produced artifact
+│   │   └── README.md, EXAMPLE.md
+│   ├── questions.jsonl         # GENERATED eval set (frozen, append-only)
+│   ├── harness.py              # The eval loop: retrieve → generate → judge (build step 5)
+│   ├── generate/               # Generator — the model under test (provider-agnostic adapters)
+│   │   ├── base.py, registry.py, anthropic_generator.py, ollama_generator.py
+│   │   └── README.md
+│   ├── judge/                  # Judge — pluggable scorers (5 deterministic + 1 semantic LLM)
+│   │   ├── base.py, deterministic.py, semantic.py
+│   │   └── README.md
+│   ├── run_eval.py             # Wiring: retriever + generator registries + CLI
+│   ├── corpus/                 # Corpus-build profiles (<scale>-<fp8>.json) — the corpus dimension source
+│   │   └── README.md
+│   ├── results/                # GENERATED per-run output (gitignored): <run_id>.jsonl + <run_id>.manifest.json
+│   ├── analysis/               # Analysis layer (load.py + explore.ipynb) — see Output contract; to be extracted
+│   ├── FINDINGS.md             # Hand-authored durable cross-run interpretation
+│   └── LATEST_RUN.md           # GENERATED snapshot of the most recent --run
+├── tests/                      # Hermetic unit tests (pytest)
+└── deployment/                 # EC2 bootstrap — post-Project 1 milestone (not yet populated)
 ```
+
+## Output contract (downstream interface)
+
+This repository's responsibility **ends at emitting a well-specified eval output**; a
+separate consumer (`biomedical-rag-bench-analytics`) does the results modeling and
+dashboards. The contract — the stable surface that consumer depends on — is three artifacts:
+
+- **`eval/results/<run_id>.jsonl`** — one row per `question × retriever × generator` trial.
+  This is *the grain*. Field-by-field schema in [`eval/README.md` → Result row schema](eval/README.md#result-row-schema).
+- **`eval/results/<run_id>.manifest.json`** — the run-constant factors (generator model, judge
+  model, embedding model, git SHA, seed, `corpus_build_id`, timestamp). Paired one-to-one with
+  the rows file by `run_id`.
+- **`eval/questions.jsonl`** and **`eval/corpus/<scale>-<fp8>.json`** — the frozen eval set and
+  the corpus-build profiles the rows reference (question and corpus dimensions).
+
+There is no single `run.json` — that name is informal shorthand for the rows-file + manifest
+pair above. The analysis layer under `eval/analysis/` reads exactly these (see
+[`eval/analysis/load.py`](eval/analysis/load.py)) and is the lift-out point for the analytics
+repo; analysis tooling is deliberately **not** deepened in this repo.
 
 ## Release strategy
 
@@ -244,11 +295,11 @@ Project 1 follows a strict build order — each step validates before the next b
   - [x] SPARQL and SPARQL-star return real answers (validated offline with pyoxigraph)
   - [x] Load the slice into GraphDB and confirm the same queries against the live triplestore (queries match Oxigraph; see `ingest/rdf/hetionet-data-notes.md` for the RDF-star count note)
   - [x] PubMed → 5 abstracts → Chroma → one similarity query returning a real answer
-- [ ] **2. Author question templates.** One or more templates per question type in the ten-type taxonomy. Each template specifies the question shape, the ground-truth query, the question type, and the entity sampling strategy. Templates are authored, not LLM-generated. *Ground-truth validation: run each template's ground-truth query against the full Hetionet graph in GraphDB with a committed seed entity and confirm it returns the expected answer. Multi-hop types cannot be validated on the 100-edge smoke slice (its neighborhoods are disjoint); the slice is for step-1 plumbing only. Seeds are chosen for bounded fan so the committed answer stays small and enumerable.*
+- [x] **2. Author question templates.** One or more templates per question type in the ten-type taxonomy. Each template specifies the question shape, the ground-truth query, the question type, and the entity sampling strategy. Templates are authored, not LLM-generated. *Ground-truth validation: run each template's ground-truth query against the full Hetionet graph in GraphDB with a committed seed entity and confirm it returns the expected answer. Multi-hop types cannot be validated on the 100-edge smoke slice (its neighborhoods are disjoint); the slice is for step-1 plumbing only. Seeds are chosen for bounded fan so the committed answer stays small and enumerable.* **Done:** all ten types have templates in `eval/templates/` (each a `<name>.yaml` + `ground_truth/<name>.rq`), registry in [eval/templates/README.md](eval/templates/README.md).
   - [x] **Template registry generator.** `eval/templates/build_registry.py` (run `make registry`) regenerates two docs from the YAML templates so they cannot drift from source: the per-template registry `eval/templates/README.md`, and the per-type question-distribution table spliced into `eval/README.md`. `--verify` re-runs each ground-truth query against GraphDB to confirm committed answers still hold. Single source of truth stays the YAML.
 - [x] **3. Build the eval producer.** Loads templates, samples entities programmatically (seeded), runs the ground-truth query for each instantiated question, writes `questions.jsonl` with ground truth. Targets ~58 questions across the ten types per the weighting in `eval/README.md`. *Isolated smoke: run the producer on one template against GraphDB (the full graph) and confirm it emits valid instantiated questions with ground truth.* **Done:** `eval/produce/` (producer + `validate.py` gate + `eval/produce/README.md`); full run emits 58 questions across all ten types to `eval/questions.jsonl`, validated. See [eval/produce/README.md](eval/produce/README.md).
 - [x] **4. Build the retriever interface and three retrievers.** vector, graph, and closed-book null retriever. All implement the `Retriever` protocol in `retrievers/base.py`. *Isolated smoke: exercise each retriever on one query against the smoke slice and confirm it returns a `RetrievalResult` with populated telemetry.* **Done:** `retrievers/base.py` (contract + measured-identically seams), `null.py` (`closed_book`), `vector.py` (`vector`, top-k Chroma), `graph.py` (`graph_neighborhood`, link + k-hop), all registered in `eval/run_eval.py` and smoke-validated. See [retrievers/README.md](retrievers/README.md).
-- [ ] **5. Build the eval harness and judges.** Harness loads `questions.jsonl`, runs each retriever + generator against each question, records telemetry. Judges implement a pluggable `Judge` protocol — one per scoring type (set match, numerical, binary, LLM judge for fuzzy/semantic). *Isolated smoke: score known correct/incorrect answer pairs through each judge and confirm expected verdicts.*
+- [x] **5. Build the eval harness and judges.** Harness loads `questions.jsonl`, runs each retriever + generator against each question, records telemetry. Judges implement a pluggable `Judge` protocol — one per scoring type (set match, numerical, binary, LLM judge for fuzzy/semantic). *Isolated smoke: score known correct/incorrect answer pairs through each judge and confirm expected verdicts.* **Done:** `eval/harness.py` (the retrieve → generate → judge loop, run via `eval/run_eval.py --run`), the provider-agnostic generator in `eval/generate/` (Anthropic + Ollama adapters), and all six judges in `eval/judge/` (five deterministic + the `semantic` LLM judge), all tested. The remaining sub-items below are follow-ups, not blockers.
   - [ ] *(low priority)* **Shared config module.** The harness is the first script needing `ANTHROPIC_API_KEY`/`GENERATOR_MODEL` alongside `pubmed_fetch.py`'s `NCBI_API_KEY`. Consolidate the per-script `find_dotenv("secrets/.env")` into a `config.py` exposing an immutable `settings` (`from config import settings`), fail-fast on required keys, `.env` as dev-only fallback (`override=False`). Prereq: no package today, so adopt `python -m` invocation (puts repo root on `sys.path`); add `python-dotenv` to the `eval`/`produce` extras. Only worth it once there's a second consumer — don't land dead code.
   - [ ] **Architecture diagrams.** The container view (C4 level 2) is in the root README Architecture section. Remaining: a Component-level diagram per subsystem in the same flowchart-C4 style (retrieval at step 4, eval here at step 5), and — once producer → harness → judge all exist — a sequence diagram synthesizing the end-to-end flow (templates → questions.jsonl → retriever+generator → judge → metrics). Keep them in sync as stages evolve.
   - [ ] **Architectural doc review of the three LLM roles.** In a future architecture-documentation session, walk through generator-under-test, SPARQL writer, and semantic judge as first-class components — their distinct system prompts, model/temperature knobs, telemetry, and the shared `from_spec` seam. The reference table + prompts already live in [eval/llm-roles.md](eval/llm-roles.md); this item is to fold that into the component-level diagrams above (the roles should appear as distinct nodes, not one "LLM" box) and reconcile it across the eval/retriever READMEs.

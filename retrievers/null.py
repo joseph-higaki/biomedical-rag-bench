@@ -10,8 +10,8 @@ Hetionet's famous entities). See the root README for the H7 retrieval-necessity
 hypothesis this baseline exists to test.
 
 It doubles as the per-question *token* baseline: because it injects no context, its
-billed input_tokens at step 5 is exactly the non-retrieval payload (system +
-question + framing) for that question. A retriever's true injected cost is then
+billed input_tokens is exactly the non-retrieval payload (system + question + framing)
+for that question. A retriever's true injected cost is then
 input_tokens(retriever) - input_tokens(closed_book), both in the generator's
 tokenizer — the one unit-safe token decomposition (see base.py on units).
 """

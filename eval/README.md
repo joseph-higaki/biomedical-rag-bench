@@ -1,14 +1,16 @@
 # Eval
 
-This directory owns the evaluation design for the benchmark: the question type
-taxonomy, the question distribution, the architectural separation of the
-eval pipeline, and the per-type scoring strategy. The root `README.md` owns the
-hypotheses (H1–H7), architecture overview, release strategy, and build order;
-this file is the authoritative source for eval design detail.
+**Purpose.** The authoritative source for eval *design*: the question-type taxonomy, the
+distribution rationale, the per-type scoring strategy, the metrics, and the result-row schema.
+The root `README.md` owns the hypotheses (H1–H7), architecture, release strategy, and build order.
 
-This file is the authoritative source for eval *design*: the taxonomy, the
-distribution *rationale*, and the scoring strategy. The distribution *numbers*,
-however, are not hand-maintained here — they are generated from the templates'
+**Inputs → Outputs.** `eval/questions.jsonl` + the retrievers/generator/judges → per-run
+`eval/results/<run_id>.jsonl` + `<run_id>.manifest.json` (the downstream contract).
+**Key files.** `harness.py` (the loop), `run_eval.py` (wiring + CLI), `produce/`, `generate/`,
+`judge/`, `templates/`, `analysis/`. **How to run.** `uv run --extra generate python eval/run_eval.py --run …`.
+**Where it sits.** The Evaluation phase of the pipeline (root README → Architecture).
+
+The distribution *numbers* are not hand-maintained here — they are generated from the templates'
 `count:` fields (the single source of truth) and spliced into the distribution
 table below. The per-template *listing* — each instantiated template's question
 shape, committed seed, and ground-truth answer — likewise lives in the generated
@@ -75,33 +77,31 @@ similarly" rather than "graph wins by X."
 
 ## Architectural concerns
 
-The eval system has three pipeline stages, organized as separate concerns within
-`eval/`. Each has different runtime characteristics, inputs, outputs, and
-evolution timelines, so they remain visibly distinct with their own READMEs where
-warranted.
+The eval is organized as separate concerns within `eval/`, each a built sibling folder
+(or file) with different runtime characteristics, inputs, outputs, and evolution timelines,
+so they stay visibly distinct with their own READMEs:
 
-1. **Eval set production.** Takes hand-authored templates plus the Hetionet
-   graph, produces a frozen eval set (`questions.jsonl`) with ground truth. Runs
-   once per dataset version. Reproducible via seeded sampling.
-2. **Eval harness.** Loads `questions.jsonl`, runs each registered retriever +
-   generator combination against each question, records structured per-question
-   telemetry. Runs once per system-under-test.
-3. **Judging.** Scores system outputs against ground truth. Type-aware:
-   deterministic scoring for nine of ten question types; LLM-as-judge only for
-   fuzzy/semantic.
+1. **Producer** (`produce/`). Takes hand-authored templates (`templates/`) plus the Hetionet
+   graph, produces the frozen eval set (`questions.jsonl`) with ground truth. Runs once per
+   dataset version. Reproducible via seeded sampling. Ground truth comes from SPARQL traversal,
+   **never** an LLM.
+2. **Generator** (`generate/`). The model under test — provider-agnostic adapters behind a
+   `Generator` protocol. Held fixed within a run, varied across runs.
+3. **Eval harness** (`harness.py`). Ties the three swap points together for each question:
+   retrieve → generate → judge, recording structured per-question telemetry. Runs once per
+   system-under-test.
+4. **Judge** (`judge/`). Scores answers against ground truth. Type-aware: deterministic for
+   nine of ten types; the one LLM judge only for fuzzy/semantic.
 
-The exact folder layout is determined when implementation begins (build order
-step 3+). The three concerns should remain visibly distinct. Top-level
-eval-related folders outside `eval/` are avoided — all eval concerns live under
-`eval/`.
+Downstream of these, `corpus/` holds the corpus-build profiles (the corpus dimension, produced
+by `ingest/corpus_profile.py`), and `analysis/` reads the per-run results into one tidy frame —
+the boundary that is being extracted to a separate analytics repo (see the root README's
+Output contract). All eval concerns live under `eval/`; no top-level eval folders elsewhere.
 
-Judges follow the same pluggable protocol pattern as `retrievers/`: a `base.py`
-protocol plus concrete implementations per type.
-
-This mirrors the pattern already used in `ingest/` (`rdf/` and `vector/` as
-sibling concerns) and `retrievers/` (`base.py` + pluggable implementations).
-Mixing production, running, and judging into one flat folder will not scale as
-the eval grows.
+Generator, judge, and retriever all follow the same pluggable pattern: a `base.py` protocol
+plus concrete implementations swapped behind a registry in `run_eval.py`. This mirrors
+`ingest/` (`rdf/` and `vector/` as sibling concerns). Mixing producing, generating, running,
+and judging into one flat folder would not scale as the eval grows.
 
 ## Judging
 

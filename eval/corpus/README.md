@@ -1,9 +1,13 @@
 # Corpus profiles
 
-The size and shape of the data each run is evaluated against — the *haystack*. Every eval
-condition retrieves over one of these corpora, so "how big is the problem" is a first-class
+**Purpose.** The size and shape of the data each run is evaluated against — the *haystack*. Every
+eval condition retrieves over one of these corpora, so "how big is the problem" is a first-class
 factor, not a footnote. This directory holds one **corpus-build profile** (`<id>.json`) per
 built corpus, produced by [`ingest/corpus_profile.py`](../../ingest/corpus_profile.py).
+
+**Where it sits.** The corpus *dimension* of the analysis star schema: `ingest/corpus_profile.py`
+emits these here, `run_eval.py` stamps the `corpus_build_id` into each run manifest, and the
+analysis layer joins on it. Generated data, not hand-edited.
 
 This file is the authoritative source for *what the profiles mean* and how each number is
 measured. The **numbers themselves are not hand-maintained in prose** — the `*.json` files are

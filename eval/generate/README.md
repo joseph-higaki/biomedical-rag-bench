@@ -10,9 +10,10 @@ hosted one?" while holding it *fixed within a run* for comparability.
 this file documents the generation *subsystem*: the contract, the provider-agnostic
 Strategy split, and the model-id provenance the analysis layer keys on.
 
-> **Status (build step 5).** The provider-neutral contract (`base.py`) and the Anthropic
-> adapter (`anthropic_generator.py`) are built and hermetically tested (`tests/test_generate.py`).
-> One provider today; Ollama/OpenAI adapters are one sibling file + one registry entry each.
+> **Status (build step 5).** The provider-neutral contract (`base.py`) and **two** adapters —
+> Anthropic (`anthropic_generator.py`) and Ollama (`ollama_generator.py`) — are built and
+> hermetically tested (`tests/test_generate.py`, `tests/test_ollama_generator.py`). A further
+> provider (e.g. OpenAI) is one sibling file + one `GENERATORS` registry entry.
 
 ## The contract — `base.py`
 
@@ -42,9 +43,9 @@ Additive-only, like `RetrievalResult` and `JudgeResult`: new optional fields and
 
 ## Provider-agnostic by design (the Strategy pattern)
 
-`base.py` is the neutral context; each adapter (`anthropic_generator.py` now) is a concrete
-strategy that owns **all** provider/SDK specifics and is the **only** module importing the
-SDK. Four dimensions stay neutral at the protocol surface — message exchange, a separate
+`base.py` is the neutral context; each adapter (`anthropic_generator.py`, `ollama_generator.py`)
+is a concrete strategy that owns **all** provider/SDK specifics and is the **only** module
+importing that SDK. Four dimensions stay neutral at the protocol surface — message exchange, a separate
 `system` channel, normalized token `usage`, and neutral tool specs/`tool_calls` — and the
 adapter maps its SDK onto each. No orchestration framework (no LiteLLM): ~3 providers,
 hand-rolled. Adapters are swapped behind the `GENERATORS` registry in `eval/run_eval.py`,

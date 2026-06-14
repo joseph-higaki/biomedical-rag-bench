@@ -264,7 +264,7 @@ class BooleanJudge:
 
 # The deterministic registry: `scoring` value -> judge instance. The harness looks a
 # judge up by the question's `scoring` field; the `semantic` strategy (type 10) joins
-# from semantic.py once the LLM layer exists. Built from each judge's own `scoring`
+# from semantic.py (the LLM judge). Built from each judge's own `scoring`
 # attribute so the key and the verdict's reported strategy cannot drift.
 _JUDGES: list[Judge] = [
     StringMatchJudge(), SetMatchJudge(), NumericalJudge(), BinaryJudge(), BooleanJudge(),

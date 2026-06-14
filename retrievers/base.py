@@ -21,10 +21,10 @@ Tokens: a units-of-measure note
 string, no LLM call. Its only honest job is a same-tokenizer, relative,
 no-API-key sanity check during development ("is the graph retriever injecting 10x
 the payload the vector one is?") and to give step-4 smoke a populated telemetry
-field before any generator exists.
+field before the generator layer existed.
 
 It is NOT the billed truth. The exact token cost of a run comes from the
-generator's own `usage` metadata at generation time (step 5), in the generator's
+generator's own `usage` metadata at generation time, in the generator's
 own tokenizer. The proxy tokenizer and the generator tokenizer are different
 *currencies*; subtracting one from the other (e.g. billed_input - proxy_context)
 is a Mars-Climate-Orbiter unit error and yields a meaningless number. To keep that
@@ -64,7 +64,7 @@ def count_tokens(text: str) -> int:
 
     The single seam every retriever uses, so the count is computed identically
     across conditions (the whole point of a shared contract). Exact, billed counts
-    come from generator `usage` at step 5 — this is a dev-time relative proxy only.
+    come from generator `usage` — this is a dev-time relative proxy only.
     """
     return len(_TOKEN_RE.findall(text))
 

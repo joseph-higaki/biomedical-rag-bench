@@ -5,8 +5,8 @@ entity-link the question to graph nodes, pull a bounded k-hop neighborhood aroun
 them from GraphDB, and serialize it as readable labeled triples for the generator.
 No LLM in the retriever — deterministic, so the graph *condition* isolates the
 representation under test rather than confounding it with text-to-SPARQL skill. The
-realistic text-to-SPARQL system is a separate `graph_sparqlgen` condition, built
-once the generator/LLM layer exists (step 5+).
+realistic text-to-SPARQL system is the separate `graph_sparqlgen` condition (it adds
+an LLM writer to the retriever; see retrievers/sparqlgen.py).
 
 It parallels the vector retriever deliberately: vector embeds the question and
 returns top-k nearby chunks; this links the question's named entities and returns

@@ -1,8 +1,11 @@
 # RDF ingestion (graph side)
 
-Converts Hetionet JSON to RDF-star Turtle and loads it into GraphDB. Covers
-Projects 1–2: Project 1 loads the instance data with `ruleset=empty`; Project 2
-adds reasoning over the same triples without changing this transform.
+**Purpose.** Convert Hetionet JSON to RDF-star Turtle and load it into GraphDB. Covers
+Projects 1–2 (Project 1 loads instance data with `ruleset=empty`; Project 2 adds reasoning
+over the same triples without changing this transform). The folder is `rdf/`, not `graph/`,
+so it reads distinctly against the future `lpg/` (Project 3's Neo4j path — also a graph).
+
+**Inputs → Outputs.**
 
 ```
 hetionet_to_rdf.py    Hetionet JSON          → ontology/hetionet.ttl
@@ -10,11 +13,17 @@ hetionet_to_rdf.py    Hetionet JSON          → ontology/hetionet.ttl
    (manual, one-time)  ontology/hetionet.ttl  → GraphDB repository
 ```
 
-`hetionet_to_rdf.py` streams the JSON with `ijson` and writes Turtle
-statement-by-statement — it never materializes the full graph in memory (see
-[Why streaming, not in-memory](#why-streaming-not-in-memory), below). The URI
-mapping, source structure, and the RDF-star triple-count note live in
-[`hetionet-data-notes.md`](hetionet-data-notes.md).
+**Key files.** `hetionet_to_rdf.py` (streaming JSON → Turtle), `graphdb-repo-config.ttl`
+(reproducible repo config, `ruleset=empty`), [`hetionet-data-notes.md`](hetionet-data-notes.md)
+(URI mapping, source structure, RDF-star triple-count note).
+**How to run.** `make ingest-rdf`, then the one-time repo setup + load below.
+**Where it sits.** The Graph half of Knowledge Ingestion (root README → Architecture). The
+`ontology/hetionet.ttl` it emits is the **shared artifact**: it loads into GraphDB *and* seeds
+vector ingestion (`pubmed_fetch.py` reads the entity set from the `.ttl`), so this step is a
+hard prerequisite of the vector side.
+
+`hetionet_to_rdf.py` streams the JSON with `ijson` and writes Turtle statement-by-statement —
+it never materializes the full graph in memory (see [Why streaming, not in-memory](#why-streaming-not-in-memory)).
 
 ## Why streaming, not in-memory
 
@@ -26,11 +35,9 @@ mapping, source structure, and the RDF-star triple-count note live in
 
 ## Prerequisite: GraphDB license
 
-As of **GraphDB 11.0**, the Free edition is no longer license-free. The container
-starts and answers reads, but **writes fail with `No license was set`** until a
-free license file is in place. Request it from Ontotext (emailed), save it as
-`secrets/graphdb.license`, then `make down && make up`. Full steps in
-`secrets/README.md`. One-time per developer.
+GraphDB 11 requires a free (email-gated) license file before **writes** succeed — reads work
+without it. One-time per developer; full steps are owned by
+[`secrets/README.md`](../../secrets/README.md).
 
 ## One-time GraphDB repository setup
 

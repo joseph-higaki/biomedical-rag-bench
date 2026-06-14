@@ -1,9 +1,12 @@
 # secrets/
 
-Per-user credentials live here: the GraphDB license and a `.env` of API keys.
+**Purpose.** Per-user credentials live here: the GraphDB license and a `.env` of API keys.
 **Nothing in here is committed except this README and `*.example` templates**
 (see the repo `.gitignore`). The directory itself is tracked so the
 `docker-compose.yml` bind-mount source exists on a fresh clone.
+
+**Where it sits.** Cross-cutting setup; the license gates GraphDB writes (ingestion), the
+`.env` gates every LLM role (generator, SPARQL writer, semantic judge) and the PubMed fetch.
 
 | File | What | Committed? |
 |---|---|---|

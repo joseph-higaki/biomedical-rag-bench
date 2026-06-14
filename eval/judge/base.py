@@ -2,8 +2,8 @@
 
 Judging is the third eval concern (after production and the harness). It mirrors
 the `retrievers/` design exactly: a `base.py` carrying the protocol + result shape +
-shared helpers, then concrete judges per scoring strategy (deterministic.py now,
-semantic.py once the LLM layer exists). The harness is judge-agnostic: it looks up a
+shared helpers, then concrete judges per scoring strategy (the deterministic judges in
+deterministic.py plus the `semantic` LLM judge in semantic.py). The harness is judge-agnostic: it looks up a
 judge by the question's `scoring` field and reads the same `JudgeResult` shape back,
 so a question's verdict is computed the same way regardless of which retriever or
 generator produced the answer.
