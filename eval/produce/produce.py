@@ -385,7 +385,8 @@ def sample_fixed(tpl: dict, rq_text: str, endpoint: str) -> list[dict]:
     `count: 1` by definition (one fixed reference apiece).
     """
     rows = run_query(rq_text, endpoint=endpoint)
-    return [{"seeds": [], "ground_truth": shape_ground_truth(rows, tpl["answer_var"], tpl["scoring"])}]
+    return [{"seeds": [], "ground_truth": shape_ground_truth(rows, tpl["answer_var"], tpl["scoring"]),
+             "ground_truth_query": _clean_query(rq_text)}]
 
 
 def sample_single(tpl: dict, spec: dict, rq_text: str, rng: random.Random, endpoint: str) -> list[dict]:
@@ -408,10 +409,12 @@ def sample_single(tpl: dict, spec: dict, rq_text: str, rng: random.Random, endpo
         sys.exit(f"{tpl['id']}: candidate pool is empty — check node_type/edge")
 
     def make(uri: str, label: str) -> dict:
-        rows = run_query(rewrite_values(rq_text, spec["bind_var"], uri), endpoint=endpoint)
+        query = rewrite_values(rq_text, spec["bind_var"], uri)
+        rows = run_query(query, endpoint=endpoint)
         return {
             "seeds": [_seed_entry(spec, uri, label)],
             "ground_truth": shape_ground_truth(rows, tpl["answer_var"], tpl["scoring"]),
+            "ground_truth_query": _clean_query(query),
         }
 
     min_answer = tpl.get("min_answer")
@@ -483,6 +486,7 @@ def sample_paired(tpl: dict, placeholders: dict, rq_text: str, rng: random.Rando
                     {
                         "seeds": [_seed_entry(anchor, a_uri, a_label), _seed_entry(partner, b_uri, b_label)],
                         "ground_truth": gt,
+                        "ground_truth_query": _clean_query(query),
                     }
                 )
                 break  # one partner per anchor — move on for variety
@@ -533,6 +537,7 @@ def sample_paired_boolean(tpl: dict, placeholders: dict, rq_text: str, rng: rand
                 {
                     "seeds": [_seed_entry(anchor, a_uri, a_label), _seed_entry(partner, b_uri, b_label)],
                     "ground_truth": gt,
+                    "ground_truth_query": _clean_query(query),
                 }
             )
             need[want] -= 1
@@ -579,6 +584,12 @@ def instantiate(tpl: dict, *, seed: str, endpoint: str) -> list[dict]:
                 "scoring": tpl["scoring"],
                 "answer_var": tpl["answer_var"],
                 "ground_truth": inst["ground_truth"],
+                # The instantiated ground-truth SPARQL that produced `ground_truth` (VALUES
+                # rewritten to the sampled URIs, comments stripped — logically identical to what
+                # ran; the full .rq with frontmatter lives at templates/ground_truth/<template_id>.rq).
+                # Persisted so a future analysis can diff it against graph_sparqlgen's generated
+                # query (traversal_info.sparql_generated) without re-deriving from the template.
+                "ground_truth_query": inst["ground_truth_query"],
                 # Strip the internal label_into; it's a substitution aid, not provenance.
                 "seeds": [{k: s[k] for k in ("bind_var", "label", "uri")} for s in inst["seeds"]],
                 "sampling_seed": f"{seed}:{tpl['id']}",

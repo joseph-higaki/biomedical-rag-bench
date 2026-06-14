@@ -32,8 +32,11 @@ A malformed query (GraphDB rejects it, 4xx) or a non-SELECT is a legitimate retr
 not an errored/unscored row. Transient failures (5xx, timeout, connection) propagate to the
 harness's per-question isolation, exactly as graph.py's `_select` does.
 
-Telemetry: every result logs the generated SPARQL, the writer model, its own LLM token
-cost, and row counts into `traversal_info`. Additive keys only (the contract).
+Telemetry: every result logs into `traversal_info` (additive keys only — the contract) the
+writer model + temperature, its own LLM token cost, row counts, the EXECUTED query (`sparql`,
+bounded with ORDER BY/LIMIT), the query AS GENERATED (`sparql_generated`, pre-bounding — the
+comparand for a future generated-vs-ground-truth SPARQL analysis), and the writer's verbatim
+reply (`writer_reply_raw`, for diagnosing extraction failures).
 """
 from __future__ import annotations
 
@@ -255,6 +258,19 @@ class SparqlGenRetriever:
                 "writer_input_tokens": getattr(gen, "input_tokens", None),
                 "writer_output_tokens": getattr(gen, "output_tokens", None),
                 "endpoint": self.endpoint,
+                # The query AS THE WRITER GENERATED IT — the SPARQL extracted from the reply,
+                # before `_bounded` appends ORDER BY/LIMIT for execution. This is the
+                # apples-to-apples comparand for the question's ground-truth .rq (a future
+                # generated-vs-ground-truth SPARQL analysis), free of our execution rewrite.
+                # Distinct from `sparql` below, which is the EXECUTED (bounded) query — that
+                # existing key keeps its meaning (additive contract). Present on both the
+                # miss and execute paths, so the generated query is always recorded.
+                "sparql_generated": sparql,
+                # The writer LLM's verbatim reply, pre-extraction (prose, fences, and all).
+                # Diagnoses the case `_extract_query` can't recover a query from — there the
+                # extracted `sparql_generated` is empty/garbage but this shows what was actually
+                # written. Cheap insurance for the weaker local writers (unterminated fences).
+                "writer_reply_raw": gen.text,
             }
 
             if not sparql or not _SELECT_RE.match(sparql):

@@ -102,6 +102,11 @@ def test_happy_path_extracts_executes_and_logs_writer_cost(monkeypatch):
     assert ti["writer_model"] == "fake-writer-1"
     assert ti["writer_input_tokens"] == 40 and ti["writer_output_tokens"] == 12
     assert "sparql_error" not in ti
+    # The as-generated query (pre-bounding) and the verbatim reply are logged for a future
+    # generated-vs-ground-truth SPARQL analysis. `sparql_generated` is the extracted query
+    # WITHOUT our ORDER BY/LIMIT; `sparql` (above) is the executed, bounded form.
+    assert ti["sparql_generated"].startswith("SELECT DISTINCT ?d") and "LIMIT" not in ti["sparql_generated"]
+    assert ti["writer_reply_raw"] == _FENCED  # verbatim, prose + fence preserved
 
 
 def test_non_select_is_a_miss_and_never_hits_the_endpoint(monkeypatch):
@@ -129,6 +134,9 @@ def test_malformed_query_is_a_miss_not_an_error(monkeypatch):
     assert res.context == ""
     assert res.traversal_info["sparql_valid"] is False
     assert res.traversal_info["sparql_error"].startswith("HTTP 400")
+    # the generated query + raw reply are recorded on the miss path too, not just on success
+    assert res.traversal_info["sparql_generated"].startswith("SELECT DISTINCT ?d")
+    assert res.traversal_info["writer_reply_raw"] == _FENCED
 
 
 def test_passes_schema_as_system_and_question_as_prompt():
