@@ -1,4 +1,9 @@
-.PHONY: help hooks test registry explain ingest ingest-rdf ingest-vectors ingest-smoke ingest-load up down clean-graphdb
+.PHONY: help hooks test registry explain ingest ingest-rdf ingest-vectors ingest-smoke ingest-load up down clean-graphdb eval-full
+
+# The model under test, fixed across all five conditions in a sweep (the hard constraint:
+# the generator never varies across retriever conditions in one comparison). Override per-run:
+# `make eval-full GEN=anthropic:claude-sonnet-4-6`.
+GEN ?= anthropic:claude-haiku-4-5
 
 help:  ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -53,3 +58,10 @@ explain:  ## Regenerate producer worked examples (eval/produce/EXAMPLE.md) — n
 
 test:  ## Run the test suite (hermetic — no downloaded data required)
 	uv run --extra ingest pytest
+
+eval-full: up  ## Full eval: all 58 questions × 5 retrievers, fixed generator (override GEN=...). Real API spend.
+	uv run --extra generate                python eval/run_eval.py --run --retriever closed_book             --generator $(GEN) --limit 58 --include-semantic
+	uv run --extra generate --extra vector python eval/run_eval.py --run --retriever vector                  --generator $(GEN) --limit 58 --include-semantic
+	uv run --extra generate --extra graph  python eval/run_eval.py --run --retriever graph_neighborhood_1hop  --generator $(GEN) --limit 58 --include-semantic
+	uv run --extra generate --extra graph  python eval/run_eval.py --run --retriever graph_neighborhood_2hop  --generator $(GEN) --limit 58 --include-semantic
+	uv run --extra generate --extra graph  python eval/run_eval.py --run --retriever graph_sparqlgen          --generator $(GEN) --limit 58 --include-semantic

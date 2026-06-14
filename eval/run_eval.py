@@ -141,6 +141,19 @@ ALL_JUDGES: dict[str, Judge] = {**DETERMINISTIC_JUDGES, SemanticJudge.scoring: S
 GENERATOR_TEMPERATURE = float(os.environ.get("GENERATOR_TEMPERATURE", "0.0"))
 
 
+# TODO(knobs): consolidate a run's tunable knobs into ONE declared surface driven by the eval
+# args, instead of the env vars currently scattered across modules. Today configuring a run means
+# knowing which module reads which env var:
+#   - GENERATOR_TEMPERATURE                     (here)
+#   - SPARQLGEN_MODEL / SPARQLGEN_TEMPERATURE   (retrievers/sparqlgen.py — the writer LLM)
+#   - GRAPHDB_ENDPOINT                          (retrievers/graph.py, retrievers/sparqlgen.py)
+#   - CHROMA_STORE                              (retrievers/vector.py)
+#   - CORPUS_BUILD_ID                           (eval/corpus/ACTIVE)
+# Surface these as CLI args (a single RunConfig the harness threads down to the retriever/generator
+# constructors), keeping the env vars only as fallback. The sparqlgen writer model+temp are the
+# canonical example: they belong beside --generator on the command line, not hidden in the retriever
+# module. Each knob is already logged in the manifest — this changes where a knob is *set*, not
+# where it's *recorded*, so the provenance contract is unaffected.
 def build_generator(spec: str) -> Generator:
     """Build the generator-under-test from a 'provider:model' spec, e.g.
     'anthropic:claude-haiku-4-5'. Temperature is pinned to GENERATOR_TEMPERATURE (0.0 default)
