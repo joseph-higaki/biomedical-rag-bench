@@ -201,7 +201,41 @@ The harness (`eval/harness.py`) writes one **JSONL row per question × retriever
 trial** to `eval/results/<run_id>.jsonl`, plus a per-run `<run_id>.manifest.json` of the
 run-constant factors. The row is **the grain** of all analysis — the atomic verdict every
 chart aggregates over. The analysis layer reads these (deduped to canonical rows; see
-[`eval/analysis/load.py`](analysis/load.py)). Fields, grouped by role:
+[`eval/analysis/load.py`](analysis/load.py)).
+
+Example row (a `graph_sparqlgen` trial on a 0-hop question; abridged — long `traversal_info`
+fields like `writer_reply_raw`/`endpoint` elided):
+
+```json
+{
+  "question_id": "01_0hop_attribute__chromosome_of_gene__00",
+  "type_id": "01_0hop_attribute", "scoring": "string_match",
+  "question": "On which chromosome is the gene HTR3B located?", "ground_truth": "11",
+
+  "retriever": "graph_sparqlgen",
+  "generator_provider": "anthropic", "generator_model": "claude-haiku-4-5",
+  "generator_model_resolved": "claude-haiku-4-5-20251001", "generator_temperature": 0.0,
+
+  "predicted": "11",
+  "input_tokens": 176, "output_tokens": 5,
+  "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0,
+
+  "context_tokens_proxy": 3, "num_sources": 0,
+  "retrieval_latency_ms": 2526.7, "generation_latency_ms": 1091.8,
+  "traversal_info": {
+    "mechanism": "sparqlgen",
+    "writer_model": "claude-haiku-4-5-20251001", "writer_temperature": 0.0,
+    "writer_input_tokens": 568, "writer_output_tokens": 85,
+    "sparql": "PREFIX hetio: <...>  SELECT DISTINCT ?chromosome WHERE { ?gene rdfs:label \"HTR3B\" ; hetio:chromosome ?chromosome } LIMIT 200",
+    "sparql_valid": true, "num_rows": 1, "context_tokenizer": "wordpunct-v1"
+  },
+
+  "judged": true, "passed": true, "score": 1.0,
+  "verdict": "value '11' found in answer", "judge_details": { "expected": "11" }
+}
+```
+
+Fields, grouped by role:
 
 **Question identity** (from `questions.jsonl`): `question_id`, `type_id`, `scoring`,
 `question`, `ground_truth`.
@@ -248,3 +282,42 @@ conditions, not supersessions, so omitting it would let a newer writer silently 
 older one. Both `*_model_family` keys are date-stripped normalizations (a model's alias and its
 resolved `-YYYYMMDD` snapshot collapse to one id); the exact `generator_model` / `writer_model`
 are retained for provenance.
+
+## Run manifest schema
+
+One `<run_id>.manifest.json` sits beside each results file, holding the factors that are
+**constant for the whole run** — so they are stored once per run, not repeated on every row.
+The analysis loader joins it onto each row by `run_id` (see [`load.py`](analysis/load.py)).
+
+```json
+{
+  "run_id": "20260614T191433-graph_sparqlgen-anthropic",
+  "timestamp": "2026-06-14T19:17:27+0200",
+  "retriever": "graph_sparqlgen",
+  "generator_provider": "anthropic",
+  "generator_model": "claude-haiku-4-5",
+  "generator_model_resolved": "claude-haiku-4-5-20251001",
+  "generator_temperature": 0.0,
+  "judge": "deterministic-v1+semantic-v1",
+  "questions_path": "/abs/path/eval/questions.jsonl",
+  "num_questions": 58,
+  "system_prompt_sha256": "96109672bcba1e4c",
+  "corpus_build_id": "full-2c102cb0",
+  "harness_version": "harness-v1"
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `run_id` | `<timestamp>-<retriever>-<provider>` — names the row + manifest pair and the result files. |
+| `timestamp` | Run start (ISO-8601 with offset). |
+| `retriever` | The single condition this run exercised (one results file per retriever per run). |
+| `generator_provider`, `generator_model`, `generator_model_resolved`, `generator_temperature` | The fixed generator under test — *configured* id, *resolved* snapshot, and sampling temperature (see [Generation](generate/README.md#the-model-under-test--configured-vs-resolved-id)). |
+| `judge` | The judge bundle version (deterministic + semantic), so a scoring change is a visible factor level. |
+| `questions_path`, `num_questions` | Which eval set and how many questions the run covered. |
+| `system_prompt_sha256` | Hash of the generator system prompt — a prompt change shows up as a new factor, not a silent confound. |
+| `corpus_build_id` | The corpus the run retrieved over — the join key into [`eval/corpus/`](corpus/README.md) (the corpus dimension). |
+| `harness_version` | The harness contract version that produced the rows. |
+
+These are run-constant **provenance/reproducibility** factors; the per-question measurements
+(answers, tokens, telemetry, verdicts) live in the result rows above.
