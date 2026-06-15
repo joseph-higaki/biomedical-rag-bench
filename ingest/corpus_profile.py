@@ -32,11 +32,11 @@ embeds):
 
   # smoke (no endpoint: graph counts stay null, ttl provenance still recorded)
   uv run --extra profile python -m ingest.corpus_profile --scale smoke \
-      --ttl ontology/hetionet-smoke.ttl --abstracts data/abstracts-smoke --chroma data/chroma-smoke
+      --ttl data/rdf/hetionet-smoke.ttl --abstracts data/abstracts-smoke --chroma data/chroma-smoke
 
   # full (endpoint serving the corpus: triples + nodes populated)
   uv run --extra profile python -m ingest.corpus_profile --scale full \
-      --ttl ontology/hetionet.ttl --abstracts data/abstracts --chroma data/chroma \
+      --ttl data/rdf/hetionet.ttl --abstracts data/abstracts --chroma data/chroma \
       --endpoint http://localhost:7200/repositories/hetionet
 """
 from __future__ import annotations

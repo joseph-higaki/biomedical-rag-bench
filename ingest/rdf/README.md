@@ -8,9 +8,9 @@ so it reads distinctly against the future `lpg/` (Project 3's Neo4j path — als
 **Inputs → Outputs.**
 
 ```
-hetionet_to_rdf.py    Hetionet JSON          → ontology/hetionet.ttl
+hetionet_to_rdf.py    Hetionet JSON          → data/rdf/hetionet.ttl
         ↓
-   (manual, one-time)  ontology/hetionet.ttl  → GraphDB repository
+   (manual, one-time)  data/rdf/hetionet.ttl  → GraphDB repository
 ```
 
 **Key files.** `hetionet_to_rdf.py` (streaming JSON → Turtle), `graphdb-repo-config.ttl`
@@ -18,7 +18,7 @@ hetionet_to_rdf.py    Hetionet JSON          → ontology/hetionet.ttl
 (URI mapping, source structure, RDF-star triple-count note).
 **How to run.** `make ingest-rdf`, then the one-time repo setup + load below.
 **Where it sits.** The Graph half of Knowledge Ingestion (root README → Architecture). The
-`ontology/hetionet.ttl` it emits is the **shared artifact**: it loads into GraphDB *and* seeds
+`data/rdf/hetionet.ttl` it emits is the **shared artifact**: it loads into GraphDB *and* seeds
 vector ingestion (`pubmed_fetch.py` reads the entity set from the `.ttl`), so this step is a
 hard prerequisite of the vector side.
 
@@ -42,7 +42,7 @@ without it. One-time per developer; full steps are owned by
 ## One-time GraphDB repository setup
 
 After `make up` brings GraphDB online (with the license, above) and
-`make ingest-rdf` produces `ontology/hetionet.ttl`, create the `hetionet`
+`make ingest-rdf` produces `data/rdf/hetionet.ttl`, create the `hetionet`
 repository. Scripted (preferred — reproducible, ruleset baked in):
 
 ```bash
@@ -75,7 +75,7 @@ curl -i -X DELETE 'http://localhost:7200/repositories/hetionet/statements'
 # ~5–10 minutes on GraphDB's single write thread; curl blocks silently until done,
 # then prints "204 No Content" — an empty body is success, not a failure.
 curl -i -X POST -H 'Content-Type: text/turtle' \
-     -T ontology/hetionet.ttl \
+     -T data/rdf/hetionet.ttl \
      'http://localhost:7200/repositories/hetionet/statements'
 ```
 
@@ -103,7 +103,7 @@ adds a type + label triple. The `…: 2250197 edges` line printed by
 
 The Turtle file changes if `hetionet_to_rdf.py` changes (new URI conventions, RDF-star edge properties, etc.). To re-ingest:
 
-1. Re-run `make ingest-rdf` to regenerate `ontology/hetionet.ttl`.
+1. Re-run `make ingest-rdf` to regenerate `data/rdf/hetionet.ttl`.
 2. Clear and reload over the REST statements endpoint (the two `curl` commands
    above): the `DELETE` clears the old data, the `POST` streams the new file.
 
@@ -117,4 +117,4 @@ make up                # restart GraphDB
 
 ## Output
 
-- `ontology/hetionet.ttl` — full RDF graph, loaded into GraphDB. Consumed by `retrievers/graph.py`.
+- `data/rdf/hetionet.ttl` — full RDF graph, loaded into GraphDB. Consumed by `retrievers/graph.py`.

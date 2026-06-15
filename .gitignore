@@ -11,16 +11,11 @@ secrets/*
 !secrets/README.md
 !secrets/*.example
 
-# Bulk data (regenerable from scripts; never committed)
+# Bulk data (regenerable from scripts; never committed). The data/ root covers
+# data/rdf/*.ttl (the ~467 MB generated graph + smoke slice), data/abstracts*,
+# data/chroma*, and the raw Hetionet download.
 data/
 graphdb-data/
-# 467 MB full graph from `make ingest-rdf`; loaded into GraphDB, regenerable, not git
-ontology/hetionet.ttl
-
-# Smoke test artifacts
-ontology/hetionet-smoke.ttl
-data/abstracts-smoke/
-data/chroma-smoke/
 
 # Python
 __pycache__/

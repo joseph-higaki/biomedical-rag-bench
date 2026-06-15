@@ -64,6 +64,8 @@ Two complementary views of the same tree. **Version C** is file-centric — *whe
 file belong?*; **Version D** is phase-centric — *what does each phase span?* Tags mark where
 an artifact is *produced* — **Groundwork**, **Evaluation**, **Analysis** — with shared tooling
 as **ops**; `eval/corpus/` is Groundwork (written at build time) though Analysis consumes it.
+Generated bulk lives under the gitignored `data/` tree (`data/rdf/hetionet.ttl`, Chroma,
+abstracts) and is omitted below; `ontology/` holds the committed schema (TBox, Project 2).
 
 ### Version C — clean tree, tag on the right
 
@@ -291,7 +293,7 @@ git checkout v1.0.0
 # 2. Start GraphDB (mounts the license from secrets/)
 docker compose up -d
 
-# 3. Build the ingestion artifacts: ontology/hetionet.ttl + the Chroma collection
+# 3. Build the ingestion artifacts: data/rdf/hetionet.ttl + the Chroma collection
 make ingest
 
 # 4. Create the `hetionet` repo and stream-load the Turtle (one-time, ~5–10 min).

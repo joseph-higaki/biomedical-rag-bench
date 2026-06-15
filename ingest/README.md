@@ -10,7 +10,7 @@ self-contained.
 
 | Side | Folder | Produces | Consumed by |
 |---|---|---|---|
-| Graph (RDF) | [`rdf/`](rdf/README.md) | `ontology/hetionet.ttl` → GraphDB | `retrievers/graph.py`, `retrievers/sparqlgen.py` |
+| Graph (RDF) | [`rdf/`](rdf/README.md) | `data/rdf/hetionet.ttl` → GraphDB | `retrievers/graph.py`, `retrievers/sparqlgen.py` |
 | Vector | [`vector/`](vector/README.md) | `data/chroma/` (embedded PubMed abstracts) | `retrievers/vector.py` |
 
 **How to run.** `make ingest` (= `ingest-rdf` then `ingest-vectors`); see Make targets below.
@@ -25,11 +25,11 @@ reads its entity set from that file — so graph ingestion is a hard prerequisit
 ## Pipeline
 
 ```
-rdf/hetionet_to_rdf.py    Hetionet JSON          → ontology/hetionet.ttl
+rdf/hetionet_to_rdf.py    Hetionet JSON          → data/rdf/hetionet.ttl
         ↓
-   (manual, one-time)     ontology/hetionet.ttl  → GraphDB repository
+   (manual, one-time)     data/rdf/hetionet.ttl  → GraphDB repository
         ↓
-vector/pubmed_fetch.py    ontology/hetionet.ttl  → data/abstracts/
+vector/pubmed_fetch.py    data/rdf/hetionet.ttl  → data/abstracts/
         ↓
 vector/build_vectors.py   data/abstracts/        → data/chroma/
 ```
@@ -52,7 +52,7 @@ small shell script. Two reasons we use it:
 | Target | Description |
 |---|---|
 | `make ingest-smoke` | Smoke-test the whole pipeline on a tiny slice (100 edges, 5 abstracts). Run first when bootstrapping. |
-| `make ingest-rdf` | Convert full Hetionet JSON to Turtle. Writes `ontology/hetionet.ttl`. Detail in [`rdf/`](rdf/README.md). |
+| `make ingest-rdf` | Convert full Hetionet JSON to Turtle. Writes `data/rdf/hetionet.ttl`. Detail in [`rdf/`](rdf/README.md). |
 | `make ingest-vectors` | Fetch PubMed abstracts and build the Chroma collection. Detail in [`vector/`](vector/README.md). |
 | `make ingest` | Run `ingest-rdf` then `ingest-vectors`. |
 

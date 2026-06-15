@@ -29,25 +29,25 @@ clean-graphdb:  ## Wipe GraphDB data (destructive — confirms first)
 ingest: ingest-rdf ingest-vectors  ## Run the full ingestion pipeline
 
 ingest-rdf:  ## Convert Hetionet JSON to Turtle
-	uv run --extra ingest python ingest/rdf/hetionet_to_rdf.py --out ontology/hetionet.ttl
+	uv run --extra ingest python ingest/rdf/hetionet_to_rdf.py --out data/rdf/hetionet.ttl
 	@echo ""
-	@echo "Now load ontology/hetionet.ttl into GraphDB via the Workbench."
+	@echo "Now load data/rdf/hetionet.ttl into GraphDB via the Workbench."
 	@echo "See ingest/rdf/README.md for the one-time repository setup."
 
 ingest-vectors:  ## Fetch PubMed abstracts and build the Chroma collection
-	uv run --extra fetch python ingest/vector/pubmed_fetch.py --entities ontology/hetionet.ttl --out data/abstracts/
+	uv run --extra fetch python ingest/vector/pubmed_fetch.py --entities data/rdf/hetionet.ttl --out data/abstracts/
 	uv run --extra vector python ingest/vector/build_vectors.py --abstracts data/abstracts/ --out data/chroma/
 
 ingest-smoke:  ## Smoke-test ingestion on a tiny slice (build order step 1)
-	uv run --extra ingest python ingest/rdf/hetionet_to_rdf.py --limit 100 --out ontology/hetionet-smoke.ttl
-	uv run --extra fetch python ingest/vector/pubmed_fetch.py --entities ontology/hetionet-smoke.ttl --out data/abstracts-smoke/
+	uv run --extra ingest python ingest/rdf/hetionet_to_rdf.py --limit 100 --out data/rdf/hetionet-smoke.ttl
+	uv run --extra fetch python ingest/vector/pubmed_fetch.py --entities data/rdf/hetionet-smoke.ttl --out data/abstracts-smoke/
 	uv run --extra vector python ingest/vector/build_vectors.py --abstracts data/abstracts-smoke/ --out data/chroma-smoke/
 
-ingest-load:  ## Load ontology/hetionet.ttl into GraphDB (clears existing data first)
-	@test -f ontology/hetionet.ttl || { echo "error: ontology/hetionet.ttl not found — run make ingest-rdf first"; exit 1; }
+ingest-load:  ## Load data/rdf/hetionet.ttl into GraphDB (clears existing data first)
+	@test -f data/rdf/hetionet.ttl || { echo "error: data/rdf/hetionet.ttl not found — run make ingest-rdf first"; exit 1; }
 	curl -i -X DELETE 'http://localhost:7200/repositories/hetionet/statements'
 	curl -i -X POST -H 'Content-Type: text/turtle' \
-	     -T ontology/hetionet.ttl \
+	     -T data/rdf/hetionet.ttl \
 	     'http://localhost:7200/repositories/hetionet/statements'
 
 registry:  ## Regenerate template registry + eval distribution table from YAML (offline)

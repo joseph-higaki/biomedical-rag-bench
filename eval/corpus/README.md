@@ -89,10 +89,10 @@ embeds). `--endpoint` is omitted for unloaded slices.
 ```bash
 # smoke (ttl provenance only)
 uv run --extra profile python -m ingest.corpus_profile --scale smoke \
-    --ttl ontology/hetionet-smoke.ttl --abstracts data/abstracts-smoke --chroma data/chroma-smoke
+    --ttl data/rdf/hetionet-smoke.ttl --abstracts data/abstracts-smoke --chroma data/chroma-smoke
 
 # full (live SPARQL counts)
 uv run --extra profile python -m ingest.corpus_profile --scale full \
-    --ttl ontology/hetionet.ttl --abstracts data/abstracts --chroma data/chroma \
+    --ttl data/rdf/hetionet.ttl --abstracts data/abstracts --chroma data/chroma \
     --endpoint http://localhost:7200/repositories/hetionet
 ```

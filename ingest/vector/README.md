@@ -6,7 +6,7 @@ collection; the `vector` retriever queries it by similarity.
 **Inputs → Outputs.**
 
 ```
-pubmed_fetch.py    ontology/hetionet.ttl  → data/abstracts/   (one .txt per entity)
+pubmed_fetch.py    data/rdf/hetionet.ttl  → data/abstracts/   (one .txt per entity)
         ↓
 build_vectors.py   data/abstracts/        → data/chroma/      (embedded collection)
 ```
@@ -17,7 +17,7 @@ build_vectors.py   data/abstracts/        → data/chroma/      (embedded collec
 `--extra vector`).
 **Where it sits.** The Vector half of Knowledge Ingestion (root README → Architecture). A hard
 prerequisite is `make ingest-rdf`: `pubmed_fetch.py` reads the entity set from the shared
-`ontology/hetionet.ttl` — not from a live GraphDB — so the vector side never needs GraphDB up.
+`data/rdf/hetionet.ttl` — not from a live GraphDB — so the vector side never needs GraphDB up.
 
 > **Status: full corpus built.** Scripts written, executed, and scaled to the full
 > literature-kind entity set (`full-*` corpus profile in `eval/corpus/`: 77,424 abstracts →

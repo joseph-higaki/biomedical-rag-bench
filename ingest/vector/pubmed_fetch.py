@@ -199,7 +199,7 @@ def fetch_one(client, limiter, term, kind, label, out, per_entity, api_key, retr
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--entities", type=Path, default=Path("ontology/hetionet-smoke.ttl"),
+    ap.add_argument("--entities", type=Path, default=Path("data/rdf/hetionet-smoke.ttl"),
                     help="Turtle file to read entities from. Default: the smoke slice.")
     ap.add_argument("--out", type=Path, required=True, help="Directory for cached abstract files.")
     ap.add_argument("--limit", type=int, default=None,
