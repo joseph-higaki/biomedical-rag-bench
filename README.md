@@ -2,7 +2,7 @@
 
 A falsifiable, evolving evaluation harness for retrieval-augmented generation over
 biomedical knowledge [Hetionet](https://het.io/). It compares retrieval strategies — graph traversal vs. vector
-similarity, others to come. Under a shared evaluation contract, so results are comparable across approaches.
+similarity, others to come — under a shared evaluation contract, so results are comparable across approaches.
 
 The benchmark grows by adding retriever conditions; the eval harness, question set,
 generator interface, and telemetry schema are shared across all conditions and evolve
@@ -27,7 +27,13 @@ model) lives in the ingestion READMEs ([`ingest/rdf`](ingest/rdf/README.md),
 [`ingest/vector`](ingest/vector/README.md)). The three LLM roles (generator under test,
 SPARQL writer, semantic judge) are catalogued in [`eval/llm-roles.md`](eval/llm-roles.md).
 
-### Architecture diagram — linear artifact pipeline
+### Architecture diagrams
+
+Split by phase. **Groundwork** builds the shared assets; **Evaluation** consumes them. The
+assets — `questions.jsonl`, GraphDB, Chroma — are the hand-off, so they appear in both: they
+*end* the Groundwork flow (far right) and *start* the Evaluation flow (far left).
+
+**Groundwork**
 
 ```mermaid
 flowchart LR
@@ -40,37 +46,38 @@ flowchart LR
         prod["Question & Ground-Truth Producer"]
     end
 
+    ki -.->|.ttl entities| prod
     ki --> graphdb[("GraphDB")]
     ki --> chroma[("Chroma")]
-    ki -.->|.ttl entities| prod
     prod -->|SPARQL ground truth| graphdb
     prod --> q[/"questions.jsonl"/]
+```
+
+**Evaluation**
+
+```mermaid
+flowchart LR
+    q[/"questions.jsonl"/] --> retr
+    graphdb[("GraphDB")] --> retr
+    chroma[("Chroma")] --> retr
 
     subgraph evalrun["Evaluation"]
         direction LR
         retr["Retriever"] --> gen["Generator"] --> jud["Judge"]
     end
 
-    q --> retr
-    graphdb --> retr
-    chroma --> retr
     jud --> res[/"results: rows + manifest"/]
-    res --> ana["Analysis<br/>→ analytics repo"]
+    res --> ana["Analysis"]
 ```
 
 ## Repository structure
 
-Two complementary views of the same tree. **Version C** is file-centric — *where does each
-file belong?*; **Version D** is phase-centric — *what does each phase span?* Tags mark where
-an artifact is *produced* — **Groundwork**, **Evaluation**, **Analysis** — with shared tooling
-as **ops**; `ingest/corpus/` is Groundwork (written at build time) though Analysis consumes it.
-Generated bulk lives under the gitignored `data/` tree (`data/rdf/hetionet.ttl`, Chroma,
-abstracts) and is omitted below; `ontology/` holds the committed schema (TBox, Project 2).
-
-### Version C — clean tree, tag on the right
-
-Real hierarchy (folders + the files that matter), one phase tag per line on the right edge.
-No inline descriptions — the tag is the only annotation, so the tree shape stays legible.
+A file-centric tree — *where does each file belong?* Tags mark where an artifact is
+*produced* — **Groundwork**, **Evaluation**, **Analysis** — with shared tooling as **ops**;
+`ingest/corpus/` is Groundwork (written at build time) though Analysis consumes it. Generated
+bulk lives under the gitignored `data/` tree (`data/rdf/hetionet.ttl`, Chroma, abstracts) and
+is omitted below; `ontology/` holds the committed schema (TBox, Project 2). One phase tag per
+line on the right edge; no inline descriptions, so the tree shape stays legible.
 
 ```
 .
@@ -99,97 +106,6 @@ No inline descriptions — the tag is the only annotation, so the tree shape sta
 ├─ secrets/ · deployment/ · tests/ · .github/   [ops]
 ├─ Makefile · docker-compose.yml · pyproject.toml · uv.lock   [ops]
 └─ README.md                    [—]
-```
-
-### Version D — one tree per phase, others dimmed
-
-The same tree, repeated once per phase. Lines that belong to that phase are highlighted
-(`+`, green on GitHub); everything else is context (dimmed). Best for seeing the *shape*
-each phase occupies — Groundwork (`ingest/` + `produce/`) and Analysis (`analysis/`) sit
-outside `eval/`, which now holds only Evaluation.
-
-**Groundwork**
-```diff
-  .
-+ ├─ ingest/
-+ │  ├─ rdf/
-+ │  ├─ vector/
-+ │  ├─ corpus_profile.py
-+ │  └─ corpus/
-+ ├─ produce/
-+ │  ├─ templates/
-+ │  ├─ produce.py
-+ │  ├─ validate.py
-+ │  └─ questions.jsonl
-+ ├─ ontology/
-  ├─ retrievers/
-  ├─ eval/
-  │  ├─ generate/
-  │  ├─ judge/
-  │  ├─ harness.py
-  │  ├─ run_eval.py
-  │  └─ results/
-  ├─ analysis/
-  │  ├─ load.py
-  │  ├─ explore.ipynb
-  │  └─ FINDINGS.md
-  └─ (Makefile · docker-compose.yml · secrets/ · deployment/ · tests/ · .github/)
-```
-
-**Evaluation**
-```diff
-  .
-  ├─ ingest/
-  │  ├─ rdf/
-  │  ├─ vector/
-  │  ├─ corpus_profile.py
-  │  └─ corpus/
-  ├─ produce/
-  │  ├─ templates/
-  │  ├─ produce.py
-  │  ├─ validate.py
-  │  └─ questions.jsonl
-  ├─ ontology/
-+ ├─ retrievers/
-  ├─ eval/
-+ │  ├─ generate/
-+ │  ├─ judge/
-+ │  ├─ harness.py
-+ │  ├─ run_eval.py
-+ │  └─ results/
-  ├─ analysis/
-  │  ├─ load.py
-  │  ├─ explore.ipynb
-  │  └─ FINDINGS.md
-  └─ (Makefile · docker-compose.yml · secrets/ · deployment/ · tests/ · .github/)
-```
-
-**Analysis**
-```diff
-  .
-  ├─ ingest/
-  │  ├─ rdf/
-  │  ├─ vector/
-  │  ├─ corpus_profile.py
-  │  └─ corpus/
-  ├─ produce/
-  │  ├─ templates/
-  │  ├─ produce.py
-  │  ├─ validate.py
-  │  └─ questions.jsonl
-  ├─ ontology/
-  ├─ retrievers/
-  ├─ eval/
-  │  ├─ generate/
-  │  ├─ judge/
-  │  ├─ harness.py
-  │  ├─ run_eval.py
-  │  └─ results/
-+ ├─ analysis/
-+ │  ├─ load.py
-+ │  ├─ explore.ipynb
-+ │  └─ FINDINGS.md
-  └─ (Makefile · docker-compose.yml · secrets/ · deployment/ · tests/ · .github/)
 ```
 
 ## The comparison under test
@@ -223,6 +139,8 @@ hop-count and entity density. This is the claim under test, not the assumed conc
 ### Sub-hypotheses
 
 H1–H4 and H7 are **scored** — each yields a number per (retriever × question-type) cell.
+**H4 is deferred to `v1.1.0`** — defined here, but not part of the `v1.0.0` comparison (see
+[Build order](#build-order)).
 H5 and H6 are **structural** — properties of the representation observed by inspection or
 one-time measurement, not aggregated per question. Metric formulas live in
 [`eval/README.md` → Metrics](eval/README.md#metrics).
@@ -239,7 +157,7 @@ one-time measurement, not aggregated per question. Metric formulas live in
 
 ### Early observations
 
-Recorded as they emerge during build; not yet backed by a full eval run.
+Recorded as they emerged during build — early signal, since superseded by the full eval runs (see [Findings](#findings)).
 
 **Vector retrieves by language, not by biological role.** The first smoke query
 (`"loss of E-cadherin promotes tumor metastasis"`) ranked CDH1 — the E-cadherin gene —
@@ -367,9 +285,14 @@ Granular per-session progress lives in the session journal.
   - [ ] **Architectural doc review of the three LLM roles.** Fold [eval/llm-roles.md](eval/llm-roles.md) into the component-level diagrams (the roles as distinct nodes, not one "LLM" box) and reconcile across the eval/retriever READMEs.
   - [ ] **(pending follow-up) Calibrate the type-10 `semantic` LLM judge (Cohen's kappa).** Built but **not yet trusted**: it earns trust only after agreement with human grades clears kappa > 0.7 over a ≥20-question hold-out. **Blocked on expanding the append-only type-10 set** (only 6 today, all textbook-famous, so they don't yet test H4). Until it lands, **do not cite type-10 accuracy as calibrated** (first-run verdicts were spot-checked 12/12 — promising, not the formal study).
   - [x] **Full vector corpus (parallel fetcher).** `pubmed_fetch.py` rewritten to a thread pool behind a global NCBI-rate cap (≈11 h → ≈1.7 h for all ~29k literature-kind entities); resumable via the per-entity file cache.
-- [ ] **6. Verify the full eval pipeline on a question subset.** Run the integrated pipeline end-to-end on a small subset (against GraphDB) and confirm metrics for all conditions.
-- [ ] **7. Scale to full Hetionet and full question set (~58).**
-- [ ] **8. Run eval, calibrate LLM judge, analyze, tag `v1.0.0`, create release, write up findings.**
+- [x] **6. Verify the full eval pipeline on a question subset.** Run the integrated pipeline end-to-end on a small subset (against GraphDB) and confirm metrics for all conditions. **Done:** all five conditions run on a 10-question cross-type slice against the live triplestore (11.3M triples), fixed generator `claude-haiku-4-5`; deterministic metrics reproduce the canonical ordering (closed_book < vector < graph; sparqlgen highest), and the runs flow through `analysis/load.py` dedup. The sweep is `make eval-full` (full set; subset via `--limit`).
+- [x] **7. Scale to full Hetionet and full question set (~58).** **Done:** full graph loaded (11.27M triples); a complete 58-question sweep across all five conditions ran 2026-06-14 (deterministic + semantic judge). This session's subset run re-verified the pipeline end-to-end after the analysis-layer refactor and GraphDB recovery.
+- [ ] **8. Ship `v1.0.0` — the deterministic comparison.** Definitive full run, analysis + findings writeup, then tag + GitHub release. **Scope:** types 01–09 (deterministic judges) → hypotheses **H1, H2, H3, H7** (scored) and **H5, H6** (structural). **H4 / type-10 is explicitly excluded** and must not be cited as calibrated (see the pending item below).
+
+**Pending / deferred (not gating `v1.0.0`).**
+
+- [ ] **(`v1.1.0`) Calibrate the type-10 `semantic` judge → land H4.** Two coupled gaps: the 6 type-10 questions are textbook-famous (closed-book answers them from memory, so they don't isolate retrieval — H4 untested), and the LLM judge scoring them is unvalidated (needs Cohen's κ > 0.7 vs human grades over a ≥20-question hold-out). Fix both together: append ~14 *hard, non-famous* semantic questions (append-only; 58 → ~72), human-grade the ≥20, compute κ. Adding questions is a MINOR bump, so this ships as `v1.1.0` after `v1.0.0`. Detail in the step-5 follow-up above.
+- [ ] **Migrate `graphdb-data` to a named Docker volume.** The GraphDB data dir is a host bind mount, which on WSL2 can go stale over the 9p bridge after a Docker/WSL restart (the engine stays up but the `hetionet` repo unmounts). A named volume lives in the Docker VM's own filesystem and is immune to that. Today this failure mode is *detected and self-healed* by the container healthcheck + `make graphdb-ready` (`scripts/graphdb_ready.sh`), which recreates the container to re-resolve the mount; the named-volume migration would *prevent* it instead. Cost: loses host-side inspectability of `graphdb-data/`, `make clean-graphdb` changes to `docker volume rm`, and a one-time reload of the graph. Do it only if the recovery gate proves insufficient.
 
 ## Release strategy
 
