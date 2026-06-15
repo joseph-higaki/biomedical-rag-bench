@@ -1,7 +1,7 @@
 [project]
 name = "biomedical-rag-bench"
-version = "0.1.0"
-description = "Falsifiable evaluation harness for RAG over biomedical knowledge (vector vs RDF graph vs OWL vs LPG)."
+version = "1.0.0"
+description = "Falsifiable, evolving evaluation harness for retrieval-augmented generation over biomedical knowledge, comparing retrieval strategies under a shared, additive-only evaluation contract."
 requires-python = ">=3.12"
 # Core deps are intentionally empty: nothing is needed by *every* code path.
 # Capability-scoped extras keep the env lean — transforming RDF must not require
