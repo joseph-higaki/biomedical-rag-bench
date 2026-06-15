@@ -1,9 +1,8 @@
 # biomedical-rag-bench
 
 A falsifiable, evolving evaluation harness for retrieval-augmented generation over
-biomedical knowledge. It compares retrieval strategies — graph traversal vs. vector
-similarity, and beyond — under a shared evaluation contract, so results are directly
-comparable across approaches.
+biomedical knowledge [Hetionet](https://het.io/). It compares retrieval strategies — graph traversal vs. vector
+similarity, others to come. Under a shared evaluation contract, so results are comparable across approaches.
 
 The benchmark grows by adding retriever conditions; the eval harness, question set,
 generator interface, and telemetry schema are shared across all conditions and evolve
@@ -16,7 +15,7 @@ in the repository layout, the diagrams, and the sub-READMEs:
 
 | Phase | Cadence | What it produces |
 |---|---|---|
-| **Groundwork**  | once per dataset version | **Knowledge Ingestion** Hetionet → RDF-star → GraphDB; PubMed → embeddings → Chroma **Question & Ground-Truth Producer** question templates instantiating questions over the graph; deterministic ground truth computed by **SPARQL traversal** → `questions.jsonl` |
+| **Groundwork**  | once per dataset version | **Knowledge Ingestion** Hetionet → RDF-star → GraphDB; [PubMed](https://pubmed.ncbi.nlm.nih.gov/) → embeddings → Chroma **Question & Ground-Truth Producer** question templates instantiating questions over the graph; deterministic ground truth computed by **SPARQL traversal** → `questions.jsonl` |
 | **Evaluation** | per run | the **Eval Harness** orchestrating **Retriever → Generator → Judge** → `rows.jsonl` + `manifest.json` (see [Output contract](#output-contract-downstream-interface)) |
 | **Analysis** | per analysis | Lightweight analysis in [jupyter notebook](eval/analysis/explore.ipynb) |
 
@@ -35,7 +34,7 @@ flowchart LR
     hetionet["Hetionet"] --> ki
     pubmed["PubMed"] --> ki
 
-    subgraph build["Groundwork (offline)"]
+    subgraph build["Groundwork"]
         direction TB
         ki["Knowledge Ingestion"]
         prod["Question & Ground-Truth Producer"]
@@ -47,7 +46,7 @@ flowchart LR
     prod -->|SPARQL ground truth| graphdb
     prod --> q[/"questions.jsonl"/]
 
-    subgraph evalrun["Evaluation (per run)"]
+    subgraph evalrun["Evaluation"]
         direction LR
         retr["Retriever"] --> gen["Generator"] --> jud["Judge"]
     end
@@ -61,70 +60,117 @@ flowchart LR
 
 ## Repository structure
 
-Two layouts below for offline A/B review (a future commit keeps one). Tags mark where an
-artifact is *produced* — **Groundwork**, **Evaluation**, **Analysis** — with shared tooling
+Two complementary views of the same tree. **Version C** is file-centric — *where does each
+file belong?*; **Version D** is phase-centric — *what does each phase span?* Tags mark where
+an artifact is *produced* — **Groundwork**, **Evaluation**, **Analysis** — with shared tooling
 as **ops**; `eval/corpus/` is Groundwork (written at build time) though Analysis consumes it.
 
-### Version A — grouped by phase
+### Version C — clean tree, tag on the right
+
+Real hierarchy (folders + the files that matter), one phase tag per line on the right edge.
+No inline descriptions — the tag is the only annotation, so the tree shape stays legible.
 
 ```
-Groundwork (offline, human-operated)
-  ingest/                  Knowledge Ingestion
-    rdf/                     Hetionet JSON → RDF-star Turtle → GraphDB
-    vector/                  PubMed → Chroma (reads hetionet.ttl for the entity set)
-    corpus_profile.py        measure a built corpus → eval/corpus/<id>.json
-  ontology/                hetionet.ttl (full graph) · hetionet-smoke.ttl (slice)
-  eval/templates/          hand-authored templates (<name>.yaml + ground_truth/<name>.rq)
-  eval/produce/            Producer: templates + graph → questions.jsonl (ground truth via SPARQL)
-  eval/questions.jsonl     GENERATED eval set (frozen, append-only)
-  eval/corpus/             corpus-build profiles (the corpus dimension; consumed by Analysis)
-
-Evaluation (per run)
-  retrievers/              the swap point — base.py + 4 conditions (null/vector/graph/sparqlgen)
-  eval/generate/           Generator — provider-agnostic adapters (Anthropic, Ollama)
-  eval/judge/              Judge — deterministic (9/10 types) + semantic LLM judge
-  eval/harness.py          the retrieve → generate → judge loop
-  eval/run_eval.py         wiring (retriever + generator registries) + CLI
-  eval/results/            GENERATED per-run output: <run_id>.jsonl + .manifest.json (gitignored)
-
-Analysis (consumes results)
-  eval/analysis/           load.py + explore.ipynb — lift-out point for the analytics repo
-
-Project / ops
-  Makefile · docker-compose.yml · pyproject.toml · uv.lock · LICENSE
-  secrets/ · deployment/ · tests/ · .github/
-  README.md (this file) · eval/README.md (eval design) · eval/llm-roles.md
+.
+├─ ingest/                      [Groundwork]
+│  ├─ rdf/                      [Groundwork]
+│  ├─ vector/                   [Groundwork]
+│  └─ corpus_profile.py         [Groundwork]
+├─ ontology/                    [Groundwork]
+├─ retrievers/                  [Evaluation]
+├─ eval/                        [—]
+│  ├─ templates/                [Groundwork]
+│  ├─ produce/                  [Groundwork]
+│  ├─ questions.jsonl           [Groundwork]
+│  ├─ corpus/                   [Groundwork]
+│  ├─ generate/                 [Evaluation]
+│  ├─ judge/                    [Evaluation]
+│  ├─ harness.py                [Evaluation]
+│  ├─ run_eval.py               [Evaluation]
+│  ├─ results/                  [Evaluation]
+│  ├─ analysis/                 [Analysis]
+│  └─ FINDINGS.md               [Analysis]
+├─ secrets/ · deployment/ · tests/ · .github/   [ops]
+├─ Makefile · docker-compose.yml · pyproject.toml · uv.lock   [ops]
+└─ README.md                    [—]
 ```
 
-### Version B — real tree, phase-tagged
+### Version D — one tree per phase, others dimmed
 
-The actual directory hierarchy (folder level), every line tagged to its phase. `eval/`
-itself carries no single tag because it straddles all three.
+The same tree, repeated once per phase. Lines that belong to that phase are highlighted
+(`+`, green on GitHub); everything else is context (dimmed). Best for seeing the *shape*
+each phase occupies — and that the three overlap only inside `eval/`.
 
+**Groundwork**
+```diff
+  .
++ ├─ ingest/
++ │  ├─ rdf/
++ │  ├─ vector/
++ │  └─ corpus_profile.py
++ ├─ ontology/
+  ├─ retrievers/
+  ├─ eval/
++ │  ├─ templates/
++ │  ├─ produce/
++ │  ├─ questions.jsonl
++ │  ├─ corpus/
+  │  ├─ generate/
+  │  ├─ judge/
+  │  ├─ harness.py
+  │  ├─ run_eval.py
+  │  ├─ results/
+  │  ├─ analysis/
+  │  └─ FINDINGS.md
+  └─ (Makefile · docker-compose.yml · secrets/ · deployment/ · tests/ · .github/)
 ```
-[Groundwork]  ingest/             Knowledge Ingestion
-[Groundwork]    rdf/              Hetionet JSON → RDF-star → GraphDB
-[Groundwork]    vector/           PubMed → Chroma (reads hetionet.ttl for entities)
-[Groundwork]    corpus_profile.py measure a built corpus → eval/corpus/<id>.json
-[Groundwork]  ontology/           hetionet.ttl (full) · hetionet-smoke.ttl (slice)
-[Evaluation]  retrievers/         swap point — base.py + 4 conditions (null/vector/graph/sparqlgen)
-[—]           eval/               (straddles all three phases)
-[Groundwork]    templates/        hand-authored templates (.yaml + ground_truth/.rq)
-[Groundwork]    produce/          Producer: templates + graph → questions.jsonl
-[Groundwork]    questions.jsonl   GENERATED eval set (frozen, append-only)
-[Evaluation]    generate/         Generator — provider-agnostic adapters (Anthropic, Ollama)
-[Evaluation]    judge/            deterministic (9/10 types) + semantic LLM judge
-[Evaluation]    harness.py        retrieve → generate → judge loop
-[Evaluation]    run_eval.py       retriever + generator registries + CLI
-[Evaluation]    results/          GENERATED per-run output: <run_id>.jsonl + .manifest.json (gitignored)
-[Groundwork]    corpus/           corpus-build profiles (the corpus dimension)
-[Analysis]      analysis/         load.py + explore.ipynb — analytics lift-out point
-[Analysis]      FINDINGS.md       durable cross-run interpretation
-[—]             README.md         eval design
-[—]             llm-roles.md      the three LLM roles
-[ops]         Makefile · docker-compose.yml · pyproject.toml · uv.lock · LICENSE
-[ops]         secrets/ · deployment/ · tests/ · .github/
-[—]           README.md           this file
+
+**Evaluation**
+```diff
+  .
+  ├─ ingest/
+  │  ├─ rdf/
+  │  ├─ vector/
+  │  └─ corpus_profile.py
+  ├─ ontology/
++ ├─ retrievers/
+  ├─ eval/
+  │  ├─ templates/
+  │  ├─ produce/
+  │  ├─ questions.jsonl
+  │  ├─ corpus/
++ │  ├─ generate/
++ │  ├─ judge/
++ │  ├─ harness.py
++ │  ├─ run_eval.py
++ │  ├─ results/
+  │  ├─ analysis/
+  │  └─ FINDINGS.md
+  └─ (Makefile · docker-compose.yml · secrets/ · deployment/ · tests/ · .github/)
+```
+
+**Analysis**
+```diff
+  .
+  ├─ ingest/
+  │  ├─ rdf/
+  │  ├─ vector/
+  │  └─ corpus_profile.py
+  ├─ ontology/
+  ├─ retrievers/
+  ├─ eval/
+  │  ├─ templates/
+  │  ├─ produce/
+  │  ├─ questions.jsonl
+  │  ├─ corpus/
+  │  ├─ generate/
+  │  ├─ judge/
+  │  ├─ harness.py
+  │  ├─ run_eval.py
+  │  ├─ results/
++ │  ├─ analysis/
++ │  └─ FINDINGS.md
+  └─ (Makefile · docker-compose.yml · secrets/ · deployment/ · tests/ · .github/)
 ```
 
 ## The comparison under test
