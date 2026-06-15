@@ -6,8 +6,8 @@ The root `README.md` owns the hypotheses (H1–H7), architecture, release strate
 
 **Inputs → Outputs.** `produce/questions.jsonl` + the retrievers/generator/judges → per-run
 `eval/results/<run_id>.jsonl` + `<run_id>.manifest.json` (the downstream contract).
-**Key files.** `harness.py` (the loop), `run_eval.py` (wiring + CLI), `produce/`, `generate/`,
-`judge/`, `templates/`, `analysis/`. **How to run.** `uv run --extra generate python eval/run_eval.py --run …`.
+**Key files.** `harness.py` (the loop), `run_eval.py` (wiring + CLI), `generate/`,
+`judge/`. **How to run.** `uv run --extra generate python eval/run_eval.py --run …`.
 **Where it sits.** The Evaluation phase of the pipeline (root README → Architecture).
 
 Two generated surfaces are not hand-maintained — they live with the producer: the per-type
@@ -64,10 +64,11 @@ so they stay visibly distinct with their own READMEs:
 4. **Judge** (`judge/`). Scores answers against ground truth. Type-aware: deterministic for
    nine of ten types; the one LLM judge only for fuzzy/semantic.
 
-Downstream of these, `corpus/` holds the corpus-build profiles (the corpus dimension, produced
-by `ingest/corpus_profile.py`), and `analysis/` reads the per-run results into one tidy frame —
-the boundary that is being extracted to a separate analytics repo (see the root README's
-Output contract). All eval concerns live under `eval/`; no top-level eval folders elsewhere.
+Downstream of these, `ingest/corpus/` holds the corpus-build profiles (the corpus dimension,
+produced by `ingest/corpus_profile.py`), and the top-level `analysis/` sibling reads the per-run
+results into one tidy frame — the boundary that is being extracted to a separate analytics repo
+(see the root README's Output contract). `eval/` is Evaluation-only; the Producer (`produce/`)
+and Analysis (`analysis/`) phases live as top-level siblings.
 
 Generator, judge, and retriever all follow the same pluggable pattern: a `base.py` protocol
 plus concrete implementations swapped behind a registry in `run_eval.py`. This mirrors
@@ -172,7 +173,7 @@ The harness (`eval/harness.py`) writes one **JSONL row per question × retriever
 trial** to `eval/results/<run_id>.jsonl`, plus a per-run `<run_id>.manifest.json` of the
 run-constant factors. The row is **the grain** of all analysis — the atomic verdict every
 chart aggregates over. The analysis layer reads these (deduped to canonical rows; see
-[`eval/analysis/load.py`](analysis/load.py)).
+[`analysis/load.py`](../analysis/load.py)).
 
 Example row (a `graph_sparqlgen` trial on a 0-hop question; abridged — long `traversal_info`
 fields like `writer_reply_raw`/`endpoint` elided):
@@ -258,7 +259,7 @@ are retained for provenance.
 
 One `<run_id>.manifest.json` sits beside each results file, holding the factors that are
 **constant for the whole run** — so they are stored once per run, not repeated on every row.
-The analysis loader joins it onto each row by `run_id` (see [`load.py`](analysis/load.py)).
+The analysis loader joins it onto each row by `run_id` (see [`load.py`](../analysis/load.py)).
 
 ```json
 {

@@ -176,7 +176,7 @@ honest retrieval **miss** — empty context, `sparql_valid=false` — while tran
 timeout / connection) failures propagate to the harness's per-question isolation, the same
 split `graph.py` uses. A SELECT-only guard + auto-`LIMIT` bound the query before execution.
 
-What the first full run showed (→ `eval/FINDINGS.md`): query *execution* cracks the
+What the first full run showed (→ `analysis/FINDINGS.md`): query *execution* cracks the
 structural types neighborhood-dumping can't (aggregation **8/8**, the only arm ever to score
 there), and **recall is excellent** — the complete answer set lands in context on the large
 majority of content questions. The binary exact-set score understates it: the dominant

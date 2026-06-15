@@ -331,7 +331,7 @@ def to_markdown(rows: list[dict], manifest: RunManifest) -> str:
     L += [
         "> **Generated file — do not edit.** `eval/run_eval.py --run` overwrites this on "
         "every run. Curated cross-run observations and validity caveats live in "
-        "`eval/FINDINGS.md`.", "",
+        "`analysis/FINDINGS.md`.", "",
         "> **Preliminary — not the definitive metrics.** This is the latest run's auto-table "
         "snapshot for offline review. Definitive accuracy / recall / H7 analysis comes from "
         "the notebook + dashboard that read the per-row JSONL; it is a small smoke sample — "

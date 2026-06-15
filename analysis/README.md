@@ -7,8 +7,8 @@ part of producing results.
 **Inputs → Outputs.** `eval/results/<run_id>.jsonl` + `<run_id>.manifest.json`
 (+ `ingest/corpus/<id>.json`) → one canonical DataFrame (see [`load.py`](load.py)).
 **Key files.** `load.py` (discover + join + dedup-to-canonical-grain + reshape), `explore.ipynb`
-(exploratory charts). **How to run.** Import `from eval.analysis import load` in a notebook.
-**Where it sits.** Downstream of the Eval harness; reads the [Output contract](../../README.md#output-contract-downstream-interface).
+(exploratory charts). **How to run.** Import `from analysis import load` in a notebook.
+**Where it sits.** Downstream of the Eval harness; reads the [Output contract](../README.md#output-contract-downstream-interface).
 
 ## Extraction boundary (planned)
 

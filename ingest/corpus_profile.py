@@ -2,7 +2,7 @@
 """ingest/corpus_profile.py — measure a built corpus → committed corpus-build profile.
 
 The corpus is a factor in every eval, but the run manifest never recorded *which* corpus a
-run drew from — see the dedup note in eval/analysis/load.py: existing runs span "a rebuilt
+run drew from — see the dedup note in analysis/load.py: existing runs span "a rebuilt
 corpus", and nothing pins which. This script measures a built corpus once and emits a
 committed, citable profile JSON keyed by a human-readable **and** content-addressed
 `corpus_build_id` (e.g. `full-a1b2c3d4`). run_eval stamps that id into each manifest as a
@@ -199,7 +199,7 @@ def main() -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument("--scale", required=True, choices=["smoke", "sample", "full"],
-                    help="Run-scale label (eval/analysis terminology). Prefixes the build id.")
+                    help="Run-scale label (analysis terminology). Prefixes the build id.")
     ap.add_argument("--ttl", type=Path, required=True, help="Turtle source for the graph corpus.")
     ap.add_argument("--abstracts", type=Path, required=True,
                     help="Directory of source abstract files (the *.txt the vector store was built from).")

@@ -17,7 +17,7 @@ in the repository layout, the diagrams, and the sub-READMEs:
 |---|---|---|
 | **Groundwork**  | once per dataset version | **Knowledge Ingestion** Hetionet → RDF-star → GraphDB; [PubMed](https://pubmed.ncbi.nlm.nih.gov/) → embeddings → Chroma **Question & Ground-Truth Producer** question templates instantiating questions over the graph; deterministic ground truth computed by **SPARQL traversal** → `questions.jsonl` |
 | **Evaluation** | per run | the **Eval Harness** orchestrating **Retriever → Generator → Judge** → `rows.jsonl` + `manifest.json` (see [Output contract](#output-contract-downstream-interface)) |
-| **Analysis** | per analysis | Lightweight analysis in [jupyter notebook](eval/analysis/explore.ipynb) |
+| **Analysis** | per analysis | Lightweight analysis in [jupyter notebook](analysis/explore.ipynb) |
 
 The retrievers operate over the **same** biomedical knowledge in different
 representations: [Hetionet](https://github.com/hetio/hetionet) (a curated biomedical
@@ -91,8 +91,10 @@ No inline descriptions — the tag is the only annotation, so the tree shape sta
 │  ├─ judge/                    [Evaluation]
 │  ├─ harness.py                [Evaluation]
 │  ├─ run_eval.py               [Evaluation]
-│  ├─ results/                  [Evaluation]
-│  ├─ analysis/                 [Analysis]
+│  └─ results/                  [Evaluation]
+├─ analysis/                    [Analysis]
+│  ├─ load.py                   [Analysis]
+│  ├─ explore.ipynb             [Analysis]
 │  └─ FINDINGS.md               [Analysis]
 ├─ secrets/ · deployment/ · tests/ · .github/   [ops]
 ├─ Makefile · docker-compose.yml · pyproject.toml · uv.lock   [ops]
@@ -103,8 +105,8 @@ No inline descriptions — the tag is the only annotation, so the tree shape sta
 
 The same tree, repeated once per phase. Lines that belong to that phase are highlighted
 (`+`, green on GitHub); everything else is context (dimmed). Best for seeing the *shape*
-each phase occupies — Groundwork (`ingest/` + `produce/`) is fully outside `eval/`, which
-now holds only Evaluation and Analysis.
+each phase occupies — Groundwork (`ingest/` + `produce/`) and Analysis (`analysis/`) sit
+outside `eval/`, which now holds only Evaluation.
 
 **Groundwork**
 ```diff
@@ -126,8 +128,10 @@ now holds only Evaluation and Analysis.
   │  ├─ judge/
   │  ├─ harness.py
   │  ├─ run_eval.py
-  │  ├─ results/
-  │  ├─ analysis/
+  │  └─ results/
+  ├─ analysis/
+  │  ├─ load.py
+  │  ├─ explore.ipynb
   │  └─ FINDINGS.md
   └─ (Makefile · docker-compose.yml · secrets/ · deployment/ · tests/ · .github/)
 ```
@@ -152,8 +156,10 @@ now holds only Evaluation and Analysis.
 + │  ├─ judge/
 + │  ├─ harness.py
 + │  ├─ run_eval.py
-+ │  ├─ results/
-  │  ├─ analysis/
++ │  └─ results/
+  ├─ analysis/
+  │  ├─ load.py
+  │  ├─ explore.ipynb
   │  └─ FINDINGS.md
   └─ (Makefile · docker-compose.yml · secrets/ · deployment/ · tests/ · .github/)
 ```
@@ -178,8 +184,10 @@ now holds only Evaluation and Analysis.
   │  ├─ judge/
   │  ├─ harness.py
   │  ├─ run_eval.py
-  │  ├─ results/
-+ │  ├─ analysis/
+  │  └─ results/
++ ├─ analysis/
++ │  ├─ load.py
++ │  ├─ explore.ipynb
 + │  └─ FINDINGS.md
   └─ (Makefile · docker-compose.yml · secrets/ · deployment/ · tests/ · .github/)
 ```
@@ -243,7 +251,7 @@ graph — early, concrete evidence for H2/H4. Full worked example:
 ### Findings
 
 Published per release in `.github/release-notes/<version>.md` and on the GitHub Releases
-page; durable cross-run interpretation lives in [`eval/FINDINGS.md`](eval/FINDINGS.md).
+page; durable cross-run interpretation lives in [`analysis/FINDINGS.md`](analysis/FINDINGS.md).
 
 ## Stack
 
@@ -273,7 +281,7 @@ dashboards. Three artifacts form the contract:
 Field-level schemas, with JSON examples, live in
 [`eval/README.md` → Result row schema](eval/README.md#result-row-schema) and
 [Run manifest schema](eval/README.md#run-manifest-schema). There is no single `run.json` —
-that name is informal shorthand for the rows + manifest pair. `eval/analysis/` consumes
+that name is informal shorthand for the rows + manifest pair. `analysis/` consumes
 exactly these and is the lift-out point for the analytics repo; analysis tooling is
 deliberately **not** deepened in this repo.
 

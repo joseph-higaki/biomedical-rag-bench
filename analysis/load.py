@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""eval/analysis/load.py — the analysis layer's data loader (build step 5 → 8).
+"""analysis/load.py — the analysis layer's data loader (build step 5 → 8).
 
 The harness writes one JSONL row per question×run plus a per-run manifest (gitignored,
 machine-readable). This module turns that pile of run files into ONE tidy pandas DataFrame —
@@ -28,10 +28,10 @@ Three jobs, each a real correctness hazard if done ad hoc in a notebook cell:
 
 Telemetry columns are NaN for rows produced before the harness persisted `traversal_info`
 (commit 8b4c434) — that is expected and is exactly why the canonical conditions get re-run on
-the new schema. `python -m eval.analysis.load` prints a data-contract audit (canonical runs +
+the new schema. `python -m analysis.load` prints a data-contract audit (canonical runs +
 column coverage) — the exploratory pass's first deliverable.
 
-Needs the `eval` extra (pandas): `uv run --extra eval python -m eval.analysis.load`.
+Needs the `eval` extra (pandas): `uv run --extra eval python -m analysis.load`.
 """
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ from pathlib import Path
 
 import pandas as pd
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_RESULTS = REPO_ROOT / "eval" / "results"
 DEFAULT_CORPUS = REPO_ROOT / "ingest" / "corpus"  # committed corpus-build profiles (ingest/corpus/README.md)
 

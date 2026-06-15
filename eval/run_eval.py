@@ -254,7 +254,7 @@ def main() -> int:
     ap.add_argument(
         "--report", type=Path, default=REPO_ROOT / "eval" / "LATEST_RUN.md",
         help="Generated markdown snapshot for --run (overwritten every run; default "
-        "eval/LATEST_RUN.md). Curated cross-run observations live in eval/FINDINGS.md.",
+        "eval/LATEST_RUN.md). Curated cross-run observations live in analysis/FINDINGS.md.",
     )
     args = ap.parse_args()
 

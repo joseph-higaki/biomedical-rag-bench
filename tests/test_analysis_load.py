@@ -1,4 +1,4 @@
-"""Tests for eval/analysis/load.py — the analysis-layer loader (build step 5 → 8).
+"""Tests for analysis/load.py — the analysis-layer loader (build step 5 → 8).
 
 Hermetic: fabricates a few run files (jsonl + manifest) in tmp_path, so the loader's three
 correctness hazards are pinned without a real eval run — canonical dedup (newest run wins,
@@ -16,7 +16,7 @@ import pytest
 
 pytest.importorskip("pandas")  # the eval extra; skip cleanly under the deterministic suite
 
-from eval.analysis import load as L  # noqa: E402
+from analysis import load as L  # noqa: E402
 
 
 def _write_run(results_dir, run_id, retriever, model, ts, rows):

@@ -71,7 +71,7 @@ Each result row records the **resolved** id (`generator_model_resolved`) so a ve
 attributable to the precise snapshot — the reproducibility guarantee an alias can't give —
 while `generator_model` keeps the requested string. (The analysis loader normalizes a
 `generator_model_family` by stripping the snapshot date, so runs that logged the alias and
-runs that logged the resolved id group as one condition; see `eval/analysis/load.py`.)
+runs that logged the resolved id group as one condition; see `analysis/load.py`.)
 
 ## Tokens are billed truth
 
