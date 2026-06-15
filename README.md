@@ -138,12 +138,19 @@ hop-count and entity density. This is the claim under test, not the assumed conc
 
 ### Sub-hypotheses
 
-H1–H4 and H7 are **scored** — each yields a number per (retriever × question-type) cell.
-**H4 is deferred to `v1.1.0`** — defined here, but not part of the `v1.0.0` comparison (see
-[Build order](#build-order)).
-H5 and H6 are **structural** — properties of the representation observed by inspection or
-one-time measurement, not aggregated per question. Metric formulas live in
-[`eval/README.md` → Metrics](eval/README.md#metrics).
+H1–H4 and H7 are **scored per question** — each yields a number per (retriever ×
+question-type) cell. **H4 is deferred to `v1.1.0`** — defined here, but not part of the
+`v1.0.0` comparison (see [Build order](#build-order)).
+H5 and H6 are **per-backend, not per-question**: they describe the representation itself,
+so each yields one value per retriever rather than a per-type score. H5 is a *measured*
+build-and-query profile — query latency from `latency_ms` telemetry plus a one-time
+build-cost profile (wall-clock, on-disk footprint, corpus scale); methodology and the
+recorded numbers live in [`analysis/build-cost.md`](analysis/build-cost.md). H6 is
+*fixed by construction* — each retriever's `sources` field has a known granularity
+(claim-level URIs for graph, chunk ids for vector), so citation *presence* is settled by
+the architecture; the harder, scorable version (whether each answer claim actually traces
+to a returned source — attribution faithfulness) is **not yet built**. Scored-metric
+formulas live in [`eval/README.md` → Metrics](eval/README.md#metrics).
 
 | Hyp | Claim | How evaluated | Predicted |
 |---|---|---|---|
@@ -152,8 +159,8 @@ one-time measurement, not aggregated per question. Metric formulas live in
 | **H3** Multi-hop recall | graph recall stays flat as hops grow; vector decays | scored — recall vs hop-count (types 02/03/04) | graph |
 | **H4** Fuzzy/semantic recall | vector wins; graph may not answer at all | scored — type 10 accuracy (LLM judge) | vector |
 | **H7** Retrieval necessity | closed-book matches on easy classes, fails on hard ones | scored — `closed_book` gap across types | crossover (the primary finding) |
-| **H5** Compute / indexing | cheap query both sides; graph costly to index | structural — latency telemetry + one-time build cost | graph: cheap query, expensive index |
-| **H6** Citability | graph gives claim-level provenance; vector chunk-level | structural — shape of `sources` (URIs vs chunk ids) | graph |
+| **H5** Compute / indexing | cheap query both sides; graph costly to index | measured (per backend) — `latency_ms` query telemetry + one-time build-cost profile ([analysis/build-cost.md](analysis/build-cost.md)) | cheap query both sides; build cost is asymmetric — **measure, don't assume** |
+| **H6** Citability | graph gives claim-level provenance; vector chunk-level | by construction — `sources` granularity (URIs vs chunk ids); attribution faithfulness deferred | graph |
 
 ### Early observations
 
@@ -287,7 +294,7 @@ Granular per-session progress lives in the session journal.
   - [x] **Full vector corpus (parallel fetcher).** `pubmed_fetch.py` rewritten to a thread pool behind a global NCBI-rate cap (≈11 h → ≈1.7 h for all ~29k literature-kind entities); resumable via the per-entity file cache.
 - [x] **6. Verify the full eval pipeline on a question subset.** Run the integrated pipeline end-to-end on a small subset (against GraphDB) and confirm metrics for all conditions. **Done:** all five conditions run on a 10-question cross-type slice against the live triplestore (11.3M triples), fixed generator `claude-haiku-4-5`; deterministic metrics reproduce the canonical ordering (closed_book < vector < graph; sparqlgen highest), and the runs flow through `analysis/load.py` dedup. The sweep is `make eval-full` (full set; subset via `--limit`).
 - [x] **7. Scale to full Hetionet and full question set (~58).** **Done:** full graph loaded (11.27M triples); a complete 58-question sweep across all five conditions ran 2026-06-14 (deterministic + semantic judge). This session's subset run re-verified the pipeline end-to-end after the analysis-layer refactor and GraphDB recovery.
-- [ ] **8. Ship `v1.0.0` — the deterministic comparison.** Definitive full run, analysis + findings writeup, then tag + GitHub release. **Scope:** types 01–09 (deterministic judges) → hypotheses **H1, H2, H3, H7** (scored) and **H5, H6** (structural). **H4 / type-10 is explicitly excluded** and must not be cited as calibrated (see the pending item below).
+- [ ] **8. Ship `v1.0.0` — the deterministic comparison.** Definitive full run, analysis + findings writeup, then tag + GitHub release. **Scope:** types 01–09 (deterministic judges) → hypotheses **H1, H2, H3, H7** (scored per question) and **H5, H6** (per-backend: H5 a measured build/latency profile, H6 fixed by `sources` construction). **H4 / type-10 is explicitly excluded** and must not be cited as calibrated (see the pending item below).
 
 **Pending / deferred (not gating `v1.0.0`).**
 
