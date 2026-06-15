@@ -44,16 +44,26 @@ email-gated.
    secrets/graphdb.license
    ```
 
-3. Recreate the container so it picks up the mount:
+3. Recreate the container so it picks up the secret (a recreate, not a restart —
+   Compose reads the file at container-create time):
 
    ```bash
-   make down && make up
+   make down && make up      # or: make graphdb-ready (also self-heals a stale mount)
    ```
 
-`docker-compose.yml` mounts `./secrets` read-only at `/opt/graphdb/secrets` and
-sets `-Dgraphdb.license.file=/opt/graphdb/secrets/graphdb.license`. Keeping the
+`docker-compose.yml` injects this file as a **Docker Compose secret** (`graphdb_license`,
+source `./secrets/graphdb.license`), mounted read-only at `/run/secrets/graphdb_license`,
+and sets `-Dgraphdb.license.file=/run/secrets/graphdb_license`. This replaced an earlier
+full-directory bind (`./secrets:/opt/graphdb/secrets:ro`): a single read-only file at the
+conventional path, decoupled from the `.env` that also lives in `secrets/`. Keeping the
 license here (not under `graphdb-data/`) means `make clean-graphdb` can wipe the
 triplestore without destroying the license.
+
+> **WSL note.** A file-based Compose secret is still sourced from the host at `up` time,
+> so it does not by itself immunize against the WSL 9p mount staleness that can leave the
+> container without its license. That resilience comes from the container **healthcheck**
+> (probes the `hetionet` repo) plus **`make graphdb-ready`**, which recreates the container
+> to re-resolve a stale mount before a run. See `scripts/graphdb_ready.sh`.
 
 ### Reproducibility note
 

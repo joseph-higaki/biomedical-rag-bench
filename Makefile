@@ -1,4 +1,4 @@
-.PHONY: help hooks test registry explain ingest ingest-rdf ingest-vectors ingest-smoke ingest-load up down clean-graphdb eval-full
+.PHONY: help hooks test registry explain ingest ingest-rdf ingest-vectors ingest-smoke ingest-load up down clean-graphdb graphdb-ready eval-full
 
 # The model under test, fixed across all five conditions in a sweep (the hard constraint:
 # the generator never varies across retriever conditions in one comparison). Override per-run:
@@ -16,6 +16,9 @@ hooks:  ## Activate git hooks (.githooks/ — strips AI attribution from commit 
 up:  ## Start GraphDB locally (background)
 	docker compose up -d
 	@echo "GraphDB Workbench: http://localhost:7200"
+
+graphdb-ready:  ## Ensure GraphDB is up AND the hetionet repo is served; self-heal a stale WSL mount (down/up). Gates eval runs.
+	@bash scripts/graphdb_ready.sh
 
 down:  ## Stop GraphDB
 	docker compose down
@@ -53,13 +56,13 @@ ingest-load:  ## Load data/rdf/hetionet.ttl into GraphDB (clears existing data f
 registry:  ## Regenerate template registry + eval distribution table from YAML (offline)
 	uv run --extra produce python produce/templates/build_registry.py
 
-explain:  ## Regenerate producer worked examples (produce/EXAMPLE.md) — needs GraphDB + full graph
+explain: graphdb-ready  ## Regenerate producer worked examples (produce/EXAMPLE.md) — needs GraphDB + full graph
 	uv run --extra produce python produce/produce.py --explain --out produce/EXAMPLE.md
 
 test:  ## Run the test suite (hermetic — no downloaded data required)
 	uv run --extra ingest pytest
 
-eval-full: up  ## Full eval: all 58 questions × 5 retrievers, fixed generator (override GEN=...). Real API spend.
+eval-full: graphdb-ready  ## Full eval: all 58 questions × 5 retrievers, fixed generator (override GEN=...). Real API spend.
 	uv run --extra generate                python eval/run_eval.py --run --retriever closed_book             --generator $(GEN) --limit 58 --include-semantic
 	uv run --extra generate --extra vector python eval/run_eval.py --run --retriever vector                  --generator $(GEN) --limit 58 --include-semantic
 	uv run --extra generate --extra graph  python eval/run_eval.py --run --retriever graph_neighborhood_1hop  --generator $(GEN) --limit 58 --include-semantic

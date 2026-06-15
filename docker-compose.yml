@@ -6,11 +6,31 @@ services:
       - "127.0.0.1:7200:7200"   # localhost-only; never bind 0.0.0.0 in dev
     volumes:
       - ./graphdb-data:/opt/graphdb/home   # persists repos across restarts
-      - ./secrets:/opt/graphdb/secrets:ro  # holds graphdb.license (gitignored; see secrets/README.md)
+    secrets:
+      - graphdb_license          # injected at /run/secrets/graphdb_license (see secrets/README.md)
     environment:
       - GDB_HEAP_SIZE=4G          # bump to 6-8G when reasoning is enabled in Project 2
       # GraphDB 11 Free is no longer license-free: it needs a (free) license file
       # requested from Ontotext. Save the emailed file as ./secrets/graphdb.license.
-      # Mounted read-only above; pointed at here. See secrets/README.md.
-      - GDB_JAVA_OPTS=-Dgraphdb.license.file=/opt/graphdb/secrets/graphdb.license
+      # Injected as a Docker secret below; pointed at here. See secrets/README.md.
+      - GDB_JAVA_OPTS=-Dgraphdb.license.file=/run/secrets/graphdb_license
     restart: unless-stopped
+    healthcheck:
+      # Probes the hetionet repo, not just liveness. A stale WSL bind mount leaves
+      # GraphDB up but the repo unmounted (license lost -> restricted mode, or stale
+      # graphdb-data) -> /repositories/hetionet/size returns 404. /protocol stays 200
+      # in that state, so it would NOT catch the failure; the repo probe does.
+      # Unhealthy here means "not eval-ready". start_period covers normal cold boot.
+      test: ["CMD", "curl", "-fsS", "http://localhost:7200/repositories/hetionet/size"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+secrets:
+  # File-based Compose secret. Source is the gitignored per-developer license; Compose
+  # mounts it read-only at /run/secrets/graphdb_license. Replaces the previous full-dir
+  # `./secrets:/opt/graphdb/secrets:ro` bind: a single read-only file at the conventional
+  # path, decoupled from the broader secrets/ dir (which also holds the host-only .env).
+  graphdb_license:
+    file: ./secrets/graphdb.license
