@@ -16,13 +16,13 @@ in the repository layout, the diagrams, and the sub-READMEs:
 
 | Phase | Cadence | What it produces |
 |---|---|---|
-| **Groundwork** (offline, human-operated) | once per dataset version | **Knowledge Ingestion** (Hetionet → RDF-star → GraphDB; PubMed → embeddings → Chroma) and the **Question & Ground-Truth Producer** (hand-authored templates instantiated over the graph; ground truth computed by **SPARQL traversal, never an LLM**) → `questions.jsonl` |
-| **Evaluation** | per run | the **Eval Harness** orchestrating **Retriever → Generator → Judge** → `rows.jsonl` + `manifest.json` |
-| **Analysis** | per analysis | consumes the per-run results; being extracted to a separate analytics repo (see [Output contract](#output-contract-downstream-interface)) |
+| **Groundwork**  | once per dataset version | **Knowledge Ingestion** Hetionet → RDF-star → GraphDB; PubMed → embeddings → Chroma **Question & Ground-Truth Producer** question templates instantiating questions over the graph; deterministic ground truth computed by **SPARQL traversal** → `questions.jsonl` |
+| **Evaluation** | per run | the **Eval Harness** orchestrating **Retriever → Generator → Judge** → `rows.jsonl` + `manifest.json` (see [Output contract](#output-contract-downstream-interface)) |
+| **Analysis** | per analysis | Lightweight analysis in [jupyter notebook](eval/analysis/explore.ipynb) |
 
-Both retrievers operate over the **same** biomedical knowledge in different
+The retrievers operate over the **same** biomedical knowledge in different
 representations: [Hetionet](https://github.com/hetio/hetionet) (a curated biomedical
-knowledge graph) and PubMed abstracts. Both sides see the same entities — the comparison
+knowledge graph) and PubMed abstracts. Every condition sees the same entities — the comparison
 is *representation, not content*. Format detail (URI schemes, RDF-star, the embedding
 model) lives in the ingestion READMEs ([`ingest/rdf`](ingest/rdf/README.md),
 [`ingest/vector`](ingest/vector/README.md)). The three LLM roles (generator under test,
@@ -195,7 +195,7 @@ Technologies keyed by the canonical components. Versions are pinned in `pyprojec
 
 | Phase / component | Technology | Why |
 |---|---|---|
-| Knowledge Ingestion — graph | Ontotext GraphDB Free + RDF-star Turtle | triplestore; ruleset `empty` (reasoning is a later increment). A free license is required for writes — see [`secrets/README.md`](secrets/README.md). |
+| Knowledge Ingestion — RDF graph | Ontotext GraphDB Free + RDF-star Turtle | triplestore; ruleset `empty` (reasoning is the Project 2 factor). A free license is required for writes — see [`secrets/README.md`](secrets/README.md). Named *RDF graph*, not *graph*, to read distinctly against Project 3's LPG. |
 | Knowledge Ingestion — vector | Chroma (embedded) + `all-MiniLM-L6-v2` | local, free, reproducible |
 | Question & Ground-Truth Producer | Python + SPARQL over GraphDB | ground truth computed by traversal, never an LLM |
 | Retriever | plain Python; `graph_sparqlgen` adds an LLM **SPARQL writer** (`SPARQLGEN_MODEL`) | one interface, four implementations (five conditions); writer cost logged apart from the generator |
@@ -222,27 +222,45 @@ deliberately **not** deepened in this repo.
 
 ## Reproducing results
 
+`eval/questions.jsonl` ships frozen, so reproduction does **not** regenerate the question
+set — it stands up the stores, then runs the eval. Per-step detail lives in the ingestion
+READMEs; this is the spine.
+
+### Prerequisites (one-time)
+
+- **`uv`** installed — this repo has no `python`/`pip` on PATH and no `requirements.txt`.
+- **`secrets/.env`** — copy `secrets/.env.example` and fill in the LLM provider key (generator,
+  SPARQL writer, semantic judge) plus the optional NCBI key. See [`secrets/README.md`](secrets/README.md).
+- **`secrets/graphdb.license`** — GraphDB 11 Free rejects *writes* without it (free, email-gated).
+  See [`secrets/README.md`](secrets/README.md#graphdb-license-required).
+
+### Steps
+
 ```bash
-# Clone and check out a specific release
+# 1. Clone and check out a specific release
 git clone https://github.com/joseph-higaki/biomedical-rag-bench
 cd biomedical-rag-bench
 git checkout v1.0.0
 
-# Start GraphDB locally
+# 2. Start GraphDB (mounts the license from secrets/)
 docker compose up -d
 
-# Run the ingestion pipeline (see ingest/README.md for details)
+# 3. Build the ingestion artifacts: ontology/hetionet.ttl + the Chroma collection
 make ingest
 
-# Load ontology/hetionet.ttl into GraphDB via the Workbench
-# (one-time, ~2 minutes; instructions in ingest/README.md)
+# 4. Create the `hetionet` repo and stream-load the Turtle (one-time, ~5–10 min).
+#    Repo config + load commands live in ingest/rdf/README.md
+#    → "One-time GraphDB repository setup".
 
-# Run the eval
-uv run python eval/run_eval.py --generator <model-id>
+# 5. Run the eval (full retrieve → generate → judge loop). The --extra must match the
+#    retriever: vector → `vector`, graph_* → `graph`; any LLM path also needs `generate`.
+#    Repeat per retriever condition you want to reproduce.
+uv run --extra graph --extra generate python eval/run_eval.py --run \
+    --retriever graph_neighborhood_1hop --generator anthropic:claude-haiku-4-5
 ```
 
 Expected runtime end-to-end: ~2 hours on a modern laptop, dominated by PubMed fetch
-(rate-limited by NCBI) and embedding generation.
+(rate-limited by NCBI) and embedding generation; the GraphDB load (step 4) is ~5–10 minutes.
 
 ## Roadmap & status
 
@@ -255,6 +273,15 @@ describes the *current* increment.
 | Project 1 — Vector RAG vs RDF GraphRAG | `v1.0.0` | the conditions above | In development |
 | Project 2 — OWL reasoning over RDF | `v2.0.0` | reasoning over the same triples | Planned |
 | Project 3 — RDF vs LPG (Neo4j) | `v3.0.0` | a labeled-property-graph retriever | Planned |
+
+**Architectural shape of the next two projects.** Project 2 adds reasoning as a *factor*,
+not a retriever: the GraphDB ruleset moves `empty` → OWL and the TBox in
+`ontology/hetionet-schema.ttl` is populated, but the existing graph retrievers query the
+reasoning-enabled store **unchanged**. The reasoning level is recorded per result in the
+run manifest, so the same `graph_neighborhood`/`graph_sparqlgen` code yields new *conditions*
+(`@ reasoning=owl`) — keeping the comparison "same query, different store semantics." Project
+3, by contrast, adds LPG as a *new retriever* (`retrievers/lpg.py` + `ingest/lpg/` + a Neo4j
+service), since it changes the store, the query language (Cypher), and the ingestion path.
 
 ### Build order
 
