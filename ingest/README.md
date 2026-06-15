@@ -1,6 +1,7 @@
 # Knowledge Ingestion
 
-**Purpose.** The build-once, offline phase: two ingestion paths, one per representation, that
+**Purpose.** The Knowledge Ingestion side of the **Groundwork** phase (offline, run once per
+dataset version): two ingestion paths, one per representation, that
 turn the same Hetionet source into the artifacts retrieval queries. The split mirrors the
 project's core comparison — graph vs. vector — and keeps each side's operational detail
 self-contained.

@@ -14,13 +14,11 @@ under additive-only constraints.
 The benchmark has three phases, and the canonical vocabulary below is used everywhere —
 in the repository layout, the diagrams, and the sub-READMEs:
 
-- **Build-once** (offline, human-operated) — run once per dataset version:
-  - **Knowledge Ingestion** — Hetionet → RDF-star → GraphDB, and PubMed → embeddings → Chroma.
-  - **Question & Ground-Truth Producer** — hand-authored templates instantiated over the
-    graph; ground truth is computed by **SPARQL traversal, never by an LLM**.
-- **Evaluation** (per run) — the **Eval Harness** orchestrating **Retriever → Generator → Judge**.
-- **Analysis** — consumes the per-run results (and is being extracted to a separate
-  analytics repo; see [Output contract](#output-contract-downstream-interface)).
+| Phase | Cadence | What it produces |
+|---|---|---|
+| **Groundwork** (offline, human-operated) | once per dataset version | **Knowledge Ingestion** (Hetionet → RDF-star → GraphDB; PubMed → embeddings → Chroma) and the **Question & Ground-Truth Producer** (hand-authored templates instantiated over the graph; ground truth computed by **SPARQL traversal, never an LLM**) → `questions.jsonl` |
+| **Evaluation** | per run | the **Eval Harness** orchestrating **Retriever → Generator → Judge** → `rows.jsonl` + `manifest.json` |
+| **Analysis** | per analysis | consumes the per-run results; being extracted to a separate analytics repo (see [Output contract](#output-contract-downstream-interface)) |
 
 Both retrievers operate over the **same** biomedical knowledge in different
 representations: [Hetionet](https://github.com/hetio/hetionet) (a curated biomedical
@@ -30,58 +28,14 @@ model) lives in the ingestion READMEs ([`ingest/rdf`](ingest/rdf/README.md),
 [`ingest/vector`](ingest/vector/README.md)). The three LLM roles (generator under test,
 SPARQL writer, semantic judge) are catalogued in [`eval/llm-roles.md`](eval/llm-roles.md).
 
-> **Two diagram proposals below (Option A and Option B).** Both are committed for offline
-> review; a future commit keeps one and deletes the other. (GitHub-flavored markdown can't
-> render two mermaid blocks truly side-by-side, so they're stacked.)
-
-### Option A — phase-banded container view
-
-```mermaid
-flowchart TB
-    hetionet["Hetionet<br/>(external · JSON knowledge graph)"]
-    pubmed["PubMed<br/>(external · NCBI E-utilities)"]
-
-    subgraph build["Build-once — offline, human-operated"]
-        direction TB
-        ingest["Knowledge Ingestion<br/>Hetionet → RDF-star · PubMed → embeddings"]
-        producer["Question & Ground-Truth Producer<br/>templates + graph traversal → questions.jsonl<br/>(ground truth from SPARQL, never an LLM)"]
-        graphdb[("GraphDB<br/>hetionet.ttl")]
-        chroma[("Chroma<br/>abstract embeddings")]
-    end
-
-    subgraph evalrun["Evaluation — per run"]
-        direction TB
-        harness["Eval Harness"]
-        retriever["Retriever<br/>closed_book · vector · graph_neighborhood · graph_sparqlgen"]
-        generator["Generator<br/>model under test, fixed per run"]
-        judge["Judge<br/>deterministic + one LLM judge"]
-        harness --> retriever --> generator --> judge
-    end
-
-    subgraph analysis["Analysis — consumes results"]
-        an["load → tidy frame → charts<br/>(extracted to biomedical-rag-bench-analytics)"]
-    end
-
-    hetionet --> ingest
-    pubmed --> ingest
-    ingest -->|loads| graphdb
-    ingest -->|writes| chroma
-    ingest -.->|hetionet.ttl seeds entities| producer
-    producer -->|ground-truth SPARQL| graphdb
-    producer ==>|questions.jsonl| harness
-    retriever -->|SPARQL| graphdb
-    retriever -->|similarity| chroma
-    judge ==>|"rows.jsonl + manifest.json"| an
-```
-
-### Option B — linear artifact pipeline
+### Architecture diagram — linear artifact pipeline
 
 ```mermaid
 flowchart LR
     hetionet["Hetionet"] --> ki
     pubmed["PubMed"] --> ki
 
-    subgraph build["Build-once (offline)"]
+    subgraph build["Groundwork (offline)"]
         direction TB
         ki["Knowledge Ingestion"]
         prod["Question & Ground-Truth Producer"]
@@ -107,10 +61,14 @@ flowchart LR
 
 ## Repository structure
 
-Folders grouped by the three phases; only entry-point files are called out.
+Two layouts below for offline A/B review (a future commit keeps one). Tags mark where an
+artifact is *produced* — **Groundwork**, **Evaluation**, **Analysis** — with shared tooling
+as **ops**; `eval/corpus/` is Groundwork (written at build time) though Analysis consumes it.
+
+### Version A — grouped by phase
 
 ```
-Build-once (offline, human-operated)
+Groundwork (offline, human-operated)
   ingest/                  Knowledge Ingestion
     rdf/                     Hetionet JSON → RDF-star Turtle → GraphDB
     vector/                  PubMed → Chroma (reads hetionet.ttl for the entity set)
@@ -119,6 +77,7 @@ Build-once (offline, human-operated)
   eval/templates/          hand-authored templates (<name>.yaml + ground_truth/<name>.rq)
   eval/produce/            Producer: templates + graph → questions.jsonl (ground truth via SPARQL)
   eval/questions.jsonl     GENERATED eval set (frozen, append-only)
+  eval/corpus/             corpus-build profiles (the corpus dimension; consumed by Analysis)
 
 Evaluation (per run)
   retrievers/              the swap point — base.py + 4 conditions (null/vector/graph/sparqlgen)
@@ -130,7 +89,6 @@ Evaluation (per run)
 
 Analysis (consumes results)
   eval/analysis/           load.py + explore.ipynb — lift-out point for the analytics repo
-  eval/corpus/             corpus-build profiles (the corpus dimension)
 
 Project / ops
   Makefile · docker-compose.yml · pyproject.toml · uv.lock · LICENSE
@@ -138,18 +96,55 @@ Project / ops
   README.md (this file) · eval/README.md (eval design) · eval/llm-roles.md
 ```
 
+### Version B — real tree, phase-tagged
+
+The actual directory hierarchy (folder level), every line tagged to its phase. `eval/`
+itself carries no single tag because it straddles all three.
+
+```
+[Groundwork]  ingest/             Knowledge Ingestion
+[Groundwork]    rdf/              Hetionet JSON → RDF-star → GraphDB
+[Groundwork]    vector/           PubMed → Chroma (reads hetionet.ttl for entities)
+[Groundwork]    corpus_profile.py measure a built corpus → eval/corpus/<id>.json
+[Groundwork]  ontology/           hetionet.ttl (full) · hetionet-smoke.ttl (slice)
+[Evaluation]  retrievers/         swap point — base.py + 4 conditions (null/vector/graph/sparqlgen)
+[—]           eval/               (straddles all three phases)
+[Groundwork]    templates/        hand-authored templates (.yaml + ground_truth/.rq)
+[Groundwork]    produce/          Producer: templates + graph → questions.jsonl
+[Groundwork]    questions.jsonl   GENERATED eval set (frozen, append-only)
+[Evaluation]    generate/         Generator — provider-agnostic adapters (Anthropic, Ollama)
+[Evaluation]    judge/            deterministic (9/10 types) + semantic LLM judge
+[Evaluation]    harness.py        retrieve → generate → judge loop
+[Evaluation]    run_eval.py       retriever + generator registries + CLI
+[Evaluation]    results/          GENERATED per-run output: <run_id>.jsonl + .manifest.json (gitignored)
+[Groundwork]    corpus/           corpus-build profiles (the corpus dimension)
+[Analysis]      analysis/         load.py + explore.ipynb — analytics lift-out point
+[Analysis]      FINDINGS.md       durable cross-run interpretation
+[—]             README.md         eval design
+[—]             llm-roles.md      the three LLM roles
+[ops]         Makefile · docker-compose.yml · pyproject.toml · uv.lock · LICENSE
+[ops]         secrets/ · deployment/ · tests/ · .github/
+[—]           README.md           this file
+```
+
 ## The comparison under test
 
-The current increment compares **four retriever conditions**, all returning the same
-`RetrievalResult` shape so the harness is condition-agnostic and differences reflect
+The current increment compares **five conditions** across four retriever implementations —
+`graph_neighborhood` is evaluated at two traversal depths. All return the same
+`RetrievalResult` shape, so the harness is condition-agnostic and differences reflect
 *representation*, not measurement:
 
-- `closed_book` — empty context; the **baseline** that measures whether retrieval helps at all.
-- `vector` — top-k Chroma similarity (the control).
-- `graph_neighborhood` — deterministic entity-link + k-hop traversal, **no LLM**; isolates the representation.
-- `graph_sparqlgen` — an LLM writes the SPARQL; measures the realistic deployed system (its writer-LLM cost is logged apart from the generator).
+| Condition | Augmented context comes from | Role | LLM at retrieval? |
+|---|---|---|---|
+| `closed_book` | nothing (empty context) | **baseline** — measures whether retrieval helps at all | no |
+| `vector` | top-k Chroma similarity | the control | no |
+| `graph_neighborhood` (k=1) | entity-link + **1-hop** traversal of the RDF graph | isolates representation at the shallowest hop | no |
+| `graph_neighborhood` (2-hop) | entity-link + **2-hop** traversal of the RDF graph | tests the same mechanism's multi-hop reach | no |
+| `graph_sparqlgen` | results of an **LLM-written** SPARQL query | the realistic deployed system | yes — SPARQL writer, cost logged apart from the generator |
 
-The interface, per-condition mechanisms, and telemetry are documented in
+Both `graph_neighborhood` flavors are deterministic (**no LLM** in the loop); they differ
+only in traversal depth, so the pair isolates how much multi-hop context the same mechanism
+must pass as augmented context. The interface, per-condition mechanisms, and telemetry are documented in
 [`retrievers/README.md`](retrievers/README.md). Ground truth is derived from graph
 traversal, never from LLM generation; the question set is append-only across increments,
 so prior results stay comparable.
@@ -203,7 +198,7 @@ Technologies keyed by the canonical components. Versions are pinned in `pyprojec
 | Knowledge Ingestion — graph | Ontotext GraphDB Free + RDF-star Turtle | triplestore; ruleset `empty` (reasoning is a later increment). A free license is required for writes — see [`secrets/README.md`](secrets/README.md). |
 | Knowledge Ingestion — vector | Chroma (embedded) + `all-MiniLM-L6-v2` | local, free, reproducible |
 | Question & Ground-Truth Producer | Python + SPARQL over GraphDB | ground truth computed by traversal, never an LLM |
-| Retriever | plain Python; `graph_sparqlgen` adds an LLM **SPARQL writer** (`SPARQLGEN_MODEL`) | one interface, four conditions; writer cost logged apart from the generator |
+| Retriever | plain Python; `graph_sparqlgen` adds an LLM **SPARQL writer** (`SPARQLGEN_MODEL`) | one interface, four implementations (five conditions); writer cost logged apart from the generator |
 | Generator (under test) | Anthropic / Ollama via `GENERATOR_MODEL` | generator-agnostic; fixed within a run |
 | Judge | deterministic (9/10 types) + one LLM judge (`JUDGE_MODEL`) | determinism where feasible |
 | Orchestration | plain Python, `uv` | no LangChain / LlamaIndex — abstraction layers obscure what is being measured |
@@ -257,7 +252,7 @@ describes the *current* increment.
 
 | Project | Tag | Adds | Status |
 |---|---|---|---|
-| Project 1 — Vector RAG vs RDF GraphRAG | `v1.0.0` | the four conditions above | In development |
+| Project 1 — Vector RAG vs RDF GraphRAG | `v1.0.0` | the conditions above | In development |
 | Project 2 — OWL reasoning over RDF | `v2.0.0` | reasoning over the same triples | Planned |
 | Project 3 — RDF vs LPG (Neo4j) | `v3.0.0` | a labeled-property-graph retriever | Planned |
 
@@ -276,7 +271,7 @@ Granular per-session progress lives in the session journal.
 - [x] **4. Build the retriever interface and retrievers.** All implement the `Retriever` protocol in `retrievers/base.py`. **Done:** `closed_book`, `vector`, `graph_neighborhood` (1/2-hop), and `graph_sparqlgen`, registered in `eval/run_eval.py`. See [retrievers/README.md](retrievers/README.md).
 - [x] **5. Build the eval harness and judges.** **Done:** `eval/harness.py` (retrieve → generate → judge, run via `eval/run_eval.py --run`), the provider-agnostic generator in `eval/generate/` (Anthropic + Ollama), and all six judges in `eval/judge/` (five deterministic + the `semantic` LLM judge), all tested. Remaining sub-items are follow-ups, not blockers.
   - [ ] *(low priority)* **Shared config module.** Consolidate the per-script `find_dotenv("secrets/.env")` into a `config.py` exposing an immutable `settings`, fail-fast on required keys. Only worth it once there's a second consumer — don't land dead code.
-  - [ ] **Architecture diagrams.** The container view is above (resolve Option A/B). Remaining: a component-level diagram per subsystem and an end-to-end sequence diagram once producer → harness → judge are diagrammed together.
+  - [ ] **Architecture diagrams.** The container view is above. Remaining: a component-level diagram per subsystem and an end-to-end sequence diagram once producer → harness → judge are diagrammed together.
   - [ ] **Architectural doc review of the three LLM roles.** Fold [eval/llm-roles.md](eval/llm-roles.md) into the component-level diagrams (the roles as distinct nodes, not one "LLM" box) and reconcile across the eval/retriever READMEs.
   - [ ] **(pending follow-up) Calibrate the type-10 `semantic` LLM judge (Cohen's kappa).** Built but **not yet trusted**: it earns trust only after agreement with human grades clears kappa > 0.7 over a ≥20-question hold-out. **Blocked on expanding the append-only type-10 set** (only 6 today, all textbook-famous, so they don't yet test H4). Until it lands, **do not cite type-10 accuracy as calibrated** (first-run verdicts were spot-checked 12/12 — promising, not the formal study).
   - [x] **Full vector corpus (parallel fetcher).** `pubmed_fetch.py` rewritten to a thread pool behind a global NCBI-rate cap (≈11 h → ≈1.7 h for all ~29k literature-kind entities); resumable via the per-entity file cache.
