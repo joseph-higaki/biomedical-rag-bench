@@ -257,7 +257,7 @@ class RunManifest:
     # generator_model; renders into the manifest table automatically (to_dict iterates fields).
     generator_temperature: float | None = None
     # The corpus the run retrieved against — a content-addressed *reference* to a committed
-    # eval/corpus/<id>.json profile (see eval/corpus/README.md), not a re-measurement. Lets the
+    # ingest/corpus/<id>.json profile (see ingest/corpus/README.md), not a re-measurement. Lets the
     # analysis layer group results by corpus and diff scales (smoke vs full). None = a run made
     # before corpus provenance, or with no corpus declared — additive/optional like the above.
     corpus_build_id: str | None = None

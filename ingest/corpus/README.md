@@ -12,7 +12,7 @@ analysis layer joins on it. Generated data, not hand-edited.
 This file is the authoritative source for *what the profiles mean* and how each number is
 measured. The **numbers themselves are not hand-maintained in prose** — the `*.json` files are
 the single source of truth (same discipline as the question distribution in
-[`eval/README.md`](../README.md)). The table below is a snapshot of two **named build ids**;
+[`eval/README.md`](../../eval/README.md)). The table below is a snapshot of two **named build ids**;
 regenerate it from the JSON rather than editing digits in place.
 
 ## What a profile is
@@ -25,7 +25,7 @@ A profile measures a corpus from its *built* artifacts and is keyed by a `corpus
 
 Readable at a glance (`smoke` / `sample` / `full`) **and** content-addressed: `fp8` is
 `sha256(ttl_sha256 + vector_signature)[:8]`, so changing either backend — a regenerated graph,
-a re-embedded store — mints a new id. The id is the join key: [`run_eval`](../run_eval.py)
+a re-embedded store — mints a new id. The id is the join key: [`run_eval`](../../eval/run_eval.py)
 stamps it into each run manifest as a one-field *reference* (not a re-measurement), so the
 analysis layer can group results by corpus and the smoke/full comparison is just two rows.
 

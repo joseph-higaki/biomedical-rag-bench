@@ -23,9 +23,9 @@ RNG draws reproducibly).
 All sample modes are supported: single-placeholder `has_edge` (01/02/05, with an
 optional multi-hop answer post-check for 03/04), `lacks_edge` (08), `paired` set
 (06/07), `paired` boolean (09), and 0-placeholder fixed (10). See the build-increment
-table in eval/produce/README.md.
+table in produce/README.md.
 
-    uv run --extra produce python eval/produce/produce.py \\
+    uv run --extra produce python produce/produce.py \\
         --template genes_expressed_in_anatomy --out /tmp/q.jsonl
 
 `--explain` emits a markdown worked-example trace (candidate query, seeded pick,
@@ -44,14 +44,14 @@ import yaml
 
 # run_query is the single GraphDB execution seam, owned by the step-2 runner and
 # shared with build_registry.py. The producer is a distinct concern in its own
-# folder (eval/produce/), so we reach the seam by putting the templates dir on the
+# folder (produce/), so we reach the seam by putting the templates dir on the
 # path rather than duplicating it. If a third consumer appears, extract run_query to
 # a shared eval module; one sys.path insert doesn't yet justify that refactor.
-TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
+TEMPLATES_DIR = Path(__file__).parent / "templates"
 sys.path.insert(0, str(TEMPLATES_DIR))
 from run_ground_truth import DEFAULT_GRAPHDB_ENDPOINT, run_query  # noqa: E402
 
-DEFAULT_OUT = Path(__file__).parent.parent / "questions.jsonl"
+DEFAULT_OUT = Path(__file__).parent / "questions.jsonl"
 DEFAULT_SEED = "20260605"
 
 # The candidate query only ever references node types and edges, both in the hetio:

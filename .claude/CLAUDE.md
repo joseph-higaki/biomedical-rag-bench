@@ -13,7 +13,7 @@ Read @README.md first. It covers the hypothesis, architecture, stack, file layou
 These rules govern code generation and may not be relaxed without explicit instruction.
 
 - **Telemetry is additive only.** New retrievers may add keys to `RetrievalResult.traversal_info`. They never remove or rename existing keys. The `RetrievalResult` dataclass fields themselves are also additive — new optional fields only, never breaking changes. See @retrievers/base.py for the contract.
-- **Question set is append-only.** New questions may be added to @eval/questions.jsonl. Existing questions are not removed, reworded, or relabeled. Ground-truth corrections require a MAJOR version bump and explicit user instruction.
+- **Question set is append-only.** New questions may be added to @produce/questions.jsonl. Existing questions are not removed, reworded, or relabeled. Ground-truth corrections require a MAJOR version bump and explicit user instruction.
 - **Generator LLM is fixed within a run.** Never vary the generator across retriever conditions in the same eval run. The model is read from `GENERATOR_MODEL` env var and logged with every result.
 - **No LangChain, LlamaIndex, or similar orchestration frameworks.** Hand-rolled retrievers, ~100 lines each. Abstraction layers obscure what is being measured.
 - **Reasoning ruleset stays `empty` on the GraphDB repository in Project 1.** Reasoning is the variable Project 2 introduces.

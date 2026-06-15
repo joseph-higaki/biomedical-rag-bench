@@ -188,5 +188,5 @@ text-to-SPARQL relocates answer-hallucination into *query*-imprecision, as predi
 Document at the granularity of the **swap point** (this contract), not the
 implementation. A retriever earns its own folder + README only when it stops being a
 ~one-file implementation and becomes a multi-file sub-package — the same trigger that
-gave `eval/produce/` its folder. Until then, it's a section here, where the
+gave `produce/` its folder. Until then, it's a section here, where the
 side-by-side comparison that is this benchmark's whole point stays legible.

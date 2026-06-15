@@ -55,7 +55,7 @@ from pathlib import Path
 from ingest.vector.build_vectors import COLLECTION, EMBED_MODEL, chunk_text, parse_entity_file
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OUT = REPO_ROOT / "eval" / "corpus"
+DEFAULT_OUT = REPO_ROOT / "ingest" / "corpus"
 HETIO_SCHEMA = "https://het.io/schema/"  # metanode classes live here; see retrievers/graph.py
 
 # Chunk window the corpus was built with, read from chunk_text's signature defaults so the

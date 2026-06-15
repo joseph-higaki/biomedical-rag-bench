@@ -56,14 +56,14 @@ from retrievers.null import NullRetriever  # noqa: E402
 from retrievers.sparqlgen import SparqlGenRetriever  # noqa: E402
 from retrievers.vector import VectorRetriever  # noqa: E402
 
-CORPUS_DIR = REPO_ROOT / "eval" / "corpus"  # committed corpus-build profiles (eval/corpus/README.md)
+CORPUS_DIR = REPO_ROOT / "ingest" / "corpus"  # committed corpus-build profiles (ingest/corpus/README.md)
 
 
 def _active_corpus_build_id() -> str | None:
     """The corpus_build_id to stamp into the run manifest — the run-constant *corpus* factor.
 
-    Resolution: $CORPUS_BUILD_ID, else the committed eval/corpus/ACTIVE pointer. A declared id
-    must name an existing eval/corpus/<id>.json, so a typo or an unbuilt corpus fails fast rather
+    Resolution: $CORPUS_BUILD_ID, else the committed ingest/corpus/ACTIVE pointer. A declared id
+    must name an existing ingest/corpus/<id>.json, so a typo or an unbuilt corpus fails fast rather
     than recording an unverifiable reference. Undeclared resolves to None with a warning: the run
     still proceeds (legacy-compatible, additive) but isn't corpus-attributable. The pointer is a
     *declaration* — keep it consistent with the GraphDB repo / CHROMA_STORE the run actually
@@ -73,12 +73,12 @@ def _active_corpus_build_id() -> str | None:
         pointer = CORPUS_DIR / "ACTIVE"
         active = pointer.read_text().strip() if pointer.exists() else None
     if active is None:
-        print("  warning: no corpus declared (set CORPUS_BUILD_ID or write eval/corpus/ACTIVE); "
+        print("  warning: no corpus declared (set CORPUS_BUILD_ID or write ingest/corpus/ACTIVE); "
               "manifest corpus_build_id will be null", file=sys.stderr)
         return None
     if not (CORPUS_DIR / f"{active}.json").exists():
-        raise SystemExit(f"corpus_build_id '{active}' has no profile at eval/corpus/{active}.json "
-                         f"— run ingest/corpus_profile.py or fix CORPUS_BUILD_ID / eval/corpus/ACTIVE")
+        raise SystemExit(f"corpus_build_id '{active}' has no profile at ingest/corpus/{active}.json "
+                         f"— run ingest/corpus_profile.py or fix CORPUS_BUILD_ID / ingest/corpus/ACTIVE")
     return active
 
 
@@ -147,7 +147,7 @@ GENERATOR_TEMPERATURE = float(os.environ.get("GENERATOR_TEMPERATURE", "0.0"))
 #   - SPARQLGEN_MODEL / SPARQLGEN_TEMPERATURE   (retrievers/sparqlgen.py — the writer LLM)
 #   - GRAPHDB_ENDPOINT                          (retrievers/graph.py, retrievers/sparqlgen.py)
 #   - CHROMA_STORE                              (retrievers/vector.py)
-#   - CORPUS_BUILD_ID                           (eval/corpus/ACTIVE)
+#   - CORPUS_BUILD_ID                           (ingest/corpus/ACTIVE)
 # Surface these as CLI args (a single RunConfig the harness threads down to the retriever/generator
 # constructors), keeping the env vars only as fallback. The sparqlgen writer model+temp are the
 # canonical example: they belong beside --generator on the command line, not hidden in the retriever
@@ -244,7 +244,7 @@ def main() -> int:
         "Naming a type selects it explicitly (a named semantic type is included).",
     )
     ap.add_argument(
-        "--questions", type=Path, default=REPO_ROOT / "eval" / "questions.jsonl",
+        "--questions", type=Path, default=REPO_ROOT / "produce" / "questions.jsonl",
         help="Question set for --run.",
     )
     ap.add_argument(

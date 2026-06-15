@@ -19,8 +19,8 @@ execution seam the registry generator and the step-3 producer share. Endpoint
 defaults to the local container; override with GRAPHDB_ENDPOINT.
 
 Usage:
-    uv run --extra graph python eval/templates/run_ground_truth.py \\
-        --query eval/templates/ground_truth/genes_expressed_in_anatomy.rq
+    uv run --extra graph python produce/templates/run_ground_truth.py \\
+        --query produce/templates/ground_truth/genes_expressed_in_anatomy.rq
 """
 from __future__ import annotations
 

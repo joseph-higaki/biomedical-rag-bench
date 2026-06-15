@@ -1,6 +1,6 @@
 # Judging
 
-The third eval concern (after [production](../produce/README.md) and the harness):
+The third eval concern (after [production](../../produce/README.md) and the harness):
 scoring a generated answer against ground truth. It mirrors the
 [`retrievers/`](../../retrievers/README.md) design — a `base.py` contract plus
 pluggable implementations — so the harness is judge-agnostic: it looks a judge up by

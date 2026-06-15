@@ -43,7 +43,7 @@ import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RESULTS = REPO_ROOT / "eval" / "results"
-DEFAULT_CORPUS = REPO_ROOT / "eval" / "corpus"  # committed corpus-build profiles (eval/corpus/README.md)
+DEFAULT_CORPUS = REPO_ROOT / "ingest" / "corpus"  # committed corpus-build profiles (ingest/corpus/README.md)
 
 # judge_details / traversal_info keys lifted into top-level columns. Read with .get, so a key
 # absent from a given row (old schema, or a different retriever/scoring) lands as NaN rather
@@ -102,7 +102,7 @@ def load_raw(results_dir: Path = DEFAULT_RESULTS) -> pd.DataFrame:
         df["generator_model"] = run["generator_model"]
         df["judge"] = run.get("judge")
         df["harness_version"] = run.get("harness_version")
-        # The corpus factor: a reference to a committed profile (eval/corpus/<id>.json). None on
+        # The corpus factor: a reference to a committed profile (ingest/corpus/<id>.json). None on
         # legacy runs made before provenance — joined to scale metrics in load() below.
         df["corpus_build_id"] = run.get("corpus_build_id")
         frames.append(df)
@@ -123,7 +123,7 @@ def load_raw(results_dir: Path = DEFAULT_RESULTS) -> pd.DataFrame:
 
 
 def corpus_profiles(corpus_dir: Path = DEFAULT_CORPUS) -> pd.DataFrame:
-    """One row per corpus_build_id from eval/corpus/<id>.json: scale metrics, prefixed `corpus_`.
+    """One row per corpus_build_id from ingest/corpus/<id>.json: scale metrics, prefixed `corpus_`.
 
     These join onto results by corpus_build_id so the analysis can read "how big was the corpus"
     beside each verdict and diff smoke vs full. The `corpus_` prefix avoids collision with run/

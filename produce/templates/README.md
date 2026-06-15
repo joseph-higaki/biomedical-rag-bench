@@ -1,7 +1,7 @@
 # Template registry
 
 > **GENERATED — do not edit by hand.** Produced by `build_registry.py` from each template's YAML (`*.yaml`) and its ground-truth query frontmatter (`ground_truth/*.rq`).
-> Regenerate: `uv run --extra produce python eval/templates/build_registry.py` (add `--verify` to re-check answers against GraphDB).
+> Regenerate: `uv run --extra produce python produce/templates/build_registry.py` (add `--verify` to re-check answers against GraphDB).
 
 The `.rq` frontmatter is authoritative for the committed seed and answer; this table copies it. Templates are ordered by `type_id` (taxonomy order).
 

@@ -16,7 +16,7 @@ Output is a minimal Turtle file — one `<term> a hetio:<Kind> ; rdfs:label "…
 entity — which is all `pubmed_fetch.parse_entities` reads. Run from the repo root:
 
     uv run --extra ingest python ingest/vector/select_corpus_entities.py \
-        --questions eval/questions.jsonl --entities data/rdf/hetionet.ttl \
+        --questions produce/questions.jsonl --entities data/rdf/hetionet.ttl \
         --out data/vector-corpus-entities.ttl --distractors 1500
 """
 from __future__ import annotations
@@ -56,7 +56,7 @@ def seed_labels(questions_path: Path) -> set[str]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--questions", type=Path, default=Path("eval/questions.jsonl"))
+    ap.add_argument("--questions", type=Path, default=Path("produce/questions.jsonl"))
     ap.add_argument("--entities", type=Path, default=Path("data/rdf/hetionet.ttl"))
     ap.add_argument("--out", type=Path, default=Path("data/vector-corpus-entities.ttl"))
     ap.add_argument("--distractors", type=int, default=1500, help="Random non-seed entities to add.")

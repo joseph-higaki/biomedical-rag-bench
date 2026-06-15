@@ -14,7 +14,7 @@
 | `generator_provider` | anthropic |
 | `generator_model` | claude-haiku-4-5 |
 | `judge` | deterministic-v1+semantic-v1 |
-| `questions_path` | /home/jhigaki/projects/biomedical-rag-bench/eval/questions.jsonl |
+| `questions_path` | /home/jhigaki/projects/biomedical-rag-bench/produce/questions.jsonl |
 | `num_questions` | 58 |
 | `system_prompt_sha256` | 96109672bcba1e4c |
 | `generator_model_resolved` | claude-haiku-4-5-20251001 |

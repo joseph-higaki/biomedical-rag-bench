@@ -51,10 +51,10 @@ ingest-load:  ## Load data/rdf/hetionet.ttl into GraphDB (clears existing data f
 	     'http://localhost:7200/repositories/hetionet/statements'
 
 registry:  ## Regenerate template registry + eval distribution table from YAML (offline)
-	uv run --extra produce python eval/templates/build_registry.py
+	uv run --extra produce python produce/templates/build_registry.py
 
-explain:  ## Regenerate producer worked examples (eval/produce/EXAMPLE.md) — needs GraphDB + full graph
-	uv run --extra produce python eval/produce/produce.py --explain --out eval/produce/EXAMPLE.md
+explain:  ## Regenerate producer worked examples (produce/EXAMPLE.md) — needs GraphDB + full graph
+	uv run --extra produce python produce/produce.py --explain --out produce/EXAMPLE.md
 
 test:  ## Run the test suite (hermetic — no downloaded data required)
 	uv run --extra ingest pytest

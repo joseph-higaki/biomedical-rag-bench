@@ -2,8 +2,8 @@
 """Generate the docs that must not drift from the templates.
 
 Two outputs, both derived from the YAML templates (the single source of truth):
-  - eval/templates/README.md — the full human-readable template registry (below);
-  - the per-type distribution table in eval/README.md — summed from each template's
+  - produce/templates/README.md — the full human-readable template registry (below);
+  - the per-type distribution table in produce/README.md — summed from each template's
     `count:` field and spliced between generated-block markers, leaving that file's
     hand-authored design prose intact.
 
@@ -18,13 +18,13 @@ The .rq frontmatter is authoritative for the answer; this script copies it into 
 docs so the docs cannot drift from the .rq. Plain generation is a pure text
 transform — no GraphDB needed.
 
-    uv run --extra produce python eval/templates/build_registry.py
+    uv run --extra produce python produce/templates/build_registry.py
 
 `--verify` re-runs every query against GraphDB (decision B: the full graph is
 canonical) and asserts the live answer still equals the committed one, catching
 drift if the graph changes under a committed answer. Exits non-zero on any mismatch.
 
-    uv run --extra produce python eval/templates/build_registry.py --verify
+    uv run --extra produce python produce/templates/build_registry.py --verify
 
 README.md is GENERATED. Edit the YAML or the .rq frontmatter, then regenerate.
 """
@@ -41,9 +41,9 @@ from run_ground_truth import DEFAULT_GRAPHDB_ENDPOINT, run_query
 
 TEMPLATES_DIR = Path(__file__).parent
 README_PATH = TEMPLATES_DIR / "README.md"
-# The per-type distribution table is spliced into eval/README.md between markers,
+# The per-type distribution table is spliced into produce/README.md between markers,
 # so that hand-authored design doc keeps its prose while the numbers stay derived.
-EVAL_README_PATH = TEMPLATES_DIR.parent / "README.md"
+PRODUCE_README_PATH = TEMPLATES_DIR.parent / "README.md"
 DIST_BEGIN = "<!-- BEGIN GENERATED: distribution (build_registry.py) -->"
 DIST_END = "<!-- END GENERATED: distribution -->"
 
@@ -137,7 +137,7 @@ def render(templates: list[dict]) -> str:
         "> **GENERATED — do not edit by hand.** Produced by `build_registry.py` from"
         " each template's YAML (`*.yaml`) and its ground-truth query frontmatter"
         " (`ground_truth/*.rq`).",
-        "> Regenerate: `uv run --extra produce python eval/templates/build_registry.py`"
+        "> Regenerate: `uv run --extra produce python produce/templates/build_registry.py`"
         " (add `--verify` to re-check answers against GraphDB).",
         "",
         "The `.rq` frontmatter is authoritative for the committed seed and answer;"
@@ -258,8 +258,8 @@ def main() -> None:
     README_PATH.write_text(render(templates))
     print(f"Wrote {README_PATH.relative_to(TEMPLATES_DIR.parent.parent)} ({len(templates)} templates).")
 
-    splice_block(EVAL_README_PATH, DIST_BEGIN, DIST_END, render_distribution(templates))
-    print(f"Spliced distribution table into {EVAL_README_PATH.relative_to(TEMPLATES_DIR.parent.parent)}.")
+    splice_block(PRODUCE_README_PATH, DIST_BEGIN, DIST_END, render_distribution(templates))
+    print(f"Spliced distribution table into {PRODUCE_README_PATH.relative_to(TEMPLATES_DIR.parent.parent)}.")
 
 
 if __name__ == "__main__":

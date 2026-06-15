@@ -215,7 +215,7 @@ def test_iter_rows_continues_past_a_failing_question():
 
 def test_make_manifest_carries_run_constant_factors():
     m = harness.make_manifest(FakeRetriever(), FakeGenerator("x"), [_q(), _q()],
-                              run_id="testrun", questions_path="eval/questions.jsonl")
+                              run_id="testrun", questions_path="produce/questions.jsonl")
     d = m.to_dict()
     assert d["retriever"] == "fake" and d["generator_model"] == "fake-1"
     assert d["num_questions"] == 2 and d["run_id"] == "testrun"

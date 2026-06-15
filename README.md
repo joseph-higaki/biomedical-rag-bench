@@ -63,7 +63,7 @@ flowchart LR
 Two complementary views of the same tree. **Version C** is file-centric — *where does each
 file belong?*; **Version D** is phase-centric — *what does each phase span?* Tags mark where
 an artifact is *produced* — **Groundwork**, **Evaluation**, **Analysis** — with shared tooling
-as **ops**; `eval/corpus/` is Groundwork (written at build time) though Analysis consumes it.
+as **ops**; `ingest/corpus/` is Groundwork (written at build time) though Analysis consumes it.
 Generated bulk lives under the gitignored `data/` tree (`data/rdf/hetionet.ttl`, Chroma,
 abstracts) and is omitted below; `ontology/` holds the committed schema (TBox, Project 2).
 
@@ -77,14 +77,16 @@ No inline descriptions — the tag is the only annotation, so the tree shape sta
 ├─ ingest/                      [Groundwork]
 │  ├─ rdf/                      [Groundwork]
 │  ├─ vector/                   [Groundwork]
-│  └─ corpus_profile.py         [Groundwork]
+│  ├─ corpus_profile.py         [Groundwork]
+│  └─ corpus/                   [Groundwork]
+├─ produce/                     [Groundwork]
+│  ├─ templates/                [Groundwork]
+│  ├─ produce.py                [Groundwork]
+│  ├─ validate.py               [Groundwork]
+│  └─ questions.jsonl           [Groundwork]
 ├─ ontology/                    [Groundwork]
 ├─ retrievers/                  [Evaluation]
-├─ eval/                        [—]
-│  ├─ templates/                [Groundwork]
-│  ├─ produce/                  [Groundwork]
-│  ├─ questions.jsonl           [Groundwork]
-│  ├─ corpus/                   [Groundwork]
+├─ eval/                        [Evaluation]
 │  ├─ generate/                 [Evaluation]
 │  ├─ judge/                    [Evaluation]
 │  ├─ harness.py                [Evaluation]
@@ -101,7 +103,8 @@ No inline descriptions — the tag is the only annotation, so the tree shape sta
 
 The same tree, repeated once per phase. Lines that belong to that phase are highlighted
 (`+`, green on GitHub); everything else is context (dimmed). Best for seeing the *shape*
-each phase occupies — and that the three overlap only inside `eval/`.
+each phase occupies — Groundwork (`ingest/` + `produce/`) is fully outside `eval/`, which
+now holds only Evaluation and Analysis.
 
 **Groundwork**
 ```diff
@@ -109,14 +112,16 @@ each phase occupies — and that the three overlap only inside `eval/`.
 + ├─ ingest/
 + │  ├─ rdf/
 + │  ├─ vector/
-+ │  └─ corpus_profile.py
++ │  ├─ corpus_profile.py
++ │  └─ corpus/
++ ├─ produce/
++ │  ├─ templates/
++ │  ├─ produce.py
++ │  ├─ validate.py
++ │  └─ questions.jsonl
 + ├─ ontology/
   ├─ retrievers/
   ├─ eval/
-+ │  ├─ templates/
-+ │  ├─ produce/
-+ │  ├─ questions.jsonl
-+ │  ├─ corpus/
   │  ├─ generate/
   │  ├─ judge/
   │  ├─ harness.py
@@ -133,14 +138,16 @@ each phase occupies — and that the three overlap only inside `eval/`.
   ├─ ingest/
   │  ├─ rdf/
   │  ├─ vector/
-  │  └─ corpus_profile.py
+  │  ├─ corpus_profile.py
+  │  └─ corpus/
+  ├─ produce/
+  │  ├─ templates/
+  │  ├─ produce.py
+  │  ├─ validate.py
+  │  └─ questions.jsonl
   ├─ ontology/
 + ├─ retrievers/
   ├─ eval/
-  │  ├─ templates/
-  │  ├─ produce/
-  │  ├─ questions.jsonl
-  │  ├─ corpus/
 + │  ├─ generate/
 + │  ├─ judge/
 + │  ├─ harness.py
@@ -157,14 +164,16 @@ each phase occupies — and that the three overlap only inside `eval/`.
   ├─ ingest/
   │  ├─ rdf/
   │  ├─ vector/
-  │  └─ corpus_profile.py
+  │  ├─ corpus_profile.py
+  │  └─ corpus/
+  ├─ produce/
+  │  ├─ templates/
+  │  ├─ produce.py
+  │  ├─ validate.py
+  │  └─ questions.jsonl
   ├─ ontology/
   ├─ retrievers/
   ├─ eval/
-  │  ├─ templates/
-  │  ├─ produce/
-  │  ├─ questions.jsonl
-  │  ├─ corpus/
   │  ├─ generate/
   │  ├─ judge/
   │  ├─ harness.py
@@ -259,7 +268,7 @@ dashboards. Three artifacts form the contract:
 
 - **`eval/results/<run_id>.jsonl`** — one row per `question × retriever × generator` trial (the grain).
 - **`eval/results/<run_id>.manifest.json`** — the run-constant factors, paired one-to-one by `run_id`.
-- **`eval/questions.jsonl`** + **`eval/corpus/<id>.json`** — the frozen eval set and corpus profiles the rows reference.
+- **`produce/questions.jsonl`** + **`ingest/corpus/<id>.json`** — the frozen eval set and corpus profiles the rows reference.
 
 Field-level schemas, with JSON examples, live in
 [`eval/README.md` → Result row schema](eval/README.md#result-row-schema) and
@@ -270,7 +279,7 @@ deliberately **not** deepened in this repo.
 
 ## Reproducing results
 
-`eval/questions.jsonl` ships frozen, so reproduction does **not** regenerate the question
+`produce/questions.jsonl` ships frozen, so reproduction does **not** regenerate the question
 set — it stands up the stores, then runs the eval. Per-step detail lives in the ingestion
 READMEs; this is the spine.
 
@@ -341,8 +350,8 @@ Granular per-session progress lives in the session journal.
   - [x] SPARQL and SPARQL-star return real answers (validated offline with pyoxigraph)
   - [x] Load the slice into GraphDB and confirm the same queries against the live triplestore (see `ingest/rdf/hetionet-data-notes.md` for the RDF-star count note)
   - [x] PubMed → 5 abstracts → Chroma → one similarity query returning a real answer
-- [x] **2. Author question templates.** One or more templates per type in the ten-type taxonomy; each specifies the question shape, the ground-truth query, the type, and the entity sampling strategy. Templates are authored, not LLM-generated. **Done:** all ten types in `eval/templates/` (each a `<name>.yaml` + `ground_truth/<name>.rq`), registry in [eval/templates/README.md](eval/templates/README.md).
-- [x] **3. Build the eval producer.** Loads templates, samples entities programmatically (seeded), runs the ground-truth query per instantiated question, writes `questions.jsonl`. **Done:** `eval/produce/` emits 58 questions across all ten types, validated. See [eval/produce/README.md](eval/produce/README.md).
+- [x] **2. Author question templates.** One or more templates per type in the ten-type taxonomy; each specifies the question shape, the ground-truth query, the type, and the entity sampling strategy. Templates are authored, not LLM-generated. **Done:** all ten types in `produce/templates/` (each a `<name>.yaml` + `ground_truth/<name>.rq`), registry in [produce/templates/README.md](produce/templates/README.md).
+- [x] **3. Build the eval producer.** Loads templates, samples entities programmatically (seeded), runs the ground-truth query per instantiated question, writes `questions.jsonl`. **Done:** `produce/` emits 58 questions across all ten types, validated. See [produce/README.md](produce/README.md).
 - [x] **4. Build the retriever interface and retrievers.** All implement the `Retriever` protocol in `retrievers/base.py`. **Done:** `closed_book`, `vector`, `graph_neighborhood` (1/2-hop), and `graph_sparqlgen`, registered in `eval/run_eval.py`. See [retrievers/README.md](retrievers/README.md).
 - [x] **5. Build the eval harness and judges.** **Done:** `eval/harness.py` (retrieve → generate → judge, run via `eval/run_eval.py --run`), the provider-agnostic generator in `eval/generate/` (Anthropic + Ollama), and all six judges in `eval/judge/` (five deterministic + the `semantic` LLM judge), all tested. Remaining sub-items are follow-ups, not blockers.
   - [ ] *(low priority)* **Shared config module.** Consolidate the per-script `find_dotenv("secrets/.env")` into a `config.py` exposing an immutable `settings`, fail-fast on required keys. Only worth it once there's a second consumer — don't land dead code.

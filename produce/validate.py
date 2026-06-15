@@ -6,7 +6,7 @@ eval set, not the graph, so it needs no GraphDB. This is to `produce.py` what
 `build_registry.py --verify` is to the registry — a quality check living beside the
 thing it guards.
 
-What it checks (per `eval/produce/README.md` success criteria):
+What it checks (per `produce/README.md` success criteria):
   - every record carries the required fields;
   - no unfilled `{placeholder}` survived substitution;
   - ground-truth shape matches the scoring type (scalar vs list);
@@ -23,7 +23,7 @@ Only templates actually present in the file are count-checked.
 NOT checked here: reproducibility — that is a property of two runs, not one file
 (produce twice at the same seed and `diff`), so it stays an operator step.
 
-    uv run --extra produce python eval/produce/validate.py --questions eval/questions.jsonl
+    uv run --extra produce python produce/validate.py --questions produce/questions.jsonl
 """
 from __future__ import annotations
 
@@ -34,8 +34,8 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
-DEFAULT_QUESTIONS = Path(__file__).parent.parent / "questions.jsonl"
+TEMPLATES_DIR = Path(__file__).parent / "templates"
+DEFAULT_QUESTIONS = Path(__file__).parent / "questions.jsonl"
 
 REQUIRED_FIELDS = {
     "question_id", "type_id", "template_id", "question",

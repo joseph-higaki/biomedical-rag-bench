@@ -20,7 +20,7 @@ prerequisite is `make ingest-rdf`: `pubmed_fetch.py` reads the entity set from t
 `data/rdf/hetionet.ttl` — not from a live GraphDB — so the vector side never needs GraphDB up.
 
 > **Status: full corpus built.** Scripts written, executed, and scaled to the full
-> literature-kind entity set (`full-*` corpus profile in `eval/corpus/`: 77,424 abstracts →
+> literature-kind entity set (`full-*` corpus profile in `ingest/corpus/`: 77,424 abstracts →
 > 152,943 chunks). The original five-abstract smoke test (build order step 1) is preserved
 > below as the "Smoke test observation".
 

@@ -1,4 +1,4 @@
-"""Tests for eval/produce/validate.py — the produced-eval-set quality gate.
+"""Tests for produce/validate.py — the produced-eval-set quality gate.
 
 Hermetic: no GraphDB, no network, no `produce` extra. `validate_records` is a pure
 function over in-memory record dicts, so these tests build records by hand and assert
@@ -9,7 +9,7 @@ the gate itself must be tested.
 """
 from __future__ import annotations
 
-from eval.produce.validate import validate_records
+from produce.validate import validate_records
 
 
 def rec(**over) -> dict:
