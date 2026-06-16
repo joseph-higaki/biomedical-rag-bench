@@ -19,3 +19,4 @@ path you control.
 ![alt text](_resources/architecture-manual-images.md/graphdb.png) 
 ![alt text](_resources/architecture-manual-images.md/hetionet.png)
  ![alt text](_resources/architecture-manual-images.md/claude.png)
+ ![alt text](_resources/architecture-manual-images.md/jupyter.png)
