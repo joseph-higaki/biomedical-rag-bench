@@ -12,4 +12,10 @@ path you control.
 
 <!-- Paste images below. -->
 
-![alt text](_resources/architecture-manual-images.md/ollama.png) ![alt text](_resources/architecture-manual-images.md/pubmed.png) ![alt text](_resources/architecture-manual-images.md/qwen.png) ![alt text](_resources/architecture-manual-images.md/chroma.png) ![alt text](_resources/architecture-manual-images.md/graphdb.png) ![alt text](_resources/architecture-manual-images.md/hetionet.svg) ![alt text](_resources/architecture-manual-images.md/claude.svg)
+![alt text](_resources/architecture-manual-images.md/ollama.png) 
+![alt text](_resources/architecture-manual-images.md/pubmed.png) 
+![alt text](_resources/architecture-manual-images.md/qwen.png) 
+![alt text](_resources/architecture-manual-images.md/chroma.png) 
+![alt text](_resources/architecture-manual-images.md/graphdb.png) 
+![alt text](_resources/architecture-manual-images.md/hetionet.png)
+ ![alt text](_resources/architecture-manual-images.md/claude.png)
