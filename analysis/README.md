@@ -7,8 +7,9 @@ part of producing results.
 **Inputs → Outputs.** `eval/results/<run_id>.jsonl` + `<run_id>.manifest.json`
 (+ `ingest/corpus/<id>.json`) → one canonical DataFrame (see [`load.py`](load.py)).
 **Key files.** `load.py` (discover + join + dedup-to-canonical-grain + reshape), `explore.ipynb`
-(exploratory charts), [`build-cost.md`](build-cost.md) (H5 build-cost methodology + recorded
-per-backend profile). **How to run.** Import `from analysis import load` in a notebook.
+(exploratory charts), [`build-cost.md`](build-cost.md) (H5 index-build **capex** methodology +
+recorded per-backend profile), [`run-cost.md`](run-cost.md) (per-query LLM **opex** methodology +
+the tokens→$ plan). **How to run.** Import `from analysis import load` in a notebook.
 **Where it sits.** Downstream of the Eval harness; reads the [Output contract](../README.md#output-contract-downstream-interface).
 
 ## Extraction boundary (planned)

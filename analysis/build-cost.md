@@ -10,6 +10,11 @@ It lives in `analysis/` because it is a *consumer-side* interpretation of build 
 not part of producing results. It is a candidate to be lifted into the analytics repo with
 the rest of this directory (see [`analysis/README.md`](README.md) → Extraction boundary).
 
+> **Scope boundary.** This page is the one-time **capex** of building each backend's index. The
+> recurring **opex** — per-query LLM token spend at generation / SPARQL-writing / judging, and the
+> tokens→dollars pricing plan — is its sibling, [`run-cost.md`](run-cost.md). Keep them separate:
+> a single "cost" number would conflate index construction with inference spend.
+
 > **Naming note.** This was previously filed under the README's "structural" hypotheses
 > bucket. That label was wrong: build cost is *measured*, not observed by inspection. It is
 > per-backend rather than per-question — that is the only real distinction from H1/H2/H3/H7.

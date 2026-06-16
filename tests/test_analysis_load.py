@@ -3,7 +3,7 @@
 Hermetic: fabricates a few run files (jsonl + manifest) in tmp_path, so the loader's three
 correctness hazards are pinned without a real eval run — canonical dedup (newest run wins,
 union of coverage preserved), generator-id family normalization (alias and resolved snapshot
-treated as one condition), nested-telemetry explosion, and the closed_book token premium.
+treated as one condition), nested-telemetry explosion, and closed_book's retrieval context-input tokens.
 
 Skipped when pandas (the `eval` extra) isn't installed, so the default `--extra ingest`
 suite stays green; run with `uv run --extra eval python -m pytest tests/test_analysis_load.py`.
@@ -111,11 +111,11 @@ def test_guarantees_newer_schema_columns_on_an_old_corpus(tmp_path):
         assert col in df.columns and df[col].isna().all()
 
 
-def test_token_premium_is_input_minus_closed_book(tmp_path):
+def test_retrieval_context_input_tokens_is_input_minus_closed_book(tmp_path):
     _write_run(tmp_path, "cb", "closed_book", "m", "2026-06-02T00:00:00+0000",
                [_row("q1", "closed_book", input_tokens=100)])
     _write_run(tmp_path, "vec", "vector", "m", "2026-06-02T00:00:00+0000",
                [_row("q1", "vector", input_tokens=150)])
     df = L.load(tmp_path).set_index("retriever")
-    assert df.loc["vector", "retrieval_token_premium"] == 50
-    assert df.loc["closed_book", "retrieval_token_premium"] == 0  # baseline vs itself
+    assert df.loc["vector", "retrieval_context_input_tokens"] == 50
+    assert df.loc["closed_book", "retrieval_context_input_tokens"] == 0  # baseline vs itself

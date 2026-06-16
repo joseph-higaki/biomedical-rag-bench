@@ -22,7 +22,7 @@ Three jobs, each a real correctness hazard if done ad hoc in a notebook cell:
 
   3. **Reshape to columns.** Explode the nested `judge_details` (recall/precision/f1/extra) and
      `traversal_info` (writer-LLM cost, sparql_valid, hops, top_k, num_linked) into flat columns,
-     derive `hops` from the retriever name, and compute the **retrieval token premium**
+     derive `hops` from the retriever name, and compute **retrieval context-input tokens**
      (`input_tokens − closed_book input_tokens` for the same question+model — the one unit-safe
      token decomposition the contract sanctions, see retrievers/base.py).
 
@@ -176,21 +176,22 @@ def _explode(df: pd.DataFrame, col: str, keys: list[str]) -> pd.DataFrame:
     return df
 
 
-def _add_token_premium(df: pd.DataFrame) -> pd.DataFrame:
-    """retrieval_token_premium = input_tokens − closed_book input_tokens (same question+model).
+def _add_retrieval_context_input_tokens(df: pd.DataFrame) -> pd.DataFrame:
+    """retrieval_context_input_tokens = input_tokens − closed_book input_tokens (same question+model).
 
-    The unit-safe "what did retrieval cost over no-retrieval" decomposition: same generator,
-    same question, billed tokens only. closed_book's own premium is ~0 by construction.
+    The input-side token weight the retrieved context contributes, isolated by subtracting the
+    no-context baseline: same generator, same question, billed tokens only (a unit-safe delta — same
+    direction, same tokenizer). closed_book's own value is ~0 by construction.
     """
     cb = (df[df["retriever"] == "closed_book"][["question_id", "generator_model_family", "input_tokens"]]
           .rename(columns={"input_tokens": "_cb_input_tokens"}))
     df = df.merge(cb, on=["question_id", "generator_model_family"], how="left")
-    df["retrieval_token_premium"] = df["input_tokens"] - df["_cb_input_tokens"]
+    df["retrieval_context_input_tokens"] = df["input_tokens"] - df["_cb_input_tokens"]
     return df.drop(columns=["_cb_input_tokens"])
 
 
 def tidy(df: pd.DataFrame) -> pd.DataFrame:
-    """Reshape canonical rows for analysis: explode nested telemetry, derive hops, add premium."""
+    """Reshape canonical rows for analysis: explode nested telemetry, derive hops, add context-input tokens."""
     if df.empty:
         return df
     df = _explode(df, "judge_details", _JUDGE_COLS)
@@ -203,7 +204,7 @@ def tidy(df: pd.DataFrame) -> pd.DataFrame:
     name_hops = df["retriever"].str.extract(_HOPS_RE)[0].astype("Float64")
     df["hops"] = df["hops"].astype("Float64").fillna(name_hops)
     df["num_extra"] = df["judge_details"].apply(lambda d: len(d.get("extra", [])) if isinstance(d, dict) else 0)
-    df = _add_token_premium(df)
+    df = _add_retrieval_context_input_tokens(df)
     for c in _GUARANTEED_COLS:  # stable output schema even on a pre-backfill corpus
         if c not in df.columns:
             df[c] = pd.NA
@@ -238,7 +239,7 @@ def _audit(df: pd.DataFrame) -> str:
     lines += ["", "Telemetry coverage (non-null canonical rows / total):"]
     total = len(df)
     for c in ["writer_input_tokens", "sparql_valid", "top_k", "hops",
-              "recall", "retrieval_token_premium", "cache_read_input_tokens",
+              "recall", "retrieval_context_input_tokens", "cache_read_input_tokens",
               "generator_temperature", "writer_temperature", "judge_temperature"]:
         nn = int(df[c].notna().sum()) if c in df.columns else 0
         lines.append(f"  {c:<28} {nn}/{total}")
