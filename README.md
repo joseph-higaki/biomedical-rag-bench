@@ -27,9 +27,6 @@ model) lives in the ingestion READMEs ([`ingest/rdf`](ingest/rdf/README.md),
 
 ### Architecture diagrams
 
-Split by phase. **Groundwork** builds the shared assets; **Evaluation** consumes them. The
-assets — `questions.jsonl`, GraphDB, Chroma — are the hand-off, so they appear in both: they
-*end* the Groundwork flow (far right) and *start* the Evaluation flow (far left).
 
 <details open>
 <summary><b>Image diagram</b></summary>
