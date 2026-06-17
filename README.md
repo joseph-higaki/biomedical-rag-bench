@@ -1,6 +1,6 @@
 # biomedical-rag-bench
 
-A falsifiable, evolving evaluation harness for retrieval-augmented generation over biomedical
+An evolving evaluation harness for retrieval-augmented generation over biomedical
 knowledge [Hetionet](https://het.io/). It compares retrieval strategies: graph traversal and graph
 query vs. vector similarity, others to come. All under a shared evaluation contract.
 
