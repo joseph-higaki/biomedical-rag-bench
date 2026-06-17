@@ -25,19 +25,6 @@ is *representation, not content*. Format detail (URI schemes, RDF-star, the embe
 model) lives in the ingestion READMEs ([`ingest/rdf`](ingest/rdf/README.md),
 [`ingest/vector`](ingest/vector/README.md)). 
 
-## LLM roles
-
-An LLM can run at three points in the pipeline, each with its **own system prompt**:
-
-| Role | What the LLM does (system prompt) |
-|---|---|
-| **Retriever** | Only `graph_sparqlgen` — the *SPARQL writer* — turns the question into one SPARQL `SELECT` from the schema vocabulary; every other retriever uses no LLM. (`retrievers/sparqlgen.py` → `SCHEMA_PROMPT`) |
-| **Generator** | The model *under test*: answers the question from the retrieved context, or closed-book. (`eval/harness.py` → `SYSTEM_PROMPT`) |
-| **Judge** | Deterministic for 9 of 10 types; an LLM scores only type-10 (fuzzy/semantic) answer↔reference equivalence. (`eval/judge/semantic.py` → `_SYSTEM`) |
-
-Full catalogue — models, temperatures, telemetry, and the verbatim prompts — in
-[`eval/llm-roles.md`](eval/llm-roles.md).
-
 ### Architecture diagrams
 
 Split by phase. **Groundwork** builds the shared assets; **Evaluation** consumes them. The
@@ -125,6 +112,18 @@ flowchart LR
 ├─ Makefile · docker-compose.yml · pyproject.toml · uv.lock   [ops]
 └─ README.md                    [—]
 ```
+## LLM roles
+
+An LLM can run at three points in the pipeline, each with its **own system prompt**:
+
+| Role | What the LLM does (system prompt) |
+|---|---|
+| **Retriever** | Only `graph_sparqlgen` — the *SPARQL writer* — turns the question into one SPARQL `SELECT` from the schema vocabulary; every other retriever uses no LLM. (`retrievers/sparqlgen.py` → `SCHEMA_PROMPT`) |
+| **Generator** | The model that answers the question from the retrieved context, or closed-book. (`eval/harness.py` → `SYSTEM_PROMPT`) |
+| **Judge** | Deterministic for 9 of 10 types; an LLM scores only type-10 (fuzzy/semantic) answer↔reference equivalence. (`eval/judge/semantic.py` → `_SYSTEM`) |
+
+Full catalogue — models, temperatures, telemetry, and the verbatim prompts — in
+[`eval/llm-roles.md`](eval/llm-roles.md).
 
 ## The comparison under test
 
