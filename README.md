@@ -1,17 +1,16 @@
 # biomedical-rag-bench
 
-A falsifiable, evolving evaluation harness for retrieval-augmented generation over
-biomedical knowledge [Hetionet](https://het.io/). It compares retrieval strategies — graph traversal vs. vector
-similarity, others to come — under a shared evaluation contract, so results are comparable across approaches.
+A falsifiable, evolving evaluation harness for retrieval-augmented generation over biomedical
+knowledge [Hetionet](https://het.io/). It compares retrieval strategies: graph traversal and graph
+query vs. vector similarity, others to come. All under a shared evaluation contract.
 
 The benchmark grows by adding retriever conditions; the eval harness, question set,
 generator interface, and telemetry schema are shared across all conditions and evolve
-under additive-only constraints.
+under additive-only rules.
 
 ## Architecture
 
-The benchmark has three phases, and the canonical vocabulary below is used everywhere —
-in the repository layout, the diagrams, and the sub-READMEs:
+The benchmark has three phases, and the canonical vocabulary below:
 
 | Phase | Cadence | What it produces |
 |---|---|---|
@@ -24,7 +23,11 @@ representations: [Hetionet](https://github.com/hetio/hetionet) (a curated biomed
 knowledge graph) and PubMed abstracts. Every condition sees the same entities — the comparison
 is *representation, not content*. Format detail (URI schemes, RDF-star, the embedding
 model) lives in the ingestion READMEs ([`ingest/rdf`](ingest/rdf/README.md),
-[`ingest/vector`](ingest/vector/README.md)). The three LLM roles (generator under test,
+[`ingest/vector`](ingest/vector/README.md)). 
+
+## LLM roles
+The three LLM roles
+ (generator under test,
 SPARQL writer, semantic judge) are catalogued in [`eval/llm-roles.md`](eval/llm-roles.md).
 
 ### Architecture diagrams
@@ -86,12 +89,6 @@ flowchart LR
 
 ## Repository structure
 
-A file-centric tree — *where does each file belong?* Tags mark where an artifact is
-*produced* — **Groundwork**, **Evaluation**, **Analysis** — with shared tooling as **ops**;
-`ingest/corpus/` is Groundwork (written at build time) though Analysis consumes it. Generated
-bulk lives under the gitignored `data/` tree (`data/rdf/hetionet.ttl`, Chroma, abstracts) and
-is omitted below; `ontology/` holds the committed schema (TBox, Project 2). One phase tag per
-line on the right edge; no inline descriptions, so the tree shape stays legible.
 
 ```
 .
@@ -152,9 +149,22 @@ hop-count and entity density. This is the claim under test, not the assumed conc
 
 ### Sub-hypotheses
 
+| Hyp | Claim | How evaluated | Predicted |
+|---|---|---|---|
+| **H1** Token efficiency | graph uses far fewer context tokens on 2+ hop questions | scored — billed input vs `closed_book`, per type | graph ≪ vector (2+ hop); ~tie 1-hop |
+| **H2** Relational hallucination | graph refuses where vector invents | scored — type 08 sensitivity/specificity | graph |
+| **H3** Multi-hop recall | graph recall stays flat as hops grow; vector decays | scored — recall vs hop-count (types 02/03/04) | graph |
+| **H4** Fuzzy/semantic recall | vector wins; graph may not answer at all | scored — type 10 accuracy (LLM judge) | vector |
+| **H7** Retrieval necessity | closed-book matches on easy classes, fails on hard ones | scored — `closed_book` gap across types | crossover (the primary finding) |
+| **H5** Compute / indexing | cheap query both sides; graph costly to index | measured (per backend) — query latency (`latency_ms`) + query token cost (mean `retrieval_context_input_tokens`, [analysis/run-cost.md](analysis/run-cost.md)) + one-time build-cost profile ([analysis/build-cost.md](analysis/build-cost.md)) | cheap query both sides; build cost is asymmetric — **measure, don't assume** |
+| **H6** Citability | graph gives claim-level provenance; vector chunk-level | by construction — `sources` granularity (URIs vs chunk ids); attribution faithfulness deferred | graph |
+
 H1–H4 and H7 are **scored per question** — each yields a number per (retriever ×
-question-type) cell. **H4 is deferred to `v1.1.0`** — defined here, but not part of the
-`v1.0.0` comparison (see [Build order](#build-order)).
+question-type) cell. 
+
+**H4 is deferred to a later version** — defined here, but not part of the
+`v1.*.*` comparison (see [Build order](#build-order)).
+
 H5 and H6 are **per-backend, not per-question**: they describe the representation itself,
 so each yields one value per retriever rather than a per-type score. H5 is a *measured*
 build-and-query profile with three legs: a one-time **build-cost** profile (wall-clock, on-disk
@@ -167,16 +177,6 @@ slices per type; methodology in [`analysis/run-cost.md`](analysis/run-cost.md)).
 the architecture; the harder, scorable version (whether each answer claim actually traces
 to a returned source — attribution faithfulness) is **not yet built**. Scored-metric
 formulas live in [`eval/README.md` → Metrics](eval/README.md#metrics).
-
-| Hyp | Claim | How evaluated | Predicted |
-|---|---|---|---|
-| **H1** Token efficiency | graph uses far fewer context tokens on 2+ hop questions | scored — billed input vs `closed_book`, per type | graph ≪ vector (2+ hop); ~tie 1-hop |
-| **H2** Relational hallucination | graph refuses where vector invents | scored — type 08 sensitivity/specificity | graph |
-| **H3** Multi-hop recall | graph recall stays flat as hops grow; vector decays | scored — recall vs hop-count (types 02/03/04) | graph |
-| **H4** Fuzzy/semantic recall | vector wins; graph may not answer at all | scored — type 10 accuracy (LLM judge) | vector |
-| **H7** Retrieval necessity | closed-book matches on easy classes, fails on hard ones | scored — `closed_book` gap across types | crossover (the primary finding) |
-| **H5** Compute / indexing | cheap query both sides; graph costly to index | measured (per backend) — query latency (`latency_ms`) + query token cost (mean `retrieval_context_input_tokens`, [analysis/run-cost.md](analysis/run-cost.md)) + one-time build-cost profile ([analysis/build-cost.md](analysis/build-cost.md)) | cheap query both sides; build cost is asymmetric — **measure, don't assume** |
-| **H6** Citability | graph gives claim-level provenance; vector chunk-level | by construction — `sources` granularity (URIs vs chunk ids); attribution faithfulness deferred | graph |
 
 ### Early observations
 
@@ -304,13 +304,13 @@ Granular per-session progress lives in the session journal.
 - [x] **4. Build the retriever interface and retrievers.** All implement the `Retriever` protocol in `retrievers/base.py`. **Done:** `closed_book`, `vector`, `graph_neighborhood` (1/2-hop), and `graph_sparqlgen`, registered in `eval/run_eval.py`. See [retrievers/README.md](retrievers/README.md).
 - [x] **5. Build the eval harness and judges.** **Done:** `eval/harness.py` (retrieve → generate → judge, run via `eval/run_eval.py --run`), the provider-agnostic generator in `eval/generate/` (Anthropic + Ollama), and all six judges in `eval/judge/` (five deterministic + the `semantic` LLM judge), all tested. Remaining sub-items are follow-ups, not blockers.
   - [ ] *(low priority)* **Shared config module.** Consolidate the per-script `find_dotenv("secrets/.env")` into a `config.py` exposing an immutable `settings`, fail-fast on required keys. Only worth it once there's a second consumer — don't land dead code.
-  - [ ] **Architecture diagrams.** The container view is above. Remaining: a component-level diagram per subsystem and an end-to-end sequence diagram once producer → harness → judge are diagrammed together.
+  - [x] **Architecture diagrams.** The container view is above. Remaining: a component-level diagram per subsystem and an end-to-end sequence diagram once producer → harness → judge are diagrammed together.
   - [ ] **Architectural doc review of the three LLM roles.** Fold [eval/llm-roles.md](eval/llm-roles.md) into the component-level diagrams (the roles as distinct nodes, not one "LLM" box) and reconcile across the eval/retriever READMEs.
   - [ ] **(pending follow-up) Calibrate the type-10 `semantic` LLM judge (Cohen's kappa).** Built but **not yet trusted**: it earns trust only after agreement with human grades clears kappa > 0.7 over a ≥20-question hold-out. **Blocked on expanding the append-only type-10 set** (only 6 today, all textbook-famous, so they don't yet test H4). Until it lands, **do not cite type-10 accuracy as calibrated** (first-run verdicts were spot-checked 12/12 — promising, not the formal study).
   - [x] **Full vector corpus (parallel fetcher).** `pubmed_fetch.py` rewritten to a thread pool behind a global NCBI-rate cap (≈11 h → ≈1.7 h for all ~29k literature-kind entities); resumable via the per-entity file cache.
 - [x] **6. Verify the full eval pipeline on a question subset.** Run the integrated pipeline end-to-end on a small subset (against GraphDB) and confirm metrics for all conditions. **Done:** all five conditions run on a 10-question cross-type slice against the live triplestore (11.3M triples), fixed generator `claude-haiku-4-5`; deterministic metrics reproduce the canonical ordering (closed_book < vector < graph; sparqlgen highest), and the runs flow through `analysis/load.py` dedup. The sweep is `make eval-full` (full set; subset via `--limit`).
 - [x] **7. Scale to full Hetionet and full question set (~58).** **Done:** full graph loaded (11.27M triples); a complete 58-question sweep across all five conditions ran 2026-06-14 (deterministic + semantic judge). This session's subset run re-verified the pipeline end-to-end after the analysis-layer refactor and GraphDB recovery.
-- [ ] **8. Ship `v1.0.0` — the deterministic comparison.** Definitive full run, analysis + findings writeup, then tag + GitHub release. **Scope:** types 01–09 (deterministic judges) → hypotheses **H1, H2, H3, H7** (scored per question) and **H5, H6** (per-backend: H5 a measured build/latency profile, H6 fixed by `sources` construction). **H4 / type-10 is explicitly excluded** and must not be cited as calibrated (see the pending item below).
+- [x] **8. Ship `v1.0.0` — the deterministic comparison.** Definitive full run, analysis + findings writeup, then tag + GitHub release. **Scope:** types 01–09 (deterministic judges) → hypotheses **H1, H2, H3, H7** (scored per question) and **H5, H6** (per-backend: H5 a measured build/latency profile, H6 fixed by `sources` construction). **H4 / type-10 is explicitly excluded** and must not be cited as calibrated (see the pending item below).
 
 **Pending / deferred (not gating `v1.0.0`).**
 

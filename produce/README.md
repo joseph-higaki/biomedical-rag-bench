@@ -16,6 +16,13 @@ trace of the mechanism described here — candidate query, seeded pick, instanti
 query, answer, record — see the generated [`EXAMPLE.md`](EXAMPLE.md), one worked
 example per question type.
 
+**Where it sits.** The **Producer** is a Groundwork-phase concern — a top-level sibling of
+`eval/` (Evaluation) and `analysis/` (Analysis), with its own runtime characteristics. It takes
+hand-authored templates (`templates/`) plus the Hetionet graph and produces the frozen eval set
+(`questions.jsonl`) with ground truth. It runs **once per dataset version**, is **reproducible
+via seeded sampling**, and derives ground truth from **SPARQL traversal, never an LLM**.
+`eval/` consumes this frozen set; it does not produce it.
+
 ---
 
 ## Level 1 — The mental model (one minute)

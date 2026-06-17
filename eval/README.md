@@ -48,32 +48,31 @@ each type traces back to a hypothesis.
 
 ## Architectural concerns
 
-The eval is organized as separate concerns within `eval/`, each a built sibling folder
-(or file) with different runtime characteristics, inputs, outputs, and evolution timelines,
-so they stay visibly distinct with their own READMEs:
+`eval/` holds the Evaluation-phase concerns, each a built sibling folder (or file) with
+different runtime characteristics, inputs, outputs, and evolution timelines, so they stay
+visibly distinct with their own READMEs:
 
-1. **Producer** (`produce/`). Takes hand-authored templates (`templates/`) plus the Hetionet
-   graph, produces the frozen eval set (`questions.jsonl`) with ground truth. Runs once per
-   dataset version. Reproducible via seeded sampling. Ground truth comes from SPARQL traversal,
-   **never** an LLM.
-2. **Generator** (`generate/`). The model under test — provider-agnostic adapters behind a
+1. **Generator** (`generate/`). The model under test — provider-agnostic adapters behind a
    `Generator` protocol. Held fixed within a run, varied across runs.
-3. **Eval harness** (`harness.py`). Ties the three swap points together for each question:
+2. **Eval harness** (`harness.py`). Ties the three swap points together for each question:
    retrieve → generate → judge, recording structured per-question telemetry. Runs once per
    system-under-test.
-4. **Judge** (`judge/`). Scores answers against ground truth. Type-aware: deterministic for
+3. **Judge** (`judge/`). Scores answers against ground truth. Type-aware: deterministic for
    nine of ten types; the one LLM judge only for fuzzy/semantic.
 
-Downstream of these, `ingest/corpus/` holds the corpus-build profiles (the corpus dimension,
-produced by `ingest/corpus_profile.py`), and the top-level `analysis/` sibling reads the per-run
-results into one tidy frame — the boundary that is being extracted to a separate analytics repo
-(see the root README's Output contract). `eval/` is Evaluation-only; the Producer (`produce/`)
-and Analysis (`analysis/`) phases live as top-level siblings.
+The eval set these run over is **not** an eval concern: it is produced upstream by the
+**Producer** (`produce/`, the Groundwork phase) and arrives frozen as `questions.jsonl` — see
+[`produce/README.md`](../produce/README.md). Downstream, `ingest/corpus/` holds the corpus-build
+profiles (the corpus dimension, produced by `ingest/corpus_profile.py`), and the top-level
+`analysis/` sibling reads the per-run results into one tidy frame — the boundary that is being
+extracted to a separate analytics repo (see the root README's Output contract). `eval/` is
+Evaluation-only; the Producer (`produce/`) and Analysis (`analysis/`) phases live as top-level
+siblings.
 
 Generator, judge, and retriever all follow the same pluggable pattern: a `base.py` protocol
 plus concrete implementations swapped behind a registry in `run_eval.py`. This mirrors
-`ingest/` (`rdf/` and `vector/` as sibling concerns). Mixing producing, generating, running,
-and judging into one flat folder would not scale as the eval grows.
+`ingest/` (`rdf/` and `vector/` as sibling concerns). Mixing generating, running, and judging
+into one flat folder would not scale as the eval grows.
 
 ## Judging
 
