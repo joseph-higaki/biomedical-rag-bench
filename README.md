@@ -160,23 +160,14 @@ hop-count and entity density. This is the claim under test, not the assumed conc
 | **H6** Citability | graph gives claim-level provenance; vector chunk-level | by construction — `sources` granularity (URIs vs chunk ids); attribution faithfulness deferred | graph |
 
 H1–H4 and H7 are **scored per question** — each yields a number per (retriever ×
-question-type) cell. 
+question-type) cell; scored-metric formulas live in
+[`eval/README.md` → Metrics](eval/README.md#metrics). H5 and H6 are instead
+**per-backend** — one value per retriever, not a per-type score — with methodology in
+[`analysis/build-cost.md`](analysis/build-cost.md) and
+[`analysis/run-cost.md`](analysis/run-cost.md).
 
 **H4 is deferred to a later version** — defined here, but not part of the
 `v1.*.*` comparison (see [Build order](#build-order)).
-
-H5 and H6 are **per-backend, not per-question**: they describe the representation itself,
-so each yields one value per retriever rather than a per-type score. H5 is a *measured*
-build-and-query profile with three legs: a one-time **build-cost** profile (wall-clock, on-disk
-footprint, corpus scale; methodology in [`analysis/build-cost.md`](analysis/build-cost.md)) plus
-two per-query costs — **query latency** (`latency_ms`) and **query token cost** (mean
-`retrieval_context_input_tokens`, the per-backend aggregate of the same billed-input metric H1
-slices per type; methodology in [`analysis/run-cost.md`](analysis/run-cost.md)). H6 is
-*fixed by construction* — each retriever's `sources` field has a known granularity
-(claim-level URIs for graph, chunk ids for vector), so citation *presence* is settled by
-the architecture; the harder, scorable version (whether each answer claim actually traces
-to a returned source — attribution faithfulness) is **not yet built**. Scored-metric
-formulas live in [`eval/README.md` → Metrics](eval/README.md#metrics).
 
 ### Early observations
 
