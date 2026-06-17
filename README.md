@@ -48,7 +48,6 @@ assets — `questions.jsonl`, GraphDB, Chroma — are the hand-off, so they appe
 <summary><b>Image diagram</b></summary>
 
 **Groundwork**
-
 ![architecture diagram](<_resources/README.md/biomedical-rag-bench-architecture (v4).png>)
 
 </details>
