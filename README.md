@@ -33,6 +33,18 @@ Split by phase. **Groundwork** builds the shared assets; **Evaluation** consumes
 assets — `questions.jsonl`, GraphDB, Chroma — are the hand-off, so they appear in both: they
 *end* the Groundwork flow (far right) and *start* the Evaluation flow (far left).
 
+<details open>
+<summary><b>Image diagram</b></summary>
+
+**Groundwork**
+
+![architecture diagram](<_resources/README.md/biomedical-rag-bench-architecture (v4).png>)
+
+</details>
+
+<details>
+<summary><b>Mermaid diagrams</b></summary>
+
 **Groundwork**
 
 ```mermaid
@@ -69,6 +81,8 @@ flowchart LR
     jud --> res[/"results: rows + manifest"/]
     res --> ana["Analysis"]
 ```
+
+</details>
 
 ## Repository structure
 
