@@ -392,17 +392,11 @@ def sample_fixed(tpl: dict, rq_text: str, endpoint: str) -> list[dict]:
 def sample_single(tpl: dict, spec: dict, rq_text: str, rng: random.Random, endpoint: str) -> list[dict]:
     """Single-placeholder sampling: pick entities, run the .rq, emit one record each.
 
-    Two regimes, chosen by whether the template declares answer-size bounds:
-
-    - **Direct** (no `min_answer`/`max_answer`): the sampled edge *is* the answer edge
-      (single hop), so the placeholder's own fan bound already shaped the answer.
-      Draw `count` picks straight from the pool.
-    - **Answer post-check** (`min_answer`/`max_answer` set): the answer is multi-hop —
-      the sampled head edge (e.g. a compound's `treats`) does NOT determine the answer
-      size (the genes two hops downstream), and may even be empty. The fan bound is on
-      the wrong hop. So we shuffle, run the real .rq per candidate, and keep only those
-      whose answer lands in bounds, until `count` are collected. This is the
-      single-placeholder analogue of the bound-check `sample_paired` does.
+    Two regimes by whether the template sets answer-size bounds:
+    - Direct (no min/max_answer): the sampled edge is the answer edge; the placeholder's fan
+      bound already shaped the answer — draw `count` straight from the pool.
+    - Answer post-check (min/max_answer set): answer is multi-hop, fan bound is on the wrong hop,
+      so shuffle, run the .rq per candidate, keep only in-bounds until `count` collected.
     """
     pool = candidate_pool(spec, endpoint=endpoint)
     if not pool:

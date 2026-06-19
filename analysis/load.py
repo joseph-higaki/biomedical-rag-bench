@@ -1,37 +1,18 @@
 #!/usr/bin/env python3
 """analysis/load.py — the analysis layer's data loader (build step 5 → 8).
 
-The harness writes one JSONL row per question×run plus a per-run manifest (gitignored,
-machine-readable). This module turns that pile of run files into ONE tidy pandas DataFrame —
-the single seam both the exploratory notebook and the eventual polished notebook/dashboard
-import, so the load + dedup + reshape logic lives in exactly one place (and is unit-tested),
-not copy-pasted across notebooks.
+Turns the pile of per-question JSONL rows + per-run manifests into ONE tidy DataFrame — the
+single tested seam both notebooks import, so load/dedup/reshape lives in one place.
 
-Three jobs, each a real correctness hazard if done ad hoc in a notebook cell:
+Three jobs, each a correctness hazard done ad hoc:
+  1. Discover + join each <run_id>.jsonl with its manifest; stamp run-constant factors.
+  2. Dedup to canonical rows at (retriever, generator_family, writer_family, question_id),
+     keeping the latest run — supersedes truncated/smoke runs, preserves coverage union.
+  3. Reshape: explode judge_details + traversal_info to flat columns, derive hops, compute
+     retrieval context-input tokens (the one unit-safe decomposition; see retrievers/base.py).
 
-  1. **Discover + join.** Pair every `<run_id>.jsonl` with its `<run_id>.manifest.json` and
-     stamp each row with run-constant factors (retriever, generator_model, judge, timestamp).
-
-  2. **Dedup to canonical rows.** `eval/results/` accumulates superseded runs — n=1 smokes, a
-     `2hop` run that died at 3/52 mid-batch, re-runs on a rebuilt corpus. Naively concatenating
-     double-counts them. We dedup at the **(retriever, generator_model_family, writer_model_family,
-     question_id)** grain,
-     keeping the latest run's row: that simultaneously supersedes truncated/smoke runs AND
-     preserves the *union* of question coverage (e.g. closed_book's deterministic-52 run and its
-     separate type-10 run merge into one closed_book condition, no question lost).
-
-  3. **Reshape to columns.** Explode the nested `judge_details` (recall/precision/f1/extra) and
-     `traversal_info` (writer-LLM cost, sparql_valid, hops, top_k, num_linked) into flat columns,
-     derive `hops` from the retriever name, and compute **retrieval context-input tokens**
-     (`input_tokens − closed_book input_tokens` for the same question+model — the one unit-safe
-     token decomposition the contract sanctions, see retrievers/base.py).
-
-Telemetry columns are NaN for rows produced before the harness persisted `traversal_info`
-(commit 8b4c434) — that is expected and is exactly why the canonical conditions get re-run on
-the new schema. `python -m analysis.load` prints a data-contract audit (canonical runs +
-column coverage) — the exploratory pass's first deliverable.
-
-Needs the `eval` extra (pandas): `uv run --extra eval python -m analysis.load`.
+Telemetry columns are NaN for rows before traversal_info existed (commit 8b4c434) — expected.
+`python -m analysis.load` prints a data-contract audit. Needs the `eval` extra (pandas).
 """
 from __future__ import annotations
 

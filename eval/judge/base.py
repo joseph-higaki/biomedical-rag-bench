@@ -1,34 +1,13 @@
 """eval/judge/base.py — the shared scoring contract (build step 5).
 
-Judging is the third eval concern (after production and the harness). It mirrors
-the `retrievers/` design exactly: a `base.py` carrying the protocol + result shape +
-shared helpers, then concrete judges per scoring strategy (the deterministic judges in
-deterministic.py plus the `semantic` LLM judge in semantic.py). The harness is judge-agnostic: it looks up a
-judge by the question's `scoring` field and reads the same `JudgeResult` shape back,
-so a question's verdict is computed the same way regardless of which retriever or
-generator produced the answer.
+Mirrors retrievers/: a protocol + result shape + helpers, then concrete judges per strategy
+(deterministic.py + the semantic LLM judge). The harness looks up a judge by the question's
+`scoring` field and reads the same JudgeResult back. A judge compares the generator's raw
+text against graph-derived ground truth, owning extraction; scoring is type-aware.
 
-What a judge scores
--------------------
-A judge compares one *predicted answer* (the generator's raw text) against a
-question's *ground truth* (derived from the graph at production time, never from an
-LLM). It owns the extraction: pulling a number, a boolean, or an entity set out of
-free-text model output and comparing it to ground truth. The scoring is type-aware
-because the comparison differs by question shape — set overlap for traversals, exact
-equality for counts, refusal-detection for unanswerables (see eval/README.md).
-
-Determinism rule (eval/README.md)
----------------------------------
-Deterministic scoring is preferred wherever the answer's *form* is checkable without
-judgment (numbers, booleans, label sets against the graph's own vocabulary). The LLM
-judge is reserved for `semantic` (type 10), where surface-form variation genuinely
-needs a model to assess equivalence — and only after its agreement with human grades
-(Cohen's kappa) clears the bar in the release notes. Every deterministic judge here
-is pure-stdlib and hermetic: no network, no API key, free to run.
-
-Additive-only, like the rest of the benchmark: new optional `JudgeResult` fields and
-new `details` keys are fine forever; existing ones never change meaning, so a verdict
-recorded by old code stays comparable to one from new code.
+Determinism rule: deterministic scoring wherever form is checkable (numbers, booleans, label
+sets) — pure-stdlib, hermetic. The LLM judge is reserved for `semantic` (type 10), only after
+its Cohen's kappa vs human grades clears the bar. Additive-only JudgeResult fields/keys.
 """
 from __future__ import annotations
 

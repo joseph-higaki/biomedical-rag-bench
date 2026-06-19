@@ -1,8 +1,7 @@
 .PHONY: help hooks test registry explain ingest ingest-rdf ingest-vectors ingest-smoke ingest-load up down clean-graphdb graphdb-ready eval-full
 
-# The model under test, fixed across all five conditions in a sweep (the hard constraint:
-# the generator never varies across retriever conditions in one comparison). Override per-run:
-# `make eval-full GEN=anthropic:claude-sonnet-4-6`.
+# Model under test, fixed across all conditions in a sweep (hard constraint: generator
+# never varies across retrievers). Override: make eval-full GEN=anthropic:claude-sonnet-4-6.
 GEN ?= anthropic:claude-haiku-4-5
 
 help:  ## Show available targets

@@ -1,36 +1,15 @@
 """eval/generate/base.py — the provider-neutral generation contract (build step 5).
 
-The **generator is the model under test**: it reads the retrieved context + the
-question and produces the answer the judges score. The benchmark is generator-agnostic
-by design (a hard constraint in .claude/CLAUDE.md and the root README) — `GENERATOR_MODEL`
-is swapped *across* runs (a small/local model for iteration, a frontier hosted model for
-the headline run) and held *fixed within* a run, logged with every result. So nothing
-above this contract may know which provider is running: the harness depends only on the
-`Generator` protocol and reads the same `GenerationResult` back, exactly as it depends
-only on the `Retriever` and `Judge` protocols. This is the swap point for providers.
+The generator is the model under test: reads context + question, produces the answer the
+judges score. GENERATOR_MODEL is swapped across runs, fixed within a run, logged with every
+result; nothing above this contract knows which provider runs (Strategy pattern — each
+adapter owns all SDK specifics and is the only importer of the SDK).
 
-This is the **Strategy pattern**. This module is the neutral context; each adapter
-(`anthropic_generator.py` now; an Ollama/OpenAI adapter later) is a concrete strategy
-that owns *all* provider/SDK specifics and is the **only** place that imports the SDK.
-Four things stay agnostic at this surface, and the adapter maps its SDK onto each:
+The adapter maps its SDK onto four neutral surfaces: message exchange, system prompt, token
+usage, tool usage. Swapped behind a registry in run_eval.py — no orchestration framework.
 
-  - **Message exchange** — a `prompt` in, an answer `text` out. The adapter builds the
-    SDK's message envelope (Anthropic `messages=[{role, content}]`, etc.).
-  - **System prompt** — a separate `system` channel, held constant by the harness.
-    Providers with no system concept fold it into the prompt inside the adapter.
-  - **Token usage** — normalized into `GenerationResult`'s billed counts below,
-    whatever shape the SDK's `usage` object takes.
-  - **Tool usage** — neutral JSON-schema tool specs in (`tools=`), normalized tool
-    invocations out (`tool_calls`). The adapter translates to/from the SDK's tool format.
-
-Adapters are swapped behind a registry (in `eval/run_eval.py`, beside the retriever and
-judge registries). No orchestration framework (no LiteLLM): ~3 providers, hand-rolled.
-
-Tokens here are the BILLED truth — real input/output tokens in the generator's own
-tokenizer, from the provider's `usage` metadata. This is exactly the unit the retrievers'
-offline `context_tokens` proxy is *not* (see retrievers/base.py on units): the one
-unit-safe token decomposition, input_tokens(retriever) − input_tokens(closed_book) for
-the same model + question, uses these billed numbers — never the proxy.
+Tokens here are BILLED truth (provider usage metadata), the unit the retrievers' offline
+proxy is not (see retrievers/base.py); the one unit-safe decomposition uses these.
 """
 from __future__ import annotations
 

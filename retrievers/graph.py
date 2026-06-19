@@ -1,25 +1,11 @@
 """retrievers/graph.py — neighborhood graph retriever (build step 4).
 
-Mechanism 2 of the two honest graph-RAG designs (see the session journal / README):
-entity-link the question to graph nodes, pull a bounded k-hop neighborhood around
-them from GraphDB, and serialize it as readable labeled triples for the generator.
-No LLM in the retriever — deterministic, so the graph *condition* isolates the
-representation under test rather than confounding it with text-to-SPARQL skill. The
-realistic text-to-SPARQL system is the separate `graph_sparqlgen` condition (it adds
-an LLM writer to the retriever; see retrievers/sparqlgen.py).
+Entity-link the question, pull a bounded k-hop neighborhood from GraphDB, serialize as
+labeled triples. No LLM — deterministic, so the condition isolates representation, not
+text-to-SPARQL skill (that's the separate graph_sparqlgen). Parallels vector deliberately.
 
-It parallels the vector retriever deliberately: vector embeds the question and
-returns top-k nearby chunks; this links the question's named entities and returns
-their nearby subgraph. Both fetch context around the question's anchors and let the
-fixed generator reason — so differences trace to representation, not mechanism.
-
-Honesty: the retriever sees only the `query` string (the Retriever protocol). It
-never touches a question's `seeds` or ground-truth SPARQL — those are for scoring.
-Entity linking works off the question text plus the public label dictionary only.
-
-Telemetry: every result records its full config into `traversal_info` (mechanism,
-hops, fan caps, the entities it linked, the SPARQL it ran, counts) so a factorial
-EDA can slice results by any of these factors. Additive keys only (the contract).
+Sees only `query`, never seeds/ground-truth. Logs mechanism/hops/caps/entities/SPARQL
+into traversal_info (additive keys only).
 """
 from __future__ import annotations
 

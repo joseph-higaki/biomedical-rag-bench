@@ -3,17 +3,13 @@ name = "biomedical-rag-bench"
 version = "1.0.0"
 description = "Falsifiable, evolving evaluation harness for retrieval-augmented generation over biomedical knowledge, comparing retrieval strategies under a shared, additive-only evaluation contract."
 requires-python = ">=3.12"
-# Core deps are intentionally empty: nothing is needed by *every* code path.
-# Capability-scoped extras keep the env lean — transforming RDF must not require
-# pulling torch. Exact versions are pinned in uv.lock (the lockfile is the source
-# of truth, per the repo's reproducibility constraint), not here.
+# Core deps intentionally empty: nothing is needed by every path. Capability-scoped
+# extras keep it lean (RDF transform must not pull torch). Versions pinned in uv.lock.
 dependencies = []
 
 [project.optional-dependencies]
-# JSON -> Turtle transform. ijson streams the 712 MB source so we never hold it
-# in memory (the box has ~7 GB RAM). pyoxigraph validates generated Turtle-star
-# and runs offline SPARQL-star on the smoke slice — rdflib 7.6 has no RDF-star
-# support, so it cannot parse our edge annotations.
+# JSON->Turtle. ijson streams the 712 MB source (box has ~7 GB RAM); pyoxigraph
+# validates Turtle-star — rdflib 7.6 has no RDF-star support for our edge annotations.
 ingest = [
     "ijson>=3.3",
     "pyoxigraph>=0.4",
@@ -22,8 +18,7 @@ ingest = [
 graph = [
     "httpx>=0.27",
 ]
-# Vector retriever. torch comes in transitively via sentence-transformers; heavy,
-# so it stays out of the default install until the vector build step.
+# Vector retriever. torch (via sentence-transformers) stays out of the default install.
 vector = [
     "chromadb>=0.5",
     "sentence-transformers>=3.0",
@@ -33,21 +28,16 @@ fetch = [
     "httpx>=0.27",
     "python-dotenv>=1.0",
 ]
-# Generator/judge/writer adapters (the Generator protocol's concrete strategies).
-# anthropic is the first provider adapter; python-dotenv loads ANTHROPIC_API_KEY from
-# secrets/.env. ollama drives a local model for the SPARQL writer / semantic judge (not the
-# generator-under-test, by policy) against a localhost daemon — no key. All three are imported
-# lazily inside their adapter, so the protocol/base and the registry import with nothing
-# installed. OpenAI etc. extend this list + one registry entry.
+# Generator/judge/writer adapters (Generator protocol strategies). anthropic = first
+# provider; ollama drives the local SPARQL writer/judge (not the generator-under-test).
+# All imported lazily, so base+registry load with nothing installed.
 generate = [
     "anthropic>=0.40",
     "ollama>=0.3",
     "python-dotenv>=1.0",
 ]
-# Corpus-profile measurement (ingest/corpus_profile.py): reads the Chroma store
-# (chromadb — no sentence-transformers, since counting never embeds) and counts
-# triples/nodes over SPARQL (httpx) when an endpoint serving the corpus is given.
-# Emits the committed corpus-build profile that run_eval references by corpus_build_id.
+# Corpus-profile measurement (corpus_profile.py): reads Chroma (chromadb, no embedding)
+# + counts triples over SPARQL (httpx). Emits the profile run_eval keys by corpus_build_id.
 profile = [
     "chromadb>=0.5",
     "httpx>=0.27",

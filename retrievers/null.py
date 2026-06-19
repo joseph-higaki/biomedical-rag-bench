@@ -1,19 +1,12 @@
 """retrievers/null.py — the closed-book baseline (build step 4).
 
-`NullRetriever` (name `closed_book`) returns empty context. It is NOT a retrieval
-mechanism under test; it is the *baseline* that measures how much retrieval
-contributes to answer quality, independent of which retriever is used. Without it
-the benchmark cannot distinguish "graph beats vector" from "both retrievers add
-nothing the generator didn't already know from training data" — a real risk for
-biomedical knowledge that frontier models have largely memorized (most of
-Hetionet's famous entities). See the root README for the H7 retrieval-necessity
-hypothesis this baseline exists to test.
+`NullRetriever` (name `closed_book`) returns empty context. Not a mechanism under test —
+the baseline measuring how much retrieval adds at all (H7), since frontier models have
+memorized most of Hetionet's famous entities.
 
-It doubles as the per-question *token* baseline: because it injects no context, its
-billed input_tokens is exactly the non-retrieval payload (system + question + framing)
-for that question. A retriever's true injected cost is then
-input_tokens(retriever) - input_tokens(closed_book), both in the generator's
-tokenizer — the one unit-safe token decomposition (see base.py on units).
+Doubles as the per-question token baseline: its billed input_tokens is the non-retrieval
+payload, so a retriever's true cost is input_tokens(retriever) − input_tokens(closed_book),
+same tokenizer (see base.py on units).
 """
 from __future__ import annotations
 

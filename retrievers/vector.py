@@ -1,28 +1,11 @@
 """retrievers/vector.py — dense-retrieval control (build step 4).
 
-The benchmark's *control* condition: embed the question with the same
-SentenceTransformer the corpus was built with, query the persistent Chroma
-collection by cosine similarity, and hand the top-k chunks to the generator as
-context. No LLM in the retriever — deterministic given the store and the query.
+Embed the question with the corpus's SentenceTransformer, query Chroma by cosine, hand
+top-k chunks to the generator. No LLM in the retriever — deterministic. Parallels
+graph_neighborhood so answer-quality differences trace to representation, not mechanism.
 
-It parallels the graph retriever deliberately: where `graph_neighborhood` links
-the question's named entities and traverses their subgraph, this embeds the whole
-question and returns the nearest chunks. Both fetch context around the question's
-anchors and let the fixed generator reason, so a difference in answer quality
-traces to *representation* (free-text abstracts vs. labeled triples), not to the
-mechanism doing the fetching.
-
-The embedding model is a single visible swap point. `build_vectors.py` names it at
-ingestion; this names the identical default and must stay in sync — query and
-corpus embeddings are only comparable in the same vector space. Passing a `--model`
-to ingestion means passing the same `model` here.
-
-Honesty: the retriever sees only the `query` string (the Retriever protocol). It
-never touches a question's `seeds` or ground-truth — those are for scoring.
-
-Telemetry: every result logs the store path, collection, model, k, and the per-hit
-cosine distances into `traversal_info`, so a factorial EDA can slice by any of them.
-Additive keys only (the contract).
+The embedding model must match build_vectors.py (same vector space). Sees only `query`,
+never seeds/ground-truth. Logs store/collection/model/k + per-hit distances (additive).
 """
 from __future__ import annotations
 

@@ -69,14 +69,11 @@ def select_questions(
     include_semantic: bool = False,
     types: list[str] | None = None,
 ) -> list[dict]:
-    """Pick up to `limit` questions, round-robin across `type_id` for type coverage.
+    """Pick up to `limit` questions, round-robin across `type_id` for coverage.
 
-    `semantic` (type 10) is excluded by default — it needs the LLM judge, which costs spend
-    and an API key — and included only when `include_semantic` is set or it is named in
-    `types`. `types` is an optional list of `type_id` prefixes (e.g. ["10"] or
-    ["03", "06"]); naming a type selects it explicitly, bypassing the semantic default-skip
-    for that type. Round-robin across the surviving types means a small sample still spans
-    them rather than clustering on a flat head-of-file slice. Deterministic given input order.
+    `semantic` (type 10) is skipped by default (needs the LLM judge); include via
+    `include_semantic` or by naming it in `types` (type_id prefixes, e.g. ["03","06"]).
+    Round-robin so a small sample spans types. Deterministic given input order.
     """
     def keep(q: dict) -> bool:
         if types is not None:  # an explicit type request overrides the semantic default-skip

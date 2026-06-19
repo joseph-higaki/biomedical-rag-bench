@@ -10,9 +10,8 @@ services:
       - graphdb_license          # injected at /run/secrets/graphdb_license (see secrets/README.md)
     environment:
       - GDB_HEAP_SIZE=4G          # bump to 6-8G when reasoning is enabled in Project 2
-      # GraphDB 11 Free is no longer license-free: it needs a (free) license file
-      # requested from Ontotext. Save the emailed file as ./secrets/graphdb.license.
-      # Injected as a Docker secret below; pointed at here. See secrets/README.md.
+      # GraphDB 11 Free needs a (free) Ontotext license at ./secrets/graphdb.license,
+      # injected as the Docker secret below. Setup: secrets/README.md.
       - GDB_JAVA_OPTS=-Dgraphdb.license.file=/run/secrets/graphdb_license
     restart: unless-stopped
     healthcheck:
@@ -28,9 +27,7 @@ services:
       start_period: 60s
 
 secrets:
-  # File-based Compose secret. Source is the gitignored per-developer license; Compose
-  # mounts it read-only at /run/secrets/graphdb_license. Replaces the previous full-dir
-  # `./secrets:/opt/graphdb/secrets:ro` bind: a single read-only file at the conventional
-  # path, decoupled from the broader secrets/ dir (which also holds the host-only .env).
+  # File-based Compose secret: the gitignored per-dev license, mounted read-only at
+  # /run/secrets/graphdb_license (replaces the old full-dir ./secrets bind).
   graphdb_license:
     file: ./secrets/graphdb.license
