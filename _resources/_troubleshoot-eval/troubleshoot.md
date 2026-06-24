@@ -1,0 +1,213 @@
+
+# judging gt mechanism on negative unanswered
+"question": "Which diseases does Testolactone treat?",
+  "ground_truth": [],
+    "predicted": "None",
+      "judged": true,
+  "passed": true,
+  "score": 1,
+  "verdict": "correctly refused / asserted none",
+
+But this could mean that Testolactone does not treat any disease. Is this CWA. meaning that if gt is empty, there is no sufficient information
+System prompt should assume that RAG is all knowledge, anything that isnt there, is negative
+
+# refusal vs good score
+ingestion_sample/20260615T200851-graph_sparqlgen-anthropic.jsonl 
+  "question_id": "05_aggregative__count_of_side_effects_caused_by_compound__00",
+refused to answer but did include a correct: n=184  reference that was scored well by the judge.
+Should the judge had interpreted as refusal and this would've been an incorrect refusal of the generator? 
+the retriever did provide the right context
+
+#refusal vs good score
+ingestion_sample/20260615T200851-graph_sparqlgen-anthropic.jsonl 
+  "question_id": "06_set_intersection__shared_pathways_of_two_genes__00",
+the answer is refusal 
+it wasnt interpreted as refusal "judged": true,
+  "passed": false,
+  "score": 0.7499999999999999,
+  "verdict": "set F1=0.75 (recall 3/3, 2 extra)",
+  "judge_details": {
+    "expected_count": 3,
+    "found_count": 3,
+    "missing": [],
+    "precision": 0.6,
+    "recall": 1,
+    "f1": 0.75,
+    "extra": [
+      "I would need information about the pathway participation of both HMMR and NUP155.",
+      "None"
+    ],
+
+and the restate of HMMR and NUP155 (proteins from quesiton) is interpreted as additional answer items, thus extra=2
+why extra=2 is not metadata in the judge payload. Should it be?
+
+# Retriever provided answer Generator didnt use
+
+Gruont Truth reads
+```json
+{
+  "question_id": "07_set_difference__pathways_in_one_gene_excluding_another__00",
+  "type_id": "07_set_difference",
+  "template_id": "pathways_in_one_gene_excluding_another",
+  "question": "Which pathways does FSTL3 participate in that DUSP3 does not?",
+  "scoring": "set_match",
+  "answer_var": "pathwayLabel",
+  "ground_truth": [
+    "Antagonism of Activin by Follistatin",
+    "Signaling by Activin"
+  ],
+  "ground_truth_query": "PREFIX hetio: <https://het.io/schema/>
+PREFIX ncbigene: <https://identifiers.org/ncbigene/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?pathway ?pathwayLabel WHERE {
+  VALUES ?geneA { <https://identifiers.org/ncbigene/10272> }
+  VALUES ?geneB { <https://identifiers.org/ncbigene/1845> }
+  ?geneA hetio:participates ?pathway .
+  ?pathway a hetio:Pathway ;
+           rdfs:label ?pathwayLabel .
+  FILTER NOT EXISTS { ?geneB hetio:participates ?pathway . }
+}
+ORDER BY ?pathwayLabel",
+  "seeds": [
+    {
+      "bind_var": "geneA",
+      "label": "FSTL3",
+      "uri": "https://identifiers.org/ncbigene/10272"
+    },
+    {
+      "bind_var": "geneB",
+      "label": "DUSP3",
+      "uri": "https://identifiers.org/ncbigene/1845"
+    }
+  ],
+  "sampling_seed": "20260605:pathways_in_one_gene_excluding_another"
+}
+```
+
+in `"run_id": "20260615T200851-graph_sparqlgen-anthropic"`
+
+
+this was scored
+
+```json
+{
+  "question_id": "07_set_difference__pathways_in_one_gene_excluding_another__00",
+  "type_id": "07_set_difference",
+  "scoring": "set_match",
+  "question": "Which pathways does FSTL3 participate in that DUSP3 does not?",
+  "ground_truth": [
+    "Antagonism of Activin by Follistatin",
+    "Signaling by Activin"
+  ],
+  "retriever": "graph_sparqlgen",
+  "generator_provider": "anthropic",
+  "generator_model": "claude-haiku-4-5",
+  "predicted": "I cannot determine which pathways FSTL3 participates in that DUSP3 does not based solely on the provided context. The context only lists two pathways related to Activin signaling but does not specify which proteins participate in each pathway.
+
+To answer this question accurately, I would need information about:
+1. All pathways that FSTL3 participates in
+2. All pathways that DUSP3 participates in
+3. A comparison of these two lists
+
+None",
+  "generator_model_resolved": "claude-haiku-4-5-20251001",
+  "generator_temperature": 0,
+  "input_tokens": 246,
+  "output_tokens": 113,
+  "cache_read_input_tokens": 0,
+  "cache_creation_input_tokens": 0,
+  "context_tokens_proxy": 36,
+  "num_sources": 2,
+  "retrieval_latency_ms": 1782.7,
+  "generation_latency_ms": 1465.3,
+  "traversal_info": {
+    "mechanism": "sparqlgen",
+    "writer_model": "claude-haiku-4-5-20251001",
+    "writer_temperature": 0,
+    "writer_input_tokens": 577,
+    "writer_output_tokens": 172,
+    "endpoint": "http://localhost:7200/repositories/hetionet",
+    "sparql_generated": "PREFIX hetio: <https://het.io/schema/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?pathway ?pathwayLabel
+WHERE {
+  ?fstl3 rdfs:label \"FSTL3\" .
+  ?dusp3 rdfs:label \"DUSP3\" .
+  
+  ?fstl3 hetio:participates ?pathway .
+  ?pathway a hetio:Pathway .
+  ?pathway rdfs:label ?pathwayLabel .
+  
+  FILTER NOT EXISTS {
+    ?dusp3 hetio:participates ?pathway .
+  }
+}",
+    "writer_reply_raw": "```sparql
+PREFIX hetio: <https://het.io/schema/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?pathway ?pathwayLabel
+WHERE {
+  ?fstl3 rdfs:label \"FSTL3\" .
+  ?dusp3 rdfs:label \"DUSP3\" .
+  
+  ?fstl3 hetio:participates ?pathway .
+  ?pathway a hetio:Pathway .
+  ?pathway rdfs:label ?pathwayLabel .
+  
+  FILTER NOT EXISTS {
+    ?dusp3 hetio:participates ?pathway .
+  }
+}
+```",
+    "sparql": "PREFIX hetio: <https://het.io/schema/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?pathway ?pathwayLabel
+WHERE {
+  ?fstl3 rdfs:label \"FSTL3\" .
+  ?dusp3 rdfs:label \"DUSP3\" .
+  
+  ?fstl3 hetio:participates ?pathway .
+  ?pathway a hetio:Pathway .
+  ?pathway rdfs:label ?pathwayLabel .
+  
+  FILTER NOT EXISTS {
+    ?dusp3 hetio:participates ?pathway .
+  }
+}
+LIMIT 200",
+    "sparql_valid": true,
+    "num_rows": 2,
+    "context_tokenizer": "wordpunct-v1"
+  },
+  "judged": true,
+  "passed": false,
+  "score": 0,
+  "verdict": "set F1=0.00 (recall 0/2, 5 extra)",
+  "judge_details": {
+    "expected_count": 2,
+    "found_count": 0,
+    "missing": [
+      "Antagonism of Activin by Follistatin",
+      "Signaling by Activin"
+    ],
+    "precision": 0,
+    "recall": 0,
+    "f1": 0,
+    "extra": [
+      "I cannot determine which pathways FSTL3 participates in that DUSP3 does not based solely on the provided context. The context only lists two pathways related to Activin signaling but does not specify which proteins participate in each pathway.",
+      "All pathways that FSTL3 participates in",
+      "All pathways that DUSP3 participates in",
+      "A comparison of these two lists",
+      "None"
+    ],
+    "basis": "set"
+  }
+}
+```
+
+There generated sparql already contained the filtered pathways
+The generator didn't trust it 
