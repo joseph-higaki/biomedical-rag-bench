@@ -211,3 +211,133 @@ LIMIT 200",
 
 There generated sparql already contained the filtered pathways
 The generator didn't trust it 
+
+# Retriever did well generator didnt get
+
+question from gt
+
+```json
+{
+  "question_id": "02_1hop_factoid__genes_expressed_in_anatomy__01",
+  "type_id": "02_1hop_factoid",
+  "template_id": "genes_expressed_in_anatomy",
+  "question": "Which genes are expressed in ankle joint?",
+  "scoring": "set_match",
+  "answer_var": "geneLabel",
+  "ground_truth": [
+    "CFL1",
+    "SMU1"
+  ],
+  "ground_truth_query": "PREFIX hetio: <https://het.io/schema/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX uberon: <http://purl.obolibrary.org/obo/UBERON_>
+
+SELECT ?gene ?geneLabel WHERE {
+  VALUES ?anatomy { <http://purl.obolibrary.org/obo/UBERON_0001488> }
+  ?anatomy hetio:expresses ?gene .
+  ?gene rdfs:label ?geneLabel .
+}
+ORDER BY ?geneLabel",
+  "seeds": [
+    {
+      "bind_var": "anatomy",
+      "label": "ankle joint",
+      "uri": "http://purl.obolibrary.org/obo/UBERON_0001488"
+    }
+  ],
+  "sampling_seed": "20260605:genes_expressed_in_anatomy"
+}
+```
+
+generator got it wrong
+```json
+{
+  "question_id": "02_1hop_factoid__genes_expressed_in_anatomy__01",
+  "type_id": "02_1hop_factoid",
+  "scoring": "set_match",
+  "question": "Which genes are expressed in ankle joint?",
+  "ground_truth": [
+    "CFL1",
+    "SMU1"
+  ],
+  "retriever": "graph_sparqlgen",
+  "generator_provider": "anthropic",
+  "generator_model": "claude-haiku-4-5",
+  "predicted": "None",
+  "generator_model_resolved": "claude-haiku-4-5-20251001",
+  "generator_temperature": 0,
+  "input_tokens": 220,
+  "output_tokens": 4,
+  "cache_read_input_tokens": 0,
+  "cache_creation_input_tokens": 0,
+  "context_tokens_proxy": 30,
+  "num_sources": 2,
+  "retrieval_latency_ms": 1180.9,
+  "generation_latency_ms": 658.7,
+  "traversal_info": {
+    "mechanism": "sparqlgen",
+    "writer_model": "claude-haiku-4-5-20251001",
+    "writer_temperature": 0,
+    "writer_input_tokens": 564,
+    "writer_output_tokens": 111,
+    "endpoint": "http://localhost:7200/repositories/hetionet",
+    "sparql_generated": "PREFIX hetio: <https://het.io/schema/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?gene ?geneLabel
+WHERE {
+  ?anatomy rdfs:label \"ankle joint\" .
+  ?anatomy hetio:expresses ?gene .
+  ?gene a hetio:Gene .
+  ?gene rdfs:label ?geneLabel .
+}",
+    "writer_reply_raw": "```sparql
+PREFIX hetio: <https://het.io/schema/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?gene ?geneLabel
+WHERE {
+  ?anatomy rdfs:label \"ankle joint\" .
+  ?anatomy hetio:expresses ?gene .
+  ?gene a hetio:Gene .
+  ?gene rdfs:label ?geneLabel .
+}
+```",
+    "sparql": "PREFIX hetio: <https://het.io/schema/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?gene ?geneLabel
+WHERE {
+  ?anatomy rdfs:label \"ankle joint\" .
+  ?anatomy hetio:expresses ?gene .
+  ?gene a hetio:Gene .
+  ?gene rdfs:label ?geneLabel .
+}
+LIMIT 200",
+    "sparql_valid": true,
+    "num_rows": 2,
+    "context_tokenizer": "wordpunct-v1"
+  },
+  "judged": true,
+  "passed": false,
+  "score": 0,
+  "verdict": "prose answer: recall 0/2 (precision not measurable)",
+  "judge_details": {
+    "expected_count": 2,
+    "found_count": 0,
+    "missing": [
+      "CFL1",
+      "SMU1"
+    ],
+    "precision": null,
+    "recall": 0,
+    "basis": "recall_only"
+  }
+}
+```
+
+the retriever did produce the right answer, the generator couldnt predict
+
+is it that the: 
+* the generator system prompt  needs to state that it should trust the retrieved context?
+* the writer  system prompt needs to include context columns for sparql results. But, on negated intersections this might be not possible
