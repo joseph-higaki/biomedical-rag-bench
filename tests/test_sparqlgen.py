@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from retrievers.base import Retriever
-from retrievers.sparqlgen import SparqlGenRetriever
+from retrievers.sparqlgen import WRITER_PROMPT, SparqlGenRetriever
 
 
 @dataclass
@@ -97,6 +97,7 @@ def test_happy_path_extracts_executes_and_logs_writer_cost(monkeypatch):
     assert res.context == "dLabel=Asthma"
     ti = res.traversal_info
     assert ti["mechanism"] == "sparqlgen" and ti["sparql_valid"] is True and ti["num_rows"] == 1
+    assert ti["writer_system_prompt_sha256"] == WRITER_PROMPT["sha256"]  # per-row join key
     assert ti["sparql"].rstrip().endswith("LIMIT 200")  # bounded before execution
     # the writer LLM's own cost is logged, separate from the generator's billed tokens
     assert ti["writer_model"] == "fake-writer-1"

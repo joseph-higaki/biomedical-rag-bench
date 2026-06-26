@@ -2,13 +2,15 @@
 
 Self-contained record of an incoming change request from the analytics consumer
 (`rag-bench-analytics`) and the producer-side review. Persisted at repo root so it can be
-committed, pushed, and read offline. Nothing here has been applied to the code yet — this is
-a decision document.
+committed, pushed, and read offline. Originally a pure decision document; the accepted change
+has since been applied — kept as the "why" record (see Status).
 
 - **Producer:** biomedical-rag-bench (this repo)
 - **Consumer:** rag-bench-analytics
 - **Subject:** make `traversal_info.mechanism` present on all four retrievers
-- **Status:** awaiting producer decision (see the decision table at the bottom)
+- **Status:** DECIDED + IMPLEMENTED 2026-06-26 — `retrievers/null.py` stamps
+  `mechanism: "none"` (decision-table rows 1+2+4); rows 3 & 5 rejected, rows 6 & 7 deferred.
+  Regression-guarded by `tests/test_null.py`.
 
 ---
 

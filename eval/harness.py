@@ -25,14 +25,13 @@ aggregation beyond a pass count.
 """
 from __future__ import annotations
 
-import hashlib
 import time
 from collections.abc import Iterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from eval.generate.base import Generator
 from eval.judge.base import Judge
-from retrievers.base import Retriever
+from retrievers.base import Retriever, prompt_record
 
 # Held constant across all retriever conditions (see module docstring). The format nudges
 # steer answers into the shape the deterministic judges parse — a list per line, a bare
@@ -51,6 +50,13 @@ SYSTEM_PROMPT = (
     "- If the answer is yes/no, start with \"Yes\" or \"No\".\n"
     "- If nothing satisfies the question, answer \"None\"."
 )
+
+# The generator's prompt-provenance record (version + sha + text). Bump the version on any
+# meaningful prompt change; the sha catches edits regardless. run_eval collects this with the
+# writer's and judge's records into the manifest `prompts` block. The bare sha below stays for
+# back-compat (it equals prompts.generator.sha256).
+GENERATOR_PROMPT_VERSION = "generator-v1"
+GENERATOR_PROMPT = prompt_record(GENERATOR_PROMPT_VERSION, SYSTEM_PROMPT)
 
 
 def build_prompt(question: str, context: str) -> tuple[str, str]:
@@ -153,6 +159,7 @@ def run_question(
             "error": f"{type(e).__name__}: {e}"[:300],
             "judged": False, "passed": None, "score": None,
             "verdict": f"ERROR (not scored): {type(e).__name__}", "judge_details": {},
+            "judge_id": None,  # no judge ran — key present for schema uniformity
         }
         return row
 
@@ -189,7 +196,8 @@ def run_question(
     judge = judges.get(question["scoring"])
     if judge is None:
         row |= {"judged": False, "passed": None, "score": None,
-                "verdict": f"no judge for scoring={question['scoring']!r}", "judge_details": {}}
+                "verdict": f"no judge for scoring={question['scoring']!r}", "judge_details": {},
+                "judge_id": None}  # scoring has no registered judge (e.g. semantic without the LLM)
         return row
 
     jr = judge.score(
@@ -198,8 +206,13 @@ def run_question(
         answer_var=question.get("answer_var"),
         question=question["question"],
     )
+    # The exact judge that scored THIS row (strategy + its own version), so analysis can group
+    # by judge per-answer instead of inferring it from the run-level roster label (which
+    # conflates a mixed deterministic+semantic run). `scoring` gives the strategy; this adds the
+    # version, and is None on unjudged/error rows above.
     row |= {"judged": True, "passed": jr.passed, "score": jr.score,
-            "verdict": jr.verdict, "judge_details": jr.details}
+            "verdict": jr.verdict, "judge_details": jr.details,
+            "judge_id": f"{judge.scoring}-{judge.version}"}
     return row
 
 
@@ -245,6 +258,11 @@ class RunManifest:
     questions_path: str
     num_questions: int
     system_prompt_sha256: str
+    # Per-role prompt provenance: {role -> {version, sha256, text}} for generator, sparqlgen
+    # writer, and semantic judge. The run-constant prompt registry, recorded once here (never
+    # per row); analytics joins a row to its role's prompt by run_id. Additive/optional —
+    # empty for runs made before prompt provenance. See retrievers/base.prompt_record.
+    prompts: dict = field(default_factory=dict)
     # The configured `generator_model` may be an alias; this is the exact dated snapshot the
     # provider resolved it to (from the rows, post-run). Optional/additive — None for an
     # all-errored run, or a run made before the row carried it.
@@ -274,6 +292,7 @@ def make_manifest(
     judge: str = "deterministic-v1",
     generator_model_resolved: str | None = None,
     corpus_build_id: str | None = None,
+    prompts: dict | None = None,
 ) -> RunManifest:
     return RunManifest(
         run_id=run_id,
@@ -284,7 +303,9 @@ def make_manifest(
         judge=judge,
         questions_path=questions_path,
         num_questions=len(questions),
-        system_prompt_sha256=hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest()[:16],
+        # Equals prompts["generator"]["sha256"]; kept as a flat field for back-compat.
+        system_prompt_sha256=GENERATOR_PROMPT["sha256"],
+        prompts=prompts or {},
         generator_model_resolved=generator_model_resolved,
         # Duck-typed: the configured request temperature lives on the generator object (the
         # Generator protocol doesn't mandate it), None when the adapter leaves it unset.
@@ -335,7 +356,10 @@ def to_markdown(rows: list[dict], manifest: RunManifest) -> str:
         "read the verdicts, not a leaderboard.", "",
     ]
     L += ["## Run manifest", "", "| factor | value |", "|---|---|"]
-    L += [f"| `{k}` | {v} |" for k, v in manifest.to_dict().items()]
+    for k, v in manifest.to_dict().items():
+        if k == "prompts":  # render the registry as role=version (sha); full text lives in JSON
+            v = " · ".join(f"{role}={p['version']} ({p['sha256']})" for role, p in v.items()) or "—"
+        L.append(f"| `{k}` | {v} |")
     L += ["", f"## Verdicts — {npass}/{len(judged)} passed", ""]
     L += ["| result | type | scoring | predicted | ground truth | verdict |",
           "|---|---|---|---|---|---|"]

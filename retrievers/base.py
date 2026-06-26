@@ -36,6 +36,7 @@ model, same question.
 """
 from __future__ import annotations
 
+import hashlib
 import re
 import time
 from collections.abc import Iterator
@@ -67,6 +68,26 @@ def count_tokens(text: str) -> int:
     come from generator `usage` — this is a dev-time relative proxy only.
     """
     return len(_TOKEN_RE.findall(text))
+
+
+def prompt_record(version: str, text: str) -> dict:
+    """Provenance record for one LLM role's system prompt: `{version, sha256, text}`.
+
+    The single seam all three LLM roles use (generator, sparqlgen writer, semantic judge),
+    so their prompt provenance has one shape — recorded once per run in the manifest, keyed
+    by role. Lives here, the dependency-free shared module the harness already imports, so the
+    judge and retriever can both reach it without a new utils package or an inverted import.
+
+    `version` is a hand-assigned, orderable label (bump on a meaningful change) — what analytics
+    groups/orders by. `sha256` is content-addressed identity that catches *any* edit whether or
+    not the label moved; a version held constant across a changed sha is therefore a detectable
+    silent edit. `text` is the prompt verbatim, recorded once in the manifest, never per row.
+    """
+    return {
+        "version": version,
+        "sha256": hashlib.sha256(text.encode()).hexdigest()[:16],
+        "text": text,
+    }
 
 
 @dataclass

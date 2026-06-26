@@ -202,7 +202,8 @@ fields like `writer_reply_raw`/`endpoint` elided):
   },
 
   "judged": true, "passed": true, "score": 1.0,
-  "verdict": "value '11' found in answer", "judge_details": { "expected": "11" }
+  "verdict": "value '11' found in answer", "judge_details": { "expected": "11" },
+  "judge_id": "string_match-v1"
 }
 ```
 
@@ -230,14 +231,21 @@ not mysterious). The same temperature-beside-model factoid rides every LLM inter
 [the token-units rule](../retrievers/README.md#the-token-units-rule-read-before-doing-any-token-math)),
 `num_sources`, `retrieval_latency_ms`, `generation_latency_ms`, and `traversal_info` — the
 retriever's full per-retrieval telemetry, stored verbatim (additive-only): vector's
-`top_k`/cosine distances, graph's `hops`/`num_linked`, `graph_sparqlgen`'s writer-LLM cost
-and `sparql_valid`. A retriever's own internal LLM cost is logged here, **never** summed
-with the generator's billed tokens above.
+`top_k`/cosine distances, graph's `hops`/`num_linked`, `graph_sparqlgen`'s writer-LLM cost,
+`sparql_valid`, and `writer_system_prompt_sha256` (the per-row join key to `prompts.writer`).
+A retriever's own internal LLM cost is logged here, **never** summed with the generator's
+billed tokens above.
 
 **Verdict**: `judged` (false when no judge exists for the `scoring`, or on error),
-`passed` (the accuracy numerator), `score` (0–1 quality), `verdict` (human-readable), and
+`passed` (the accuracy numerator), `score` (0–1 quality), `verdict` (human-readable),
 `judge_details` (per-judge telemetry — set-level precision/recall/F1, the `semantic` judge's
-own model + cost; see [the judge contract](judge/README.md#the-contract--basepy)).
+own model + cost + `judge_system_prompt_sha256`, its join key to `prompts.judge_semantic`;
+see [the judge contract](judge/README.md#the-contract--basepy)), and
+`judge_id` — the exact judge that scored this row as `<scoring>-<version>` (e.g. `set_match-v1`,
+`semantic-v1`; `null` on unjudged/error rows). Versioned **per strategy** so a fix to one judge
+never re-labels results the others produced unchanged. This is the per-answer judge
+discriminator the run-level manifest `judge` roster (below) cannot give — a mixed
+deterministic+semantic run carries one roster label but rows scored by different judges.
 
 **Error isolation**: a retrieve/generate failure (chiefly a transient API error) is caught
 and recorded with `error` set and `judged=false, passed=null`, so a blip is excluded from
@@ -273,6 +281,11 @@ The analysis loader joins it onto each row by `run_id` (see [`load.py`](../analy
   "questions_path": "/abs/path/produce/questions.jsonl",
   "num_questions": 58,
   "system_prompt_sha256": "96109672bcba1e4c",
+  "prompts": {
+    "generator":      { "version": "generator-v1",     "sha256": "96109672bcba1e4c", "text": "You are answering biomedical questions…" },
+    "writer":         { "version": "writer-v1",         "sha256": "dc05e2994f0d7ab1", "text": "You translate a biomedical question into…" },
+    "judge_semantic": { "version": "judge-semantic-v1", "sha256": "c513fede583abb52", "text": "You grade answers to a biomedical…" }
+  },
   "corpus_build_id": "full-2c102cb0",
   "harness_version": "harness-v1"
 }
@@ -284,9 +297,10 @@ The analysis loader joins it onto each row by `run_id` (see [`load.py`](../analy
 | `timestamp` | Run start (ISO-8601 with offset). |
 | `retriever` | The single condition this run exercised (one results file per retriever per run). |
 | `generator_provider`, `generator_model`, `generator_model_resolved`, `generator_temperature` | The fixed generator under test — *configured* id, *resolved* snapshot, and sampling temperature (see [Generation](generate/README.md#the-model-under-test--configured-vs-resolved-id)). |
-| `judge` | The judge bundle version (deterministic + semantic), so a scoring change is a visible factor level. |
+| `judge` | Run-level **roster** of judge families available to the run (e.g. `deterministic-v1+semantic-v1`). A coarse summary; the precise per-answer judge+version is the row's `judge_id`. |
 | `questions_path`, `num_questions` | Which eval set and how many questions the run covered. |
-| `system_prompt_sha256` | Hash of the generator system prompt — a prompt change shows up as a new factor, not a silent confound. |
+| `system_prompt_sha256` | Hash of the generator system prompt — a prompt change shows up as a new factor, not a silent confound. Equals `prompts.generator.sha256` (kept flat for back-compat). |
+| `prompts` | Per-role prompt registry: `{generator, writer, judge_semantic} -> {version, sha256, text}`. Recorded in full for **all** roles every run (a complete snapshot of the prompts in this build), regardless of which roles the run exercised — the rows tell you which fired (`retriever`, `judge_id`). `version` is the hand-assigned, orderable label analytics groups by; `sha256` is content-addressed identity that catches any edit. Join a row to its role's prompt by `run_id` + role. |
 | `corpus_build_id` | The corpus the run retrieved over — the join key into [`ingest/corpus/`](../ingest/corpus/README.md) (the corpus dimension). |
 | `harness_version` | The harness contract version that produced the rows. |
 

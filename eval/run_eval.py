@@ -49,11 +49,11 @@ from eval.generate.registry import GENERATORS, from_spec  # noqa: E402,F401  (GE
 from eval.generate.base import Generator  # noqa: E402
 from eval.judge.base import Judge  # noqa: E402
 from eval.judge.deterministic import DETERMINISTIC_JUDGES  # noqa: E402
-from eval.judge.semantic import SemanticJudge  # noqa: E402
+from eval.judge.semantic import SEMANTIC_PROMPT, SemanticJudge  # noqa: E402
 from retrievers.base import Retriever  # noqa: E402
 from retrievers.graph import NeighborhoodGraphRetriever  # noqa: E402
 from retrievers.null import NullRetriever  # noqa: E402
-from retrievers.sparqlgen import SparqlGenRetriever  # noqa: E402
+from retrievers.sparqlgen import WRITER_PROMPT, SparqlGenRetriever  # noqa: E402
 from retrievers.vector import VectorRetriever  # noqa: E402
 
 CORPUS_DIR = REPO_ROOT / "ingest" / "corpus"  # committed corpus-build profiles (ingest/corpus/README.md)
@@ -130,6 +130,18 @@ def build_retriever(name: str) -> Retriever:
 # the entry is harmless on deterministic-only runs (the harness only invokes a judge for a
 # question whose `scoring` matches, and `semantic` questions are selected only with the flag).
 ALL_JUDGES: dict[str, Judge] = {**DETERMINISTIC_JUDGES, SemanticJudge.scoring: SemanticJudge()}
+
+# The per-role prompt registry stamped into every run's manifest: a complete snapshot of the
+# system prompts live in this code, keyed by role. Recorded in full regardless of which roles a
+# given run exercised (a closed_book run still records the writer/judge prompts of this build);
+# the rows tell you which roles actually fired via `retriever` and `judge_id`. Run-constant, so
+# it lives once in the manifest, never per row — analytics joins a row to its role's prompt text
+# by run_id. This is the composition root, the one place that imports all three roles' prompts.
+PROMPT_REGISTRY = {
+    "generator": harness.GENERATOR_PROMPT,
+    "writer": WRITER_PROMPT,
+    "judge_semantic": SEMANTIC_PROMPT,
+}
 
 
 # Reproducible by default: the model under test runs at temperature 0 (greedy/modal) so a
@@ -299,6 +311,7 @@ def main() -> int:
             retriever, generator, selected, run_id=run_id,
             questions_path=str(args.questions), judge=judge_label,
             generator_model_resolved=resolved, corpus_build_id=corpus_build_id,
+            prompts=PROMPT_REGISTRY,
         )
         (args.out / f"{run_id}.manifest.json").write_text(
             json.dumps(manifest.to_dict(), indent=2)

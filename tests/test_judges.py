@@ -26,6 +26,7 @@ def test_registry_covers_the_nine_deterministic_strategies():
     for s, judge in DETERMINISTIC_JUDGES.items():
         assert isinstance(judge, Judge)  # runtime_checkable protocol
         assert judge.scoring == s        # key cannot drift from the verdict's strategy
+        assert judge.version == "v1"     # per-strategy version stamped into per-row judge_id
 
 
 def test_normalize_folds_case_punctuation_whitespace():
@@ -150,3 +151,28 @@ def test_boolean_polarity_mismatch_fails():
 def test_boolean_ambiguous_fails_rather_than_guesses():
     r = _j("boolean").score("It is unclear.", "true")
     assert not r.passed and r.details["ambiguous"]
+
+
+# --- semantic judge: prompt provenance (hermetic via injected LLM) -----------
+
+class _FakeJudgeLLM:
+    """Duck-typed Generator returning a canned EQUIVALENT verdict — no key, no network."""
+    def generate(self, prompt, *, system=None, tools=None):
+        from eval.generate.base import GenerationResult
+        return GenerationResult(text="EQUIVALENT\nsame entity", model="fake-judge",
+                                provider="fake", input_tokens=5, output_tokens=3, latency_ms=1.0)
+
+
+def test_semantic_judge_stamps_prompt_sha_when_llm_called():
+    from eval.judge.semantic import SEMANTIC_PROMPT, SemanticJudge
+    r = SemanticJudge(llm=_FakeJudgeLLM()).score("Warfarin", "Coumadin", question="generic name?")
+    assert r.passed  # EQUIVALENT
+    assert r.details["judge_system_prompt_sha256"] == SEMANTIC_PROMPT["sha256"]
+
+
+def test_semantic_judge_stamps_prompt_sha_on_empty_candidate_shortcut():
+    # the empty-answer short-circuit makes no LLM call but still records the judge instrument
+    from eval.judge.semantic import SEMANTIC_PROMPT, SemanticJudge
+    r = SemanticJudge(llm=_FakeJudgeLLM()).score("", "Coumadin")
+    assert r.details["llm_called"] is False
+    assert r.details["judge_system_prompt_sha256"] == SEMANTIC_PROMPT["sha256"]

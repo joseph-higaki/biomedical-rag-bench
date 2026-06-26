@@ -60,6 +60,7 @@ class Judge(Protocol):
     """
 
     scoring: str
+    version: str  # Judge-logic version ("v1"); bump per-strategy when a change alters results.
 
     def score(
         self,

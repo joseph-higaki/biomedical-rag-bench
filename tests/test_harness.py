@@ -11,7 +11,7 @@ from __future__ import annotations
 from eval import harness
 from eval.generate.base import GenerationResult
 from eval.judge.deterministic import DETERMINISTIC_JUDGES
-from retrievers.base import RetrievalResult
+from retrievers.base import RetrievalResult, prompt_record
 
 
 class FakeRetriever:
@@ -117,6 +117,7 @@ def test_run_question_passes_on_correct_answer_and_records_factors():
     assert (row["generator_provider"], row["generator_model"]) == ("fake", "fake-1")
     assert (row["input_tokens"], row["output_tokens"]) == (12, 3)
     assert row["scoring"] == "string_match" and row["type_id"] == "01_0hop_attribute"
+    assert row["judge_id"] == "string_match-v1"  # exact judge+version that scored this row
 
 
 class AliasGenerator:
@@ -158,6 +159,17 @@ def test_run_question_persists_retriever_telemetry_for_analysis():
 def test_error_row_carries_empty_telemetry_for_schema_consistency():
     row = harness.run_question(FakeRetriever(), RaisingGenerator(), DETERMINISTIC_JUDGES, _q())
     assert row["traversal_info"] == {} and row["cache_read_input_tokens"] is None
+    assert row["judge_id"] is None  # no judge ran — key present, value null
+
+
+def test_judge_id_is_none_when_scoring_has_no_registered_judge():
+    # `semantic` run through the deterministic map: retrieved + generated but not scored, so
+    # judge_id is an honest null rather than a guessed strategy label.
+    row = harness.run_question(
+        FakeRetriever(), FakeGenerator("anything"), DETERMINISTIC_JUDGES,
+        _q(scoring="semantic", type_id="10_fuzzy_semantic"),
+    )
+    assert row["judged"] is False and row["judge_id"] is None
 
 
 def test_run_question_fails_on_wrong_answer():
@@ -228,3 +240,51 @@ def test_make_manifest_pins_resolved_model_snapshot():
                               questions_path="q.jsonl",
                               generator_model_resolved="claude-haiku-4-5-20251001")
     assert m.to_dict()["generator_model_resolved"] == "claude-haiku-4-5-20251001"
+
+
+# --- prompt provenance ------------------------------------------------------
+
+def test_prompt_record_shape_and_content_addressed_sha():
+    r = prompt_record("generator-v1", "hello prompt")
+    assert set(r) == {"version", "sha256", "text"}
+    assert r["version"] == "generator-v1" and r["text"] == "hello prompt"
+    assert len(r["sha256"]) == 16
+    assert prompt_record("v2", "hello prompt")["sha256"] == r["sha256"]   # sha tracks text, not label
+    assert prompt_record("generator-v1", "other")["sha256"] != r["sha256"]  # any edit changes sha
+
+
+def _registry() -> dict:
+    return {"generator": harness.GENERATOR_PROMPT,
+            "writer": prompt_record("writer-v1", "WRITER"),
+            "judge_semantic": prompt_record("judge-semantic-v1", "JUDGE")}
+
+
+def test_make_manifest_records_per_role_prompt_registry():
+    m = harness.make_manifest(FakeRetriever(), FakeGenerator("x"), [_q()], run_id="r",
+                              questions_path="q.jsonl", prompts=_registry())
+    d = m.to_dict()
+    assert set(d["prompts"]) == {"generator", "writer", "judge_semantic"}
+    for rec in d["prompts"].values():
+        assert set(rec) == {"version", "sha256", "text"}
+    # the flat back-compat field equals the generator role's sha (one source of truth)
+    assert d["system_prompt_sha256"] == d["prompts"]["generator"]["sha256"]
+
+
+def test_make_manifest_prompts_default_empty_when_omitted():
+    # additive/optional: a manifest built without prompts carries an empty dict, not a crash
+    m = harness.make_manifest(FakeRetriever(), FakeGenerator("x"), [_q()], run_id="r",
+                              questions_path="q.jsonl")
+    assert m.to_dict()["prompts"] == {}
+
+
+def test_to_markdown_renders_prompts_compactly_not_full_text():
+    prompts = _registry()
+    m = harness.make_manifest(FakeRetriever(), FakeGenerator("x"), [_q()], run_id="r",
+                              questions_path="q.jsonl", prompts=prompts)
+    row = harness.run_question(FakeRetriever(), FakeGenerator("chromosome 11"),
+                               DETERMINISTIC_JUDGES, _q())
+    md = harness.to_markdown([row], m)
+    # role=version (sha) in the manifest table; the multi-line prompt text never dumped there
+    assert f"writer=writer-v1 ({prompts['writer']['sha256']})" in md
+    assert "generator=generator-v1" in md
+    assert harness.SYSTEM_PROMPT not in md  # full generator prompt stays in JSON, not the report

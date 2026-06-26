@@ -43,7 +43,7 @@ from __future__ import annotations
 import os
 import re
 
-from retrievers.base import RetrievalResult, build_result, stopwatch
+from retrievers.base import RetrievalResult, build_result, prompt_record, stopwatch
 
 DEFAULT_ENDPOINT = os.environ.get(
     "GRAPHDB_ENDPOINT", "http://localhost:7200/repositories/hetionet"
@@ -102,6 +102,12 @@ Rules:
 - `participates` is polymorphic — when the question asks for pathways, constrain the
   object with `?p a hetio:Pathway` (likewise BiologicalProcess, etc.).
 - If the question cannot be expressed against this schema, output an empty fence."""
+
+# The writer's prompt-provenance record. run_eval collects it into the manifest `prompts`
+# block; the sha is also stamped per-row in traversal_info so a sparqlgen row is self-describing
+# about which writer prompt produced its query. Bump the version on a meaningful prompt change.
+WRITER_PROMPT_VERSION = "writer-v1"
+WRITER_PROMPT = prompt_record(WRITER_PROMPT_VERSION, SCHEMA_PROMPT)
 
 # Accept only a read query. The LLM is instructed to emit SELECT; this rejects anything
 # else (INSERT/DELETE/DROP/LOAD or junk) before it reaches GraphDB — defense in depth on
@@ -248,6 +254,8 @@ class SparqlGenRetriever:
 
             info: dict = {
                 "mechanism": "sparqlgen",
+                # Per-row join key to the manifest's prompts.writer record (same sha).
+                "writer_system_prompt_sha256": WRITER_PROMPT["sha256"],
                 "writer_model": getattr(gen, "model", self.writer_model),
                 # Sampling temperature the writer LLM used (None = provider default / unpinned),
                 # logged beside its model — the same temperature-beside-model rule the generator

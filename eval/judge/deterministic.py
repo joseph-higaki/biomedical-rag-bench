@@ -69,6 +69,9 @@ class StringMatchJudge:
     """
 
     scoring = "string_match"
+    # Per-strategy version (not a shared "deterministic-vN"): each judge bumps independently
+    # so a fix to one judge's logic never re-labels results the others produced unchanged.
+    version = "v1"
 
     def score(self, predicted, ground_truth, *, answer_var=None, question=None) -> JudgeResult:
         gt = str(ground_truth)
@@ -136,6 +139,7 @@ class SetMatchJudge:
     """
 
     scoring = "set_match"
+    version = "v1"
 
     def score(self, predicted, ground_truth, *, answer_var=None, question=None) -> JudgeResult:
         gt = [str(x) for x in (ground_truth or [])]
@@ -184,6 +188,7 @@ class NumericalJudge:
     """
 
     scoring = "numerical"
+    version = "v1"
 
     def score(self, predicted, ground_truth, *, answer_var=None, question=None) -> JudgeResult:
         expected = int(str(ground_truth).replace(",", ""))
@@ -212,6 +217,7 @@ class BinaryJudge:
     """
 
     scoring = "binary"
+    version = "v1"
 
     def score(self, predicted, ground_truth, *, answer_var=None, question=None) -> JudgeResult:
         is_empty_gt = not ground_truth
@@ -242,6 +248,7 @@ class BooleanJudge:
     """
 
     scoring = "boolean"
+    version = "v1"
 
     def score(self, predicted, ground_truth, *, answer_var=None, question=None) -> JudgeResult:
         expected = str(ground_truth).strip().lower() in ("true", "yes", "1")

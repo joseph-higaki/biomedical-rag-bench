@@ -37,6 +37,7 @@ from __future__ import annotations
 import os
 
 from eval.judge.base import JudgeResult
+from retrievers.base import prompt_record
 
 # The judge model is its own factor, separate from the generator under test (see docstring).
 DEFAULT_JUDGE_MODEL = os.environ.get("JUDGE_MODEL", "claude-haiku-4-5")
@@ -57,6 +58,12 @@ _SYSTEM = (
     "second line, a reason of at most 15 words."
 )
 
+# The semantic judge's prompt-provenance record. run_eval collects it into the manifest
+# `prompts` block; the sha is also stamped per-row in judge_details. Bump the version on a
+# meaningful prompt change — and recompute Cohen's kappa, since the judge's behavior changed.
+SEMANTIC_PROMPT_VERSION = "judge-semantic-v1"
+SEMANTIC_PROMPT = prompt_record(SEMANTIC_PROMPT_VERSION, _SYSTEM)
+
 
 class SemanticJudge:
     """`semantic` — LLM-assessed entity equivalence for type-10 questions.
@@ -69,6 +76,7 @@ class SemanticJudge:
     """
 
     scoring = "semantic"
+    version = "v1"
 
     def __init__(self, *, model: str | None = None, temperature: float = 0.0, llm=None) -> None:
         self.model = model or DEFAULT_JUDGE_MODEL
@@ -116,6 +124,7 @@ class SemanticJudge:
                 scoring=self.scoring, score=0.0, passed=False,
                 verdict="empty answer — not equivalent",
                 details={"judge_model": self.model, "judge_temperature": self.temperature,
+                         "judge_system_prompt_sha256": SEMANTIC_PROMPT["sha256"],
                          "reference": reference, "candidate": "", "llm_called": False},
             )
 
@@ -133,6 +142,7 @@ class SemanticJudge:
             details={
                 "judge_model": getattr(gr, "model", self.model),
                 "judge_temperature": getattr(gr, "temperature", self.temperature),
+                "judge_system_prompt_sha256": SEMANTIC_PROMPT["sha256"],
                 "reference": reference,
                 "candidate": candidate[:200],
                 "reason": reason,
