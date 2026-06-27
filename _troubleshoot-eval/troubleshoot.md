@@ -1,3 +1,14 @@
+# planning to do some generator / retrive / judge adjustments 
+if I start changing system prompts, how can that be refleced in the telemetry.
+right now it just persists the sha. But my /home/jhigaki/projects/rag-bench-analytics/README.md repo will do analysis queries around dimensions. One of them can be system prompt version along with system prompt improvement
+
+# entity extraction
+whow this is done today and would another LLM component benefit from doing entity extraction as an intermediare between generator <--> retrieveer?
+
+# token saving on format
+what if the retriever, instead of providing sparql it hands off json-ld ?
+Would it be good?
+now that triples contain very few metadata could be right, after metadata adding, maybe not?
 
 # judging gt mechanism on negative unanswered
 "question": "Which diseases does Testolactone treat?",
@@ -341,3 +352,50 @@ the retriever did produce the right answer, the generator couldnt predict
 is it that the: 
 * the generator system prompt  needs to state that it should trust the retrieved context?
 * the writer  system prompt needs to include context columns for sparql results. But, on negated intersections this might be not possible
+
+# system prompt sha
+is this only the prompt of the generator?
+
+# wordpunt 
+Why context_tokenizer is only set in some runs, couldnt find the pattern on a specific mechanism 
+
+# judge deterministic and semantic
+why run 
+20260608T215424-closed_book-anthropic 
+is both "judge": "deterministic-v1+semantic-v1",
+i guess 10_fuzzy_semantic uses a semantic judge. cant that be recorded at the answer level?
+
+# md's where  contract should say 
+
+"retriever","mechanism"
+"graph_neighborhood_1hop","neighborhood"
+"closed_book","none"
+"vector","dense"
+"graph_sparqlgen","sparqlgen"
+"graph_neighborhood_2hop","neighborhood"
+
+# tracker of llm prompts
+* should retriever have a system prompt sha?
+* should semantic judge have a system prompt sha
+
+# build refactor: non-obvious run params hidden behind os.environ.get()
+The three MODEL knobs are now explicit CLI flags (--generator_model_family /
+--writer_model_family / --judge_model_family, each no-default → fail-on-blank). The rest of a
+run's tunable knobs are still read implicitly from env vars scattered across modules, so
+configuring a run means knowing which module reads which variable. They should become explicit,
+discoverable params (one RunConfig the harness threads down), keeping env only as a fallback —
+the same treatment the model knobs just got. None of this changes provenance: every knob is
+already logged in the manifest; this changes where a knob is *set*, not where it's *recorded*.
+
+Remaining env-only knobs:
+* GENERATOR_TEMPERATURE        — eval/run_eval.py (sampling temp of the model under test)
+* SPARQLGEN_TEMPERATURE        — retrievers/sparqlgen.py (writer sampling temp)
+* GRAPHDB_ENDPOINT             — retrievers/graph.py + retrievers/sparqlgen.py (the SPARQL endpoint)
+* CHROMA_STORE                 — retrievers/vector.py (the vector store path)
+* CORPUS_BUILD_ID              — eval/run_eval.py (overrides ingest/corpus/ACTIVE)
+
+The two temperatures are the clearest next step — they belong beside their model flag
+(--generator_temperature / --writer_temperature) so a temperature-as-factor run is set on the
+command line, not via an env var the reader has to know exists. See the TODO(knobs) note in
+eval/run_eval.py.
+
