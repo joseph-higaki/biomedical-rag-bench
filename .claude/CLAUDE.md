@@ -16,7 +16,7 @@ These rules govern code generation and may not be relaxed without explicit instr
 - **Question set is append-only.** New questions may be added to @produce/questions.jsonl. Existing questions are not removed, reworded, or relabeled. Ground-truth corrections require a MAJOR version bump and explicit user instruction.
 - **Generator LLM is fixed within a run.** Never vary the generator across retriever conditions in the same eval run. The model is read from `GENERATOR_MODEL` env var and logged with every result.
 - **No LangChain, LlamaIndex, or similar orchestration frameworks.** Hand-rolled retrievers, ~100 lines each. Abstraction layers obscure what is being measured.
-- **Reasoning ruleset stays `empty` on the GraphDB repository in Project 1.** Reasoning is the variable Project 2 introduces.
+- **Reasoning ruleset stays `empty` on the GraphDB repository in Project 1.** Reasoning is the variable Project 3 introduces (Project 2 is OBDA serving — see `PROJECT2-OBDA.md`).
 - **Question content comes from hand-authored templates, not free-form LLM generation.** Each template specifies a question shape, the ground-truth query (SPARQL), the question type, and the entity sampling strategy; questions are instantiated by seeded programmatic sampling over the graph. Ground truth is derived from graph traversal, never LLM-generated. LLM assistance is permitted only for (a) optional stylistic phrasing variation of mechanically-generated questions (content unchanged) and (b) judge scoring on fuzzy/semantic questions. See @eval/README.md for the taxonomy and scoring strategy.
 
 ## Conventions

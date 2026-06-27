@@ -1,9 +1,10 @@
 # RDF ingestion (graph side)
 
 **Purpose.** Convert Hetionet JSON to RDF-star Turtle and load it into GraphDB. Covers
-Projects 1–2 (Project 1 loads instance data with `ruleset=empty`; Project 2 adds reasoning
-over the same triples without changing this transform). The folder is `rdf/`, not `graph/`,
-so it reads distinctly against the future `lpg/` (Project 3's Neo4j path — also a graph).
+Projects 1–3 (Project 1 loads instance data with `ruleset=empty`; Project 2 re-serves the
+same triples via OBDA; Project 3 adds reasoning over them — none change this transform). The
+folder is `rdf/`, not `graph/`, so it reads distinctly against the future `lpg/` (Project 4's
+Neo4j path — also a graph).
 
 **Inputs → Outputs.**
 
@@ -51,14 +52,14 @@ curl -X POST http://localhost:7200/rest/repositories \
 ```
 
 The config sets **Repository ID** `hetionet` and **ruleset** `empty` (no
-reasoning — the Project 1 baseline; Project 2 changes this). Or, equivalently,
+reasoning — the Project 1 baseline; Project 3 changes this). Or, equivalently,
 through the Workbench:
 
 1. Open http://localhost:7200 in a browser.
 2. **Setup → Repositories → Create new repository.**
 3. **Repository type:** GraphDB Repository.
 4. **Repository ID:** `hetionet`.
-5. **Ruleset:** `empty`. This disables reasoning, which is the Project 1 baseline. (Project 2 changes this.)
+5. **Ruleset:** `empty`. This disables reasoning, which is the Project 1 baseline. (Project 3 changes this.)
 6. **Title:** `Hetionet (Project 1 baseline)`.
 7. Leave other defaults; click **Create**.
 

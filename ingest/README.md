@@ -16,8 +16,9 @@ self-contained.
 **How to run.** `make ingest` (= `ingest-rdf` then `ingest-vectors`); see Make targets below.
 **Where it sits.** The Knowledge Ingestion phase (root README → Architecture).
 
-`rdf/` covers Projects 1–2 (RDF representation; Project 2 adds reasoning over the same triples).
-A future `lpg/` will hold Project 3's Neo4j path — hence `rdf/`, not `graph/`. `vector/` evolves
+`rdf/` covers Projects 1–3 (RDF representation; Project 2 re-serves the same triples via OBDA,
+Project 3 adds reasoning over them). A future `lpg/` will hold Project 4's Neo4j path — hence
+`rdf/`, not `graph/`. `vector/` evolves
 across minor releases as the vector baseline strengthens (naive → hybrid → domain embedder).
 The two sides are **not** independent: `hetionet.ttl` is the shared artifact — `pubmed_fetch.py`
 reads its entity set from that file — so graph ingestion is a hard prerequisite of vector ingestion.

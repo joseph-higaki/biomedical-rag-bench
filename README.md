@@ -195,7 +195,7 @@ Technologies keyed by the canonical components. Versions are pinned in `pyprojec
 
 | Phase / component | Technology | Why |
 |---|---|---|
-| Knowledge Ingestion — RDF graph | Ontotext GraphDB Free + RDF-star Turtle | triplestore; ruleset `empty` (reasoning is the Project 2 factor). A free license is required for writes — see [`secrets/README.md`](secrets/README.md). Named *RDF graph*, not *graph*, to read distinctly against Project 3's LPG. |
+| Knowledge Ingestion — RDF graph | Ontotext GraphDB Free + RDF-star Turtle | triplestore; ruleset `empty` (reasoning is the Project 3 factor). A free license is required for writes — see [`secrets/README.md`](secrets/README.md). Named *RDF graph*, not *graph*, to read distinctly against Project 4's LPG. |
 | Knowledge Ingestion — vector | Chroma (embedded) + `all-MiniLM-L6-v2` | local, free, reproducible |
 | Question & Ground-Truth Producer | Python + SPARQL over GraphDB | ground truth computed by traversal, never an LLM |
 | Retriever | plain Python; `graph_sparqlgen` adds an LLM **SPARQL writer** (`SPARQLGEN_MODEL`) | one interface, four implementations (five conditions); writer cost logged apart from the generator |
@@ -271,16 +271,21 @@ describes the *current* increment.
 | Project | Tag | Adds | Status |
 |---|---|---|---|
 | Project 1 — Vector RAG vs RDF GraphRAG | `v1.0.0` | the conditions above | In development |
-| Project 2 — OWL reasoning over RDF | `v2.0.0` | reasoning over the same triples | Planned |
-| Project 3 — RDF vs LPG (Neo4j) | `v3.0.0` | a labeled-property-graph retriever | Planned |
+| Project 2 — OBDA / Virtual Knowledge Graph | `v2.0.0` | the same graph served via ontology → Ontop → (PostgreSQL, then Trino-federated lakehouse) | Planned |
+| Project 3 — OWL reasoning over RDF | `v3.0.0` | reasoning over the same triples | Planned |
+| Project 4 — RDF vs LPG (Neo4j) | `v4.0.0` | a labeled-property-graph retriever | Planned |
 
-**Architectural shape of the next two projects.** Project 2 adds reasoning as a *factor*,
-not a retriever: the GraphDB ruleset moves `empty` → OWL and the TBox in
-`ontology/hetionet-schema.ttl` is populated, but the existing graph retrievers query the
-reasoning-enabled store **unchanged**. The reasoning level is recorded per result in the
-run manifest, so the same `graph_neighborhood`/`graph_sparqlgen` code yields new *conditions*
-(`@ reasoning=owl`) — keeping the comparison "same query, different store semantics." Project
-3, by contrast, adds LPG as a *new retriever* (`retrievers/lpg.py` + `ingest/lpg/` + a Neo4j
+**Architectural shape of the next projects.** Project 2 (OBDA) is a *serving-architecture*
+track, recorded in full in [`PROJECT2-OBDA.md`](PROJECT2-OBDA.md). Its defining invariant:
+answer accuracy is **held at parity**, never improved — its later phases are architectural
+tests validated by *context-parity* against the GraphDB baseline, not by a RAG-accuracy
+delta. It lands as new retrievers (ontology-querying text-to-SPARQL, then Ontop-backed
+serving) behind the same `Retriever` protocol. Project 3 adds reasoning as a *factor*, not a
+retriever: the GraphDB ruleset moves `empty` → OWL and the TBox in
+`ontology/hetionet-schema.ttl` drives inference, but the existing graph retrievers query the
+reasoning-enabled store **unchanged**, so the same `graph_neighborhood`/`graph_sparqlgen`
+code yields new *conditions* (`@ reasoning=owl`) — "same query, different store semantics."
+Project 4 adds LPG as a *new retriever* (`retrievers/lpg.py` + `ingest/lpg/` + a Neo4j
 service), since it changes the store, the query language (Cypher), and the ingestion path.
 
 ### Build order
