@@ -19,9 +19,10 @@ flags to exercise a single registry in isolation:
     uv run python eval/run_eval.py --list
     uv run --extra vector python eval/run_eval.py --retriever vector --retrieve "..."
     uv run --extra graph  python eval/run_eval.py --retriever graph_neighborhood_1hop --retrieve "..."
-    uv run --extra generate python eval/run_eval.py --ask "..." --generator anthropic:claude-haiku-4-5
+    uv run --extra generate python eval/run_eval.py --ask "..." --generator_model_family anthropic:claude-haiku-4-5
     uv run --extra generate python eval/run_eval.py --run --retriever closed_book \
-        --generator anthropic:claude-haiku-4-5 --types 10   # type-10, LLM-judged
+        --generator_model_family anthropic:claude-haiku-4-5 \
+        --judge_model_family anthropic:claude-haiku-4-5 --types 10   # type-10, LLM-judged
 
 (closed_book needs no extra; vector → `--extra vector`; graph → `--extra graph`;
 --ask/--run → `--extra generate` + a provider key in secrets/.env. `graph_sparqlgen` and a
@@ -108,14 +109,22 @@ REGISTRY: dict[str, Callable[[], Retriever]] = {
 }
 
 
-def build_retriever(name: str) -> Retriever:
-    """Instantiate the registered retriever `name`, or fail with the known roster."""
+def build_retriever(name: str, *, writer_model: str | None = None) -> Retriever:
+    """Instantiate the registered retriever `name`, or fail with the known roster.
+
+    `writer_model` is forwarded only to graph_sparqlgen — the sole LLM-in-retriever condition,
+    whose SPARQL writer is a run knob (--writer_model_family). Every other retriever is built
+    zero-arg through the registry, preserving the no-drift contract (tests/test_registry.py).
+    None ⇒ the retriever's own env/blank fallback (a blank writer fails when sparqlgen runs)."""
     try:
-        return REGISTRY[name]()
+        ctor = REGISTRY[name]
     except KeyError:
         raise SystemExit(
             f"unknown retriever {name!r}; registered: {', '.join(REGISTRY)}"
         )
+    if name == SparqlGenRetriever.name:
+        return SparqlGenRetriever(writer_model=writer_model)
+    return ctor()
 
 
 # The generator registry + factory now live in eval/generate/registry.py — the single
@@ -124,12 +133,17 @@ def build_retriever(name: str) -> Retriever:
 # back-compat (callers that did `from eval.run_eval import GENERATORS`).
 
 
-# The judge map: `scoring` value -> judge. The five deterministic judges are hermetic
-# (no LLM); `semantic` (type 10) is the one LLM judge, included only on an opt-in run because
-# it costs spend + an API key. Its writer LLM is lazy, so constructing it here needs no key —
-# the entry is harmless on deterministic-only runs (the harness only invokes a judge for a
-# question whose `scoring` matches, and `semantic` questions are selected only with the flag).
-ALL_JUDGES: dict[str, Judge] = {**DETERMINISTIC_JUDGES, SemanticJudge.scoring: SemanticJudge()}
+# The judge map is built per-run in main(): the five deterministic judges are hermetic (no LLM)
+# and always present; `semantic` (type 10) is the one LLM judge, added only when a semantic
+# question is actually in the batch, and only then needing --judge_model_family. Building it
+# per-run (not as a module constant) is what lets the judge model be a CLI knob — see build_judges.
+def build_judges(needs_semantic: bool, *, judge_model: str | None) -> dict[str, Judge]:
+    """The harness's judge map. Deterministic-only by default; the LLM SemanticJudge is added
+    (with the run's judge model) iff a semantic question is in the batch. The judge's LLM is
+    lazy, so a deterministic-only run never touches `judge_model` and may leave it blank."""
+    if not needs_semantic:
+        return DETERMINISTIC_JUDGES
+    return {**DETERMINISTIC_JUDGES, SemanticJudge.scoring: SemanticJudge(model=judge_model)}
 
 # The per-role prompt registry stamped into every run's manifest: a complete snapshot of the
 # system prompts live in this code, keyed by role. Recorded in full regardless of which roles a
@@ -152,19 +166,17 @@ PROMPT_REGISTRY = {
 GENERATOR_TEMPERATURE = float(os.environ.get("GENERATOR_TEMPERATURE", "0.0"))
 
 
-# TODO(knobs): consolidate a run's tunable knobs into ONE declared surface driven by the eval
-# args, instead of the env vars currently scattered across modules. Today configuring a run means
-# knowing which module reads which env var:
-#   - GENERATOR_TEMPERATURE                     (here)
-#   - SPARQLGEN_MODEL / SPARQLGEN_TEMPERATURE   (retrievers/sparqlgen.py — the writer LLM)
-#   - GRAPHDB_ENDPOINT                          (retrievers/graph.py, retrievers/sparqlgen.py)
-#   - CHROMA_STORE                              (retrievers/vector.py)
-#   - CORPUS_BUILD_ID                           (ingest/corpus/ACTIVE)
-# Surface these as CLI args (a single RunConfig the harness threads down to the retriever/generator
-# constructors), keeping the env vars only as fallback. The sparqlgen writer model+temp are the
-# canonical example: they belong beside --generator on the command line, not hidden in the retriever
-# module. Each knob is already logged in the manifest — this changes where a knob is *set*, not
-# where it's *recorded*, so the provenance contract is unaffected.
+# TODO(knobs): the three MODEL knobs are now CLI args (--generator_model_family /
+# --writer_model_family / --judge_model_family), so a run names its models on the command line
+# rather than via scattered env vars. Still env-only — the remaining consolidation work, tracked
+# in _troubleshoot-eval/troubleshoot.md:
+#   - GENERATOR_TEMPERATURE / SPARQLGEN_TEMPERATURE   (sampling temps — here + retrievers/sparqlgen.py)
+#   - GRAPHDB_ENDPOINT                                (retrievers/graph.py, retrievers/sparqlgen.py)
+#   - CHROMA_STORE                                    (retrievers/vector.py)
+#   - CORPUS_BUILD_ID                                 (ingest/corpus/ACTIVE)
+# Fold these into one RunConfig the harness threads down to the retriever/generator constructors,
+# keeping env vars only as fallback. Each is already logged in the manifest — this changes where a
+# knob is *set*, not where it's *recorded*, so the provenance contract is unaffected.
 def build_generator(spec: str) -> Generator:
     """Build the generator-under-test from a 'provider:model' spec, e.g.
     'anthropic:claude-haiku-4-5'. Temperature is pinned to GENERATOR_TEMPERATURE (0.0 default)
@@ -229,12 +241,27 @@ def main() -> int:
         "--ask",
         metavar="QUESTION",
         help="Generate one answer to QUESTION (no retrieval) and print it as JSON — the "
-        "generator-registry smoke. Requires --generator.",
+        "generator-registry smoke. Requires --generator_model_family.",
     )
     ap.add_argument(
-        "--generator",
+        "--generator_model_family",
         metavar="PROVIDER:MODEL",
-        help="Generator spec for --ask / --run, e.g. 'anthropic:claude-haiku-4-5'.",
+        help="Generator-under-test spec for --ask / --run, e.g. 'anthropic:claude-haiku-4-5' "
+        "or 'ollama:qwen2.5:3b-instruct'. Explicit provider required (no default) so a run is "
+        "attributable. Required for --run / --ask.",
+    )
+    ap.add_argument(
+        "--writer_model_family",
+        metavar="PROVIDER:MODEL",
+        help="SPARQL-writer spec for the graph_sparqlgen retriever (e.g. 'ollama:qwen2.5-coder'; "
+        "a bare model ⇒ anthropic). No default — graph_sparqlgen aborts if unset when it runs. "
+        "Falls back to $SPARQLGEN_MODEL.",
+    )
+    ap.add_argument(
+        "--judge_model_family",
+        metavar="PROVIDER:MODEL",
+        help="Semantic-judge spec for type-10 questions (a bare model ⇒ anthropic). No default — "
+        "a run with semantic questions aborts if unset. Falls back to $JUDGE_MODEL.",
     )
     ap.add_argument(
         "--run",
@@ -271,8 +298,8 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.run:
-        if not args.generator:
-            raise SystemExit("--run requires --generator PROVIDER:MODEL")
+        if not args.generator_model_family:
+            raise SystemExit("--run requires --generator_model_family PROVIDER:MODEL")
         rows_in = [json.loads(ln) for ln in args.questions.read_text().splitlines() if ln.strip()]
         type_prefixes = [t.strip() for t in args.types.split(",")] if args.types else None
         selected = harness.select_questions(
@@ -280,14 +307,30 @@ def main() -> int:
         )
         if not selected:
             raise SystemExit(f"no questions selected from {args.questions}")
-        retriever = build_retriever(args.retriever)
-        generator = build_generator(args.generator)
-        # Resolve the corpus factor up front: a bad pointer fails before the (billed) run loop.
-        corpus_build_id = _active_corpus_build_id()
         # Carry the LLM judge iff a semantic question is actually in the batch (robust to both
         # --include-semantic and an explicit --types 10); deterministic-only stays hermetic-judged.
         needs_semantic = any(q.get("scoring") == "semantic" for q in selected)
-        judges = ALL_JUDGES if needs_semantic else DETERMINISTIC_JUDGES
+        # Fail fast, before any billed call, for a supporting-cast model that WILL fire this run.
+        # The writer (graph_sparqlgen) and judge (semantic) also self-guard in _ensure_llm; this
+        # just moves the failure ahead of the run loop, mirroring the generator + corpus pre-flight
+        # — a blank required model should never get as far as spending on row 1. Env is the fallback.
+        if args.retriever == SparqlGenRetriever.name and not (
+            args.writer_model_family or os.environ.get("SPARQLGEN_MODEL")
+        ):
+            raise SystemExit(
+                "retriever graph_sparqlgen needs a SPARQL writer — set --writer_model_family "
+                "PROVIDER:MODEL (or $SPARQLGEN_MODEL)."
+            )
+        if needs_semantic and not (args.judge_model_family or os.environ.get("JUDGE_MODEL")):
+            raise SystemExit(
+                "this run includes semantic (type-10) questions — set --judge_model_family "
+                "PROVIDER:MODEL (or $JUDGE_MODEL)."
+            )
+        retriever = build_retriever(args.retriever, writer_model=args.writer_model_family)
+        generator = build_generator(args.generator_model_family)
+        # Resolve the corpus factor up front: a bad pointer fails before the (billed) run loop.
+        corpus_build_id = _active_corpus_build_id()
+        judges = build_judges(needs_semantic, judge_model=args.judge_model_family)
         judge_label = "deterministic-v1+semantic-v1" if needs_semantic else "deterministic-v1"
 
         # Stream rows to disk as they land: the run_id (hence the file path) is fixed
@@ -323,9 +366,9 @@ def main() -> int:
         return 0
 
     if args.ask:
-        if not args.generator:
-            raise SystemExit("--ask requires --generator PROVIDER:MODEL")
-        gen = build_generator(args.generator)
+        if not args.generator_model_family:
+            raise SystemExit("--ask requires --generator_model_family PROVIDER:MODEL")
+        gen = build_generator(args.generator_model_family)
         res = gen.generate(args.ask)
         print(
             json.dumps(

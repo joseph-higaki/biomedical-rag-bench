@@ -53,15 +53,15 @@ beside the retriever and judge registries; adding one changes nothing above the 
 
 **Fixed within a run, varied across runs.** A hard constraint (`.claude/CLAUDE.md`): the
 generator never varies across retriever conditions *inside* one run — otherwise an accuracy
-difference could be the model, not the retriever. It is read from the `--generator`
-spec / `GENERATOR_MODEL` and recorded in every row and the run manifest, so each result is
-attributable to exactly one generator.
+difference could be the model, not the retriever. It is read from the `--generator_model_family`
+spec (explicit `provider:model`, no default) and recorded in every row and the run manifest, so
+each result is attributable to exactly one generator.
 
 ## The model under test — configured vs. resolved id
 
 Two model identities exist for one run, and the analysis layer needs both:
 
-- **Configured** — the string you pass (`--generator anthropic:claude-haiku-4-5`). Lives on
+- **Configured** — the string you pass (`--generator_model_family anthropic:claude-haiku-4-5`). Lives on
   `generator.model`, known *before* any call. It may be a **moving alias**: `claude-haiku-4-5`
   resolves to whatever snapshot is current at call time.
 - **Resolved** — the exact dated snapshot the API reports it actually ran

@@ -40,7 +40,10 @@ from eval.judge.base import JudgeResult
 from retrievers.base import prompt_record
 
 # The judge model is its own factor, separate from the generator under test (see docstring).
-DEFAULT_JUDGE_MODEL = os.environ.get("JUDGE_MODEL", "claude-haiku-4-5")
+# No default: blank unless set via --judge_model_family (run_eval) or $JUDGE_MODEL. A blank
+# model fails when the judge first has to score a semantic answer (_ensure_llm) rather than
+# silently grading with a model the run never chose. Precedence: CLI flag > env > blank(fail).
+DEFAULT_JUDGE_MODEL = os.environ.get("JUDGE_MODEL")
 
 _SYSTEM = (
     "You grade answers to a biomedical identification quiz. You are given the QUESTION, the "
@@ -87,6 +90,15 @@ class SemanticJudge:
 
     def _ensure_llm(self):
         if self._llm is None:
+            if not self.model:
+                # SystemExit (not a plain Exception) so a blank judge aborts the run with one
+                # message instead of being swallowed per-row — score() runs outside the
+                # harness's try/except, but matching the writer's contract keeps them uniform.
+                raise SystemExit(
+                    "semantic judge has no model — set --judge_model_family PROVIDER:MODEL "
+                    "(or $JUDGE_MODEL). It has no default; a blank judge fails here rather "
+                    "than silently grading with a model the run never chose."
+                )
             # Through the shared factory so JUDGE_MODEL may name a provider
             # (`ollama:…`); a bare model stays Anthropic (the historical default). A local
             # judge needs its own kappa calibration before it is trusted (eval/README.md).

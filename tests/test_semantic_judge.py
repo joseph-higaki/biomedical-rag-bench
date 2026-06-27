@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import pytest
+
 from eval.judge.base import Judge
 from eval.judge.semantic import SemanticJudge
 
@@ -42,6 +44,26 @@ def test_matches_judge_protocol_and_scoring_key():
     j = SemanticJudge()  # no key, no network — llm is lazy
     assert isinstance(j, Judge)
     assert j.scoring == "semantic"
+
+
+def test_blank_judge_model_aborts_when_it_would_grade(monkeypatch):
+    # No --judge_model_family and no $JUDGE_MODEL ⇒ blank judge. Construction is fine (the LLM is
+    # lazy), but scoring a real (non-empty) candidate aborts with a clear message rather than
+    # grading with a model the run never chose. Pin the module default to blank for env
+    # independence. No llm injected, so score() reaches _ensure_llm and it raises before any call.
+    monkeypatch.setattr("eval.judge.semantic.DEFAULT_JUDGE_MODEL", None)
+    j = SemanticJudge(model=None)
+    with pytest.raises(SystemExit, match="judge_model_family"):
+        j.score("Coumadin", ["Warfarin"], question="Which anticoagulant?")
+
+
+def test_empty_candidate_short_circuits_even_with_blank_model(monkeypatch):
+    # The empty-answer short-circuit returns DIFFERENT with no model call, so a blank judge must
+    # NOT raise on an empty candidate — the abort is specific to a grade that would actually fire.
+    monkeypatch.setattr("eval.judge.semantic.DEFAULT_JUDGE_MODEL", None)
+    j = SemanticJudge(model=None)
+    r = j.score("", ["Warfarin"], question="Q?")
+    assert not r.passed and r.details["llm_called"] is False
 
 
 # --- verdict logic ----------------------------------------------------------

@@ -256,7 +256,7 @@ make ingest
 #    retriever: vector → `vector`, graph_* → `graph`; any LLM path also needs `generate`.
 #    Repeat per retriever condition you want to reproduce.
 uv run --extra graph --extra generate python eval/run_eval.py --run \
-    --retriever graph_neighborhood_1hop --generator anthropic:claude-haiku-4-5
+    --retriever graph_neighborhood_1hop --generator_model_family anthropic:claude-haiku-4-5
 ```
 
 Expected runtime end-to-end: ~2 hours on a modern laptop, dominated by PubMed fetch

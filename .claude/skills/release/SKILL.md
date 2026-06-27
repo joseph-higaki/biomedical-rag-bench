@@ -72,7 +72,7 @@ cd biomedical-rag-bench
 git checkout <version>
 docker compose up -d
 make ingest
-python eval/run_eval.py --generator <model-id>
+python eval/run_eval.py --generator_model_family <model-id>
 \`\`\`
 
 Expected runtime: <X> hours on a laptop.

@@ -48,10 +48,12 @@ from retrievers.base import RetrievalResult, build_result, prompt_record, stopwa
 DEFAULT_ENDPOINT = os.environ.get(
     "GRAPHDB_ENDPOINT", "http://localhost:7200/repositories/hetionet"
 )
-# The LLM that writes the SPARQL — part of the retrieval mechanism, logged with every
-# result. Defaults to the cheap model for cost parity with the Haiku generator; override
-# via env. Mixing writer/generator models is a factor to record, not to hide.
-DEFAULT_WRITER_MODEL = os.environ.get("SPARQLGEN_MODEL", "claude-haiku-4-5")
+# The LLM that writes the SPARQL — part of the retrieval mechanism, logged with every result.
+# No default: blank unless set via --writer_model_family (run_eval) or $SPARQLGEN_MODEL. A blank
+# model fails when sparqlgen first has to write a query (_ensure_llm), so a run never silently
+# uses a writer it didn't choose. Precedence: CLI flag > env > blank(fail). Mixing writer and
+# generator models is a factor to record, not to hide.
+DEFAULT_WRITER_MODEL = os.environ.get("SPARQLGEN_MODEL")
 # Pinned to 0 by default, same reason as the generator: a hot writer samples a *different
 # SPARQL query* each run → a different result set → a different context → a non-reproducible
 # retrieval. Reproducibility here must be set independently of the generator's temperature
@@ -155,6 +157,15 @@ class SparqlGenRetriever:
     # --- the LLM writer (part of the mechanism) ----------------------------
     def _ensure_llm(self):
         if self._llm is None:
+            if not self.writer_model:
+                # SystemExit (not a plain Exception) so a blank writer is NOT caught by
+                # run_question's per-row `except Exception` and silently turned into 58 useless
+                # error rows — it must abort the run with one clear message. No silent default.
+                raise SystemExit(
+                    "graph_sparqlgen has no writer model — set --writer_model_family "
+                    "PROVIDER:MODEL (or $SPARQLGEN_MODEL). It has no default; a blank writer "
+                    "fails here rather than silently writing SPARQL with an unchosen model."
+                )
             # Lazy so module import stays dependency-free; the generator adapter is neutral
             # infra (not the ground-truth tooling graph.py deliberately avoids importing).
             # Through the shared factory so writer_model may name a provider

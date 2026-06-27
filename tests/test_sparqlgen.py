@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import pytest
+
 from retrievers.base import Retriever
 from retrievers.sparqlgen import WRITER_PROMPT, SparqlGenRetriever
 
@@ -48,6 +50,19 @@ def test_matches_retriever_protocol_and_names_itself():
     r = SparqlGenRetriever()  # no key, no network — llm is lazy
     assert isinstance(r, Retriever)
     assert r.name == "graph_sparqlgen"
+
+
+def test_blank_writer_model_aborts_before_any_query(monkeypatch):
+    # No --writer_model_family and no $SPARQLGEN_MODEL ⇒ blank writer. Construction is fine (the
+    # LLM is lazy), but the instant retrieve() must write SPARQL it aborts the whole run with a
+    # clear message — never a silent fallback to a model the run didn't choose. SystemExit (not a
+    # plain Exception) so the harness's per-row error-swallowing can't bury it. Pin the module
+    # default to blank so the test is independent of the developer's shell env. No llm injected,
+    # so _ensure_llm builds for real; the raise happens before _select, so GraphDB is never hit.
+    monkeypatch.setattr("retrievers.sparqlgen.DEFAULT_WRITER_MODEL", None)
+    r = SparqlGenRetriever(writer_model=None)
+    with pytest.raises(SystemExit, match="writer_model_family"):
+        r.retrieve("Which compounds treat asthma?")
 
 
 # --- pure helpers -----------------------------------------------------------
