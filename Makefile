@@ -1,6 +1,7 @@
 .PHONY: help hooks test registry explain ingest ingest-rdf ingest-vectors ingest-smoke ingest-load up down clean-graphdb graphdb-ready eval-full export-full-runs \
-        eval-full-haiku-haiku-haiku eval-full-haiku-qwen-haiku eval-full-sonnet-haiku-haiku \
-        eval-full-sonnet-qwen-haiku eval-full-qwen-haiku-haiku eval-full-qwen-qwen-haiku
+        eval-full-haiku-haiku-haiku eval-full-haiku-qwen-haiku eval-full-haiku-sonnet-haiku \
+        eval-full-sonnet-haiku-haiku eval-full-sonnet-qwen-haiku \
+        eval-full-qwen-haiku-haiku eval-full-qwen-qwen-haiku
 
 # Per-role model knobs for a sweep, each a `provider:model` spec. NO defaults on purpose: a sweep
 # must name its models — a blank model fails fast in the harness, never a silent fallback to some
@@ -93,6 +94,9 @@ eval-full-haiku-haiku-haiku: graphdb-ready  ## sweep: gen=haiku  writer=haiku   
 
 eval-full-haiku-qwen-haiku: graphdb-ready  ## sweep: gen=haiku  writer=qwen-coder  judge=haiku
 	$(call eval_full_sweep,anthropic:claude-haiku-4-5,ollama:qwen2.5-coder:1.5b,anthropic:claude-haiku-4-5)
+
+eval-full-haiku-sonnet-haiku: graphdb-ready  ## sweep: gen=haiku  writer=sonnet      judge=haiku
+	$(call eval_full_sweep,anthropic:claude-haiku-4-5,anthropic:claude-sonnet-4-6,anthropic:claude-haiku-4-5)
 
 eval-full-sonnet-haiku-haiku: graphdb-ready  ## sweep: gen=sonnet writer=haiku       judge=haiku
 	$(call eval_full_sweep,anthropic:claude-sonnet-4-6,anthropic:claude-haiku-4-5,anthropic:claude-haiku-4-5)
